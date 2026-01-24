@@ -21,6 +21,7 @@ project "VoxelFactory"
         "src",
         "%{wks.location}/vendor/glfw/include",
         "%{wks.location}/vendor/glad/include",
+        "%{wks.location}/vendor/glm",
     }
 
     defines {
