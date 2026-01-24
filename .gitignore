@@ -1,0 +1,17 @@
+# Visual Studio Files
+.vscode
+.vs
+*.sln
+*.vcxproj
+*.vcxproj.user
+*.vcxproj.filters
+
+# Build Files
+bin
+bin-int
+Makefile
+
+# Linux
+build.sh
+compile_commands.json
+.cache
