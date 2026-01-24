@@ -4,15 +4,12 @@ project "VoxelFactory"
     staticruntime "off"
     systemversion "latest"
 
--- Configure C++
     language "C++"
     cppdialect "C++23"
 
--- Output Directories
     targetdir ("%{wks.location}/bin/" .. outputdir .. "/%{prj.name}")
     objdir ("%{wks.location}/bin-int/" .. outputdir .. "/%{prj.name}")
 
--- Include all c/c++ files in project
     files {
         "src/**.c",
         "src/**.h",
@@ -20,23 +17,24 @@ project "VoxelFactory"
         "src/**.hpp",
         "src/**.inl",
     }
-
     includedirs {
-        "src"
+        "src",
+        "%{wks.location}/vendor/glfw/include",
+        "%{wks.location}/vendor/glad/include",
     }
 
     defines {
-        "GLM_ENABLE_EXPERIMENTAL",
+        "GLFW_INCLUDE_NONE",
+        "GLM_ENABLE_EXPERIMENTAL"
+    }
+    links {
+        "glad",
+        "glfw" 
     }
 
--- Windows
     filter "system:windows"
+        defines { "PLATFORM_WINDOWS" }
 
-        defines {
-            "PLATFORM_WINDOWS"
-        }
-
--- Configuations
     filter "configurations:Debug"
         defines "DEBUG"
         symbols "On"

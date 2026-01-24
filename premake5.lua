@@ -16,6 +16,7 @@ outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
 
 -- Libraries
 group "Dependencies"
+include "vendor"
 group ""
 
 include "VoxelFactory"
