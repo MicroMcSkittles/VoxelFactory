@@ -1,0 +1,26 @@
+#pragma once
+#include <string>
+
+class Texture {
+public:
+	Texture(const std::string& filename);
+	~Texture();
+
+	void Bind();
+	void Unbind();
+
+	uint32_t GetHandle() { return m_Handle; }
+	uint32_t GetSlot() { return m_Slot; }
+	int GetWidth() { return m_Width; }
+	int GetHeight() { return m_Height; }
+
+private:
+	uint32_t m_Handle;
+	uint32_t m_Slot;
+	int m_Width;
+	int m_Height;
+
+private:
+	const uint32_t c_MaxBound = 16;
+	static uint32_t s_BoundCount;
+};

@@ -4,6 +4,7 @@
 #include "Renderer/Buffers.h"
 #include "Renderer/Shader.h"
 #include "Renderer/Camera.h"
+#include "Renderer/Texture.h"
 
 class Game {
 public:
@@ -32,6 +33,7 @@ private:
 
 	glm::mat4 m_Model;
 	Ref<VertexArray> m_VAO;
+	Ref<Texture> m_Texture;
 
 	// Input
 	bool m_Focused;

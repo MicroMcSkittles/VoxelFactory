@@ -80,6 +80,11 @@ void Shader::SetUniform(const std::string& name, const glm::mat4& value) {
 	uint32_t location = glGetUniformLocation(m_Handle, name.c_str());
 	glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(value));
 }
+void Shader::SetUniform(const std::string& name, const Ref<Texture>& value) {
+	ASSERT_MSG(m_Bound, "A OpenGL error occured: failed to set uniform texture, shader not bound");
+	uint32_t location = glGetUniformLocation(m_Handle, name.c_str());
+	glUniform1i(location, value->GetSlot());
+}
 
 void Shader::Bind() {
 	glUseProgram(m_Handle);

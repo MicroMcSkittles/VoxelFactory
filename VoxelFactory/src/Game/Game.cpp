@@ -5,13 +5,77 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-const glm::vec3 c_Vertices[] = {
-	{ -0.5f, -0.5f, 0.0f },
-	{  0.5f, -0.5f, 0.0f },
-	{  0.0f,  0.5f, 0.0f }
+struct Vertex {
+	glm::vec3 position;
+	glm::vec2 tex_coord;
+};
+const Vertex c_Vertices[] = {
+	// Back
+	{ { -0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f } },
+	{ {  0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f } },
+	{ {  0.5f,  0.5f, -0.5f }, { 1.0f, 1.0f } },
+	{ {  0.5f,  0.5f, -0.5f }, { 1.0f, 1.0f } },
+	{ { -0.5f,  0.5f, -0.5f }, { 0.0f, 1.0f } },
+	{ { -0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f } },
+
+	// Front
+	{ { -0.5f, -0.5f,  0.5f }, { 1.0f, 0.0f } },
+	{ {  0.5f, -0.5f,  0.5f }, { 0.0f, 0.0f } },
+	{ {  0.5f,  0.5f,  0.5f }, { 0.0f, 1.0f } },
+	{ {  0.5f,  0.5f,  0.5f }, { 0.0f, 1.0f } },
+	{ { -0.5f,  0.5f,  0.5f }, { 1.0f, 1.0f } },
+	{ { -0.5f, -0.5f,  0.5f }, { 1.0f, 0.0f } },
+
+	// Right
+	{ { -0.5f,  0.5f,  0.5f }, { 0.0f, 1.0f } },
+	{ { -0.5f,  0.5f, -0.5f }, { 1.0f, 1.0f } },
+	{ { -0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f } },
+	{ { -0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f } },
+	{ { -0.5f, -0.5f,  0.5f }, { 0.0f, 0.0f } },
+	{ { -0.5f,  0.5f,  0.5f }, { 0.0f, 1.0f } },
+
+	// Left
+	{ {  0.5f,  0.5f,  0.5f }, { 1.0f, 1.0f } },
+	{ {  0.5f,  0.5f, -0.5f }, { 0.0f, 1.0f } },
+	{ {  0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f } },
+	{ {  0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f } },
+	{ {  0.5f, -0.5f,  0.5f }, { 1.0f, 0.0f } },
+	{ {  0.5f,  0.5f,  0.5f }, { 1.0f, 1.0f } },
+
+	// Bottom
+	{ { -0.5f, -0.5f, -0.5f }, { 1.0f, 1.0f } },
+	{ {  0.5f, -0.5f, -0.5f }, { 0.0f, 1.0f } },
+	{ {  0.5f, -0.5f,  0.5f }, { 0.0f, 0.0f } },
+	{ {  0.5f, -0.5f,  0.5f }, { 0.0f, 0.0f } },
+	{ { -0.5f, -0.5f,  0.5f }, { 1.0f, 0.0f } },
+	{ { -0.5f, -0.5f, -0.5f }, { 1.0f, 1.0f } },
+	
+	// Top
+	{ { -0.5f,  0.5f, -0.5f }, { 1.0f, 1.0f } },
+	{ {  0.5f,  0.5f, -0.5f }, { 0.0f, 1.0f } },
+	{ {  0.5f,  0.5f,  0.5f }, { 0.0f, 0.0f } },
+	{ {  0.5f,  0.5f,  0.5f }, { 0.0f, 0.0f } },
+	{ { -0.5f,  0.5f,  0.5f }, { 1.0f, 0.0f } },
+	{ { -0.5f,  0.5f, -0.5f }, { 1.0f, 1.0f } }
 };
 const uint32_t c_Indices[] = {
-	0, 1, 2
+	0,  1,  2,
+	3,  4,  5,
+
+	6,  7,  8,
+	9,  10, 11,
+	
+	12, 13, 14,
+	15, 16, 17,
+
+	18, 19, 20,
+	21, 22, 23,
+
+	24, 25, 26,
+	27, 28, 29,
+
+	30, 31, 32,
+	33, 34, 35
 };
 
 Game::Game() {
@@ -123,8 +187,10 @@ void Game::StartUp() {
 
 	Ref<VertexBuffer> vertex_buffer = CreateRef<VertexBuffer>(c_Vertices, sizeof(c_Vertices));
 	vertex_buffer->Bind();
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
 	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+	glEnableVertexAttribArray(1);
 
 	Ref<IndexBuffer> index_buffer = CreateRef<IndexBuffer>(c_Indices, sizeof(c_Indices));
 	m_VAO->Unbind();
@@ -139,22 +205,28 @@ void Game::StartUp() {
 	m_Camera = CreateRef<Camera>(frustum, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 	m_Camera->eular.y = PIHalf;
 
+	m_Texture = CreateRef<Texture>("assets/textures/Stone.png");
+
 	// Other configs
+	glEnable(GL_DEPTH_TEST);
 	glViewport(0, 0, m_Window->GetWidth(), m_Window->GetHeight());
 	glClearColor(0.125, 0.13, 0.2, 1);
 }
 void Game::Update(float delta_time) {
-	glClear(GL_COLOR_BUFFER_BIT);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	UpdateCamera(delta_time);
 
+	m_Texture->Bind();
 	m_MainShader->Bind();
 	m_MainShader->SetUniform("u_ViewProjection", m_Camera->view_projection);
 	m_MainShader->SetUniform("u_Model", m_Model);
+	m_MainShader->SetUniform("u_Texture", m_Texture);
 	m_VAO->Bind();
 	glDrawElements(GL_TRIANGLES, sizeof(c_Indices) / sizeof(uint32_t), GL_UNSIGNED_INT, nullptr);
 	m_VAO->Unbind();
 	m_MainShader->Unbind();
+	m_Texture->Unbind();
 }
 void Game::ShutDown() {
 
