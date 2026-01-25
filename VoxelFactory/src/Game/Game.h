@@ -14,19 +14,28 @@ public:
 
 	void OnResize(int width, int height);
 
+	// Processes user input for camera
+	void UpdateCamera(float delta_time);
+
 	void StartUp();
-	void Update(double delta_time);
+	void Update(float delta_time);
 	void ShutDown();
 
 private:
+	// Misc
 	Ref<Window> m_Window;
+	bool m_Running;
 
+	// Rendering
 	Ref<Camera> m_Camera;
 	Ref<Shader> m_MainShader;
 
 	glm::mat4 m_Model;
 	Ref<VertexArray> m_VAO;
 
-	float m_Time;
-	bool m_Running;
+	// Input
+	bool m_Focused;
+	float m_CameraSpeed;
+	float m_MouseSensitivity;
+	glm::vec2 m_LastMousePos;
 };

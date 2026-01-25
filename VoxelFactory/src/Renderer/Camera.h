@@ -12,10 +12,14 @@ struct Camera {
 	Frustum frustum;
 	glm::vec3 position;
 	glm::vec3 direction; // A point 1 unit from m_Position
+	glm::vec3 eular; // pitch, yaw, roll
 
 	glm::mat4 view;
 	glm::mat4 projection;
 	glm::mat4 view_projection;
+
+	// yaw and pitch are in radians
+	static glm::vec3 EulerDirection(float pitch, float yaw);
 
 	void UpdateView();
 	void UpdateProjection();

@@ -14,19 +14,27 @@ const uint32_t c_Indices[] = {
 	0, 1, 2
 };
 
-Game::Game(): m_Running(true), m_Model(1.0f), m_Time(0.0f) { }
+Game::Game() {
+	m_Running = true;
+	m_Model = glm::mat4(1.0f);
+
+	m_Focused = false;
+	m_CameraSpeed = 4.0f;
+	m_MouseSensitivity = 0.1f;
+	m_LastMousePos = glm::vec2(0.0f);
+}
 Game::~Game() { }
 
 void Game::Run() {
-	double last_ms = glfwGetTime();
+	float last_ms = glfwGetTime();
 	StartUp();
 
 	// Main loop
 	while (m_Running && !m_Window->ShouldClose()) {
 		
 		// Calculate delta time
-		double current_ms = glfwGetTime();
-		double delta_time = current_ms - last_ms;
+		float current_ms = glfwGetTime();
+		float delta_time = current_ms - last_ms;
 		last_ms = current_ms;
 
 		Update(delta_time);
@@ -39,6 +47,63 @@ void Game::OnResize(int width, int height) {
 	m_Camera->frustum.aspect_ratio = static_cast<float>(width) / static_cast<float>(height);
 	m_Camera->UpdateProjection();
 	glViewport(0, 0, width, height);
+}
+
+void Game::UpdateCamera(float delta_time) {
+	GLFWwindow* window_handle = (GLFWwindow*)m_Window->GetHandle();
+	
+	// Capture mouse on left click, release on escape
+	if (!m_Focused && glfwGetMouseButton(window_handle, GLFW_MOUSE_BUTTON_LEFT)) {
+		m_Focused = true;
+		double mouse_x = 0.0, mouse_y = 0.0;
+		glfwGetCursorPos(window_handle, &mouse_x, &mouse_y);
+		m_LastMousePos = glm::vec2(static_cast<float>(mouse_x), static_cast<float>(mouse_y));
+		glfwSetInputMode(window_handle, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+	}
+	else if(!m_Focused) return;
+	if (glfwGetKey(window_handle, GLFW_KEY_ESCAPE)) {
+		m_Focused = false;
+		glfwSetInputMode(window_handle, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+		return;
+	}
+	
+	// Camera position input
+	glm::vec3 camera_up = glm::vec3(0.0f, 1.0f, 0.0f);
+	glm::vec3 camera_right = glm::normalize(glm::cross(m_Camera->direction, camera_up));
+	glm::vec3 delta_position = glm::vec3(0.0f);
+	if (glfwGetKey(window_handle, GLFW_KEY_W))          delta_position += m_Camera->direction * m_CameraSpeed * delta_time;
+	if (glfwGetKey(window_handle, GLFW_KEY_S))          delta_position -= m_Camera->direction * m_CameraSpeed * delta_time;
+	if (glfwGetKey(window_handle, GLFW_KEY_A))          delta_position -= camera_right * m_CameraSpeed * delta_time;
+	if (glfwGetKey(window_handle, GLFW_KEY_D))          delta_position += camera_right * m_CameraSpeed * delta_time;
+	if (glfwGetKey(window_handle, GLFW_KEY_SPACE))      delta_position += camera_up * m_CameraSpeed * delta_time;
+	if (glfwGetKey(window_handle, GLFW_KEY_LEFT_SHIFT)) delta_position -= camera_up * m_CameraSpeed * delta_time;
+
+	// Get mouse delta
+	double mouse_x = 0.0, mouse_y = 0.0;
+	glfwGetCursorPos(window_handle, &mouse_x, &mouse_y);
+	glm::vec2 mouse_pos = glm::vec2(static_cast<float>(mouse_x), static_cast<float>(mouse_y));
+	glm::vec2 delta_mouse = {
+		mouse_pos.x - m_LastMousePos.x,
+		m_LastMousePos.y - mouse_pos.y // Invert Y, because opengl is bottom to top
+	};
+	delta_mouse *= ((m_MouseSensitivity * PI) / 180.0f);
+
+	m_LastMousePos = mouse_pos;
+
+	// Adjust rotation
+	m_Camera->eular.y += delta_mouse.x; // Yaw
+	m_Camera->eular.x += delta_mouse.y; // Pitch
+
+	// Cap pitch
+	constexpr float c_MaxPitch =  PIHalf - (PI / 180.0f); // 89 degrees
+	constexpr float c_MinPitch = -PIHalf + (PI / 180.0f); // -89 degrees
+	m_Camera->eular.x = std::min(c_MaxPitch, std::max(m_Camera->eular.x, c_MinPitch));
+
+	if (delta_position != glm::vec3(0.0f) || delta_mouse != glm::vec2(0.0f)) {
+		m_Camera->direction = Camera::EulerDirection(m_Camera->eular.x, m_Camera->eular.y);
+		m_Camera->position += delta_position;
+		m_Camera->UpdateView();
+	}
 }
 
 void Game::StartUp() {
@@ -72,18 +137,16 @@ void Game::StartUp() {
 	frustum.near = 0.1f;
 	frustum.far = 1000.0f;
 	m_Camera = CreateRef<Camera>(frustum, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	m_Camera->eular.y = PIHalf;
 
 	// Other configs
 	glViewport(0, 0, m_Window->GetWidth(), m_Window->GetHeight());
 	glClearColor(0.125, 0.13, 0.2, 1);
 }
-void Game::Update(double delta_time) {
+void Game::Update(float delta_time) {
 	glClear(GL_COLOR_BUFFER_BIT);
 
-	m_Time += delta_time;
-	m_Camera->position.x = cos(m_Time);
-	m_Camera->position.z = sin(m_Time);
-	m_Camera->UpdateView();
+	UpdateCamera(delta_time);
 
 	m_MainShader->Bind();
 	m_MainShader->SetUniform("u_ViewProjection", m_Camera->view_projection);

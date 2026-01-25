@@ -2,9 +2,9 @@
 #include <memory>
 
 // I don't know where to put these...
-#define PI     3.1415926535
-#define PI2    6.283185307
-#define PIHalf 1.5707963268
+#define PI     3.1415926535f
+#define PI2    6.283185307f
+#define PIHalf 1.5707963268f
 
 template <typename T> using Ref    = std::shared_ptr<T>; 
 template <typename T> using Unique = std::unique_ptr<T>;
