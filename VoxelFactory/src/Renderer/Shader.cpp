@@ -1,0 +1,77 @@
+#include "Renderer/Shader.h"
+#include "Core/Utils.h"
+#include <fstream>
+#include <sstream>
+
+#include <glad/glad.h>
+#include "Buffers.h"
+
+std::string ReadSource(const std::string& filename) {
+	std::ifstream file;
+	file.open(filename);
+	ASSERT_MSG(file.is_open(), "Failed to open file \"{}\"", filename);
+
+	std::stringstream content_buffer;
+	content_buffer << file.rdbuf();
+	file.close();
+
+	return content_buffer.str();
+}
+
+Shader::Shader(const std::string& vertex_path, const std::string& fragment_path) : m_Bound(false)
+{
+
+	// Load source
+	std::string vertex_source = ReadSource("assets/shaders/Main.vert");
+	std::string fragment_source = ReadSource("assets/shaders/Main.frag");
+	const char* vertex_c_cource = vertex_source.c_str();
+	const char* fragment_c_cource = fragment_source.c_str();
+
+	int success;
+	char info[512];
+
+	// Load vertex shader
+	uint32_t vertex_shader = glCreateShader(GL_VERTEX_SHADER);
+	glShaderSource(vertex_shader, 1, &vertex_c_cource, nullptr);
+	glCompileShader(vertex_shader);
+	glGetShaderiv(vertex_shader, GL_COMPILE_STATUS, &success);
+	if (!success) {
+		glGetShaderInfoLog(vertex_shader, 512, nullptr, info);
+		ASSERT_MSG(false, "A OpenGL error occured: {}", info);
+	}
+
+	// Load fragment shader
+	uint32_t fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
+	glShaderSource(fragment_shader, 1, &fragment_c_cource, nullptr);
+	glCompileShader(fragment_shader);
+	glGetShaderiv(fragment_shader, GL_COMPILE_STATUS, &success);
+	if (!success) {
+		glGetShaderInfoLog(fragment_shader, 512, nullptr, info);
+		ASSERT_MSG(false, "A OpenGL error occured: {}", info);
+	}
+
+	m_Handle = glCreateProgram();
+	glAttachShader(m_Handle, vertex_shader);
+	glAttachShader(m_Handle, fragment_shader);
+	glLinkProgram(m_Handle);
+	glDeleteProgram(vertex_shader);
+	glDeleteProgram(fragment_shader);
+
+	glGetShaderiv(m_Handle, GL_LINK_STATUS, &success);
+	if (!success) {
+		glGetProgramInfoLog(m_Handle, 512, nullptr, info);
+		ASSERT_MSG(false, "A OpenGL error occured: {}", info);
+	}
+}
+Shader::~Shader() {
+	glDeleteProgram(m_Handle);
+}
+
+void Shader::Bind() {
+	glUseProgram(m_Handle);
+	m_Bound = true;
+}
+void Shader::Unbind() {
+	glUseProgram(0);
+	m_Bound = false;
+}
