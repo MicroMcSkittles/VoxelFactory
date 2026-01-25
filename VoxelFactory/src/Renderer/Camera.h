@@ -1,0 +1,24 @@
+#pragma once
+#include <glm/glm.hpp>
+
+struct Frustum {
+	float aspect_ratio;
+	float fov;
+	float near;
+	float far;
+};
+
+struct Camera {
+	Frustum frustum;
+	glm::vec3 position;
+	glm::vec3 direction; // A point 1 unit from m_Position
+
+	glm::mat4 view;
+	glm::mat4 projection;
+	glm::mat4 view_projection;
+
+	void UpdateView();
+	void UpdateProjection();
+
+	Camera(const Frustum& frustum, const glm::vec3& position, const glm::vec3& direction);
+};

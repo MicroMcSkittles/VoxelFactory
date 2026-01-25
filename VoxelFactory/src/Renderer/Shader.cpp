@@ -4,7 +4,7 @@
 #include <sstream>
 
 #include <glad/glad.h>
-#include "Buffers.h"
+#include <glm/gtc/type_ptr.hpp>
 
 std::string ReadSource(const std::string& filename) {
 	std::ifstream file;
@@ -18,8 +18,7 @@ std::string ReadSource(const std::string& filename) {
 	return content_buffer.str();
 }
 
-Shader::Shader(const std::string& vertex_path, const std::string& fragment_path) : m_Bound(false)
-{
+Shader::Shader(const std::string& vertex_path, const std::string& fragment_path) {
 
 	// Load source
 	std::string vertex_source = ReadSource("assets/shaders/Main.vert");
@@ -62,16 +61,35 @@ Shader::Shader(const std::string& vertex_path, const std::string& fragment_path)
 		glGetProgramInfoLog(m_Handle, 512, nullptr, info);
 		ASSERT_MSG(false, "A OpenGL error occured: {}", info);
 	}
+
+#ifdef DEBUG
+	m_Bound = false;
+#endif
 }
 Shader::~Shader() {
 	glDeleteProgram(m_Handle);
 }
 
+void Shader::SetUniform(const std::string& name, const glm::vec3& value) {
+	ASSERT_MSG(m_Bound, "A OpenGL error occured: failed to set uniform vec3, shader not bound");
+	uint32_t location = glGetUniformLocation(m_Handle, name.c_str());
+	glUniform3f(location, value.x, value.y, value.z);
+}
+void Shader::SetUniform(const std::string& name, const glm::mat4& value) {
+	ASSERT_MSG(m_Bound, "A OpenGL error occured: failed to set uniform mat4, shader not bound");
+	uint32_t location = glGetUniformLocation(m_Handle, name.c_str());
+	glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(value));
+}
+
 void Shader::Bind() {
 	glUseProgram(m_Handle);
+#ifdef DEBUG
 	m_Bound = true;
+#endif
 }
 void Shader::Unbind() {
 	glUseProgram(0);
+#ifdef DEBUG
 	m_Bound = false;
+#endif
 }

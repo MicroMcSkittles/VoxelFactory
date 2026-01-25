@@ -1,6 +1,11 @@
 #pragma once
 #include <memory>
 
+// I don't know where to put these...
+#define PI     3.1415926535
+#define PI2    6.283185307
+#define PIHalf 1.5707963268
+
 template <typename T> using Ref    = std::shared_ptr<T>; 
 template <typename T> using Unique = std::unique_ptr<T>;
 

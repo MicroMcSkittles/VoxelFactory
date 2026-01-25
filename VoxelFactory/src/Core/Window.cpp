@@ -8,7 +8,7 @@ bool   Window::s_GLFWInitialized = false;
 size_t Window::s_GLFWWindowCount = 0;
 
 void Window::ErrorCallback(int error_code, const char* description) {
-	std::cerr << "A glfw error has occured ( " << error_code << " ): " << description;
+	std::cerr << "A glfw error has occured ( " << error_code << " ): " << description << std::endl;
 }
 
 Window::Window(uint32_t width, uint32_t height, const std::string& title) : m_Width(width), m_Height(height), m_Handle(nullptr)
@@ -16,7 +16,9 @@ Window::Window(uint32_t width, uint32_t height, const std::string& title) : m_Wi
 	// Init glfw
 	if (!s_GLFWInitialized) {
 		glfwSetErrorCallback(Window::ErrorCallback);
-		ASSERT_MSG(glfwInit(), "Failed to initialize glfw");
+		if (!glfwInit()) {
+			ASSERT_MSG(false, "Failed to initialize glfw");
+		}
 		s_GLFWInitialized = true;
 	}
 
@@ -24,7 +26,7 @@ Window::Window(uint32_t width, uint32_t height, const std::string& title) : m_Wi
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-	m_Handle = glfwCreateWindow(800, 600, title.c_str(), nullptr, nullptr);
+	m_Handle = glfwCreateWindow(m_Width, m_Height, title.c_str(), nullptr, nullptr);
 	ASSERT_MSG(m_Handle, "Failed to create window");
 
 	// Init glad

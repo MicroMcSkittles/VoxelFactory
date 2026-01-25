@@ -17,6 +17,21 @@ project "glad"
 		"glad/include"
 	}
 
+-- Configurations
+    filter "configurations:Debug"
+		runtime "Debug"
+		symbols "on"
+
+	filter { "system:windows", "configurations:Debug-AS" }	
+		runtime "Debug"
+		symbols "on"
+		sanitize { "Address" }
+		flags { "NoRuntimeChecks", "NoIncrementalLink" }
+
+	filter "configurations:Release"
+		runtime "Release"
+		optimize "speed"
+
 project "glfw"
     kind "StaticLib"
 	staticruntime "off"
@@ -97,7 +112,6 @@ project "glfw"
 			"_GLFW_X11",
 			"_CRT_SECURE_NO_WARNINGS"
 		}
-
 
 -- Configurations
     filter "configurations:Debug"
