@@ -5,7 +5,7 @@
 #include "Renderer/Shader.h"
 #include "Renderer/Camera.h"
 #include "Renderer/Texture.h"
-#include "Game/Chunk.h"
+#include "Game/World.h"
 
 class Game {
 public:

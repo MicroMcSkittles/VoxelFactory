@@ -118,13 +118,15 @@ void Game::StartUp() {
 	frustum.fov = PI / 4.0f; // 45 degrees
 	frustum.near = 0.1f;
 	frustum.far = 1000.0f;
-	m_Camera = CreateRef<Camera>(frustum, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	m_Camera = CreateRef<Camera>(frustum, glm::vec3(0.0f, 17.0f, -6.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 	m_Camera->eular.y = PIHalf;
 
 	m_Texture = CreateRef<Texture>("assets/textures/atlas.png");
 
 	// Other configs
 	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_CULL_FACE);
+	//glCullFace(GL_FRONT);
 	glViewport(0, 0, m_Window->GetWidth(), m_Window->GetHeight());
 	glClearColor(0.125, 0.13, 0.2, 1);
 }

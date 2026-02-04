@@ -4,14 +4,29 @@
 #include <vector>
 #include <glm/glm.hpp>
 
+class ChunkMesher;
+
 struct Block {
 	uint16_t id;
+
+	struct TextureIDs {
+		uint32_t front;
+		uint32_t back;
+
+		uint32_t left;
+		uint32_t right;
+
+		uint32_t top;
+		uint32_t bottom;
+
+		TextureIDs(uint32_t id): front(id), back(id), left(id), right(id), top(id), bottom(id) { }
+		TextureIDs(uint32_t sides, uint32_t top, uint32_t bottom): front(sides), back(sides), left(sides), right(sides), top(top), bottom(bottom) { }
+	};
+	static std::vector<TextureIDs> BlockTextureIDs;
+
 	const inline static uint16_t InvalidID = std::numeric_limits<uint16_t>::max();
 	static Block Invalid;
 };
-
-class ChunkMesher;
-
 class Chunk {
 public:
 	Chunk();
@@ -49,7 +64,7 @@ public:
 	Ref<VertexArray> Mesh();
 
 private:
-	void MeshFace(const glm::vec3& position, const glm::vec3& face, const ChunkVertex* data);
+	void MeshFace(const glm::vec3& position, const glm::vec3& face, uint32_t id, const ChunkVertex* data);
 
 private:
 	Ref<Chunk> m_Chunk;
@@ -71,20 +86,20 @@ private:
 		{ { -0.5f, -0.5f,  0.5f }, { 1.0f, 0.0f } }
 	};
 	const inline static ChunkVertex c_BackVertices[] = {
-		{ { -0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f } },
+		{ {  0.5f,  0.5f, -0.5f }, { 1.0f, 1.0f } },
 		{ {  0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f } },
-		{ {  0.5f,  0.5f, -0.5f }, { 1.0f, 1.0f } },
-		{ {  0.5f,  0.5f, -0.5f }, { 1.0f, 1.0f } },
+		{ { -0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f } },
+		{ { -0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f } },
 		{ { -0.5f,  0.5f, -0.5f }, { 0.0f, 1.0f } },
-		{ { -0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f } }
+		{ {  0.5f,  0.5f, -0.5f }, { 1.0f, 1.0f } }
 	};
 	const inline static ChunkVertex c_LeftVertices[] = {
-		{ {  0.5f,  0.5f,  0.5f }, { 1.0f, 1.0f } },
+		{ {  0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f } },
 		{ {  0.5f,  0.5f, -0.5f }, { 0.0f, 1.0f } },
-		{ {  0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f } },
-		{ {  0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f } },
+		{ {  0.5f,  0.5f,  0.5f }, { 1.0f, 1.0f } },
+		{ {  0.5f,  0.5f,  0.5f }, { 1.0f, 1.0f } },
 		{ {  0.5f, -0.5f,  0.5f }, { 1.0f, 0.0f } },
-		{ {  0.5f,  0.5f,  0.5f }, { 1.0f, 1.0f } }
+		{ {  0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f } }
 	}; 
 	const inline static ChunkVertex c_RightVertices[] = {
 		{ { -0.5f,  0.5f,  0.5f }, { 0.0f, 1.0f } },
@@ -95,12 +110,12 @@ private:
 		{ { -0.5f,  0.5f,  0.5f }, { 0.0f, 1.0f } }
 	};
 	const inline static ChunkVertex c_TopVertices[] = {
-		{ { -0.5f,  0.5f, -0.5f }, { 1.0f, 1.0f } },
+		{ {  0.5f,  0.5f,  0.5f }, { 0.0f, 0.0f } },
 		{ {  0.5f,  0.5f, -0.5f }, { 0.0f, 1.0f } },
-		{ {  0.5f,  0.5f,  0.5f }, { 0.0f, 0.0f } },
-		{ {  0.5f,  0.5f,  0.5f }, { 0.0f, 0.0f } },
+		{ { -0.5f,  0.5f, -0.5f }, { 1.0f, 1.0f } },
+		{ { -0.5f,  0.5f, -0.5f }, { 1.0f, 1.0f } },
 		{ { -0.5f,  0.5f,  0.5f }, { 1.0f, 0.0f } },
-		{ { -0.5f,  0.5f, -0.5f }, { 1.0f, 1.0f } }
+		{ {  0.5f,  0.5f,  0.5f }, { 0.0f, 0.0f } }
 	};
 	const inline static ChunkVertex c_BottomVertices[] = {
 		{ { -0.5f, -0.5f, -0.5f }, { 1.0f, 1.0f } },
