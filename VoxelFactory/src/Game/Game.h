@@ -30,12 +30,13 @@ private:
 
 	// Rendering
 	Ref<Camera> m_Camera;
-	Ref<Shader> m_MainShader;
+	//Ref<Shader> m_MainShader;
 
-	glm::mat4 m_Model;
-	Ref<Chunk> m_Chunk;
-	Ref<VertexArray> m_VAO;
-	Ref<Texture> m_Texture;
+	//glm::mat4 m_Model;
+	//Ref<Chunk> m_Chunk;
+	//Ref<VertexArray> m_VAO;
+	//Ref<Texture> m_Texture;
+	Ref<World> m_World;
 
 	// Input
 	bool m_Focused;

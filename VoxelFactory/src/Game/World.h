@@ -1,6 +1,9 @@
 #pragma once
 #include "Core/Core.h"
 #include "Renderer/Buffers.h"
+#include "Renderer/Shader.h"
+#include "Renderer/Texture.h"
+#include "Renderer/Camera.h"
 #include <vector>
 #include <glm/glm.hpp>
 
@@ -20,7 +23,8 @@ struct Block {
 		uint32_t bottom;
 
 		TextureIDs(uint32_t id): front(id), back(id), left(id), right(id), top(id), bottom(id) { }
-		TextureIDs(uint32_t sides, uint32_t top, uint32_t bottom): front(sides), back(sides), left(sides), right(sides), top(top), bottom(bottom) { }
+		TextureIDs(uint32_t sides, uint32_t top, uint32_t bottom): front(sides), back(sides), left(sides), right(sides), top(top), bottom(bottom) {}
+		TextureIDs(uint32_t front, uint32_t back, uint32_t left, uint32_t right, uint32_t top, uint32_t bottom): front(front), back(back), left(left), right(right), top(top), bottom(bottom) { }
 	};
 	static std::vector<TextureIDs> BlockTextureIDs;
 
@@ -29,12 +33,13 @@ struct Block {
 };
 class Chunk {
 public:
-	Chunk();
+	Chunk(const glm::vec3& position);
 	~Chunk();
 
 	Block& At(const glm::vec3& position);
 	bool IsVoid(const glm::vec3& position);
 	bool IsValid(const glm::vec3& position);
+	glm::vec3 ToWorld(const glm::vec3& position);
 
 	const glm::vec3& GetPosition() { return m_Position; }
 
@@ -47,8 +52,31 @@ private:
 public:
 	const static int ChunkWidth = 16;
 	const static int ChunkLength = 16;
-	const static int ChunkHeight = 16;
+	const static int ChunkHeight = 64;
 	const static int ChunkDataSize = ChunkWidth * ChunkHeight * ChunkLength;
+};
+
+class World {
+public:
+	World();
+	~World();
+
+	// Returns the block at a world position
+	//Block& At(const glm::vec3& position);
+	//bool IsVoid(const glm::vec3& position);
+	Chunk* GetChunk(const glm::vec3& position);
+
+	void Render(const Ref<Camera>& camera);
+
+private:
+	glm::vec3 m_LoadedCenter; // The point in the middle of the currently loaded chunks
+	int m_LoadedRadius;  // The radius around m_LoadedCenter where chunks are loaded
+
+	std::vector<Chunk> m_LoadedChunks;
+	std::vector<Ref<VertexArray>> m_ChunkMeshes;
+
+	Ref<Shader> m_MainShader;
+	Ref<Texture> m_Atlas;
 };
 
 struct ChunkVertex {
@@ -58,7 +86,7 @@ struct ChunkVertex {
 };
 class ChunkMesher {
 public:
-	ChunkMesher(const Ref<Chunk>& chunk);
+	ChunkMesher(Chunk* chunk, World* world);
 	~ChunkMesher();
 
 	Ref<VertexArray> Mesh();
@@ -67,7 +95,8 @@ private:
 	void MeshFace(const glm::vec3& position, const glm::vec3& face, uint32_t id, const ChunkVertex* data);
 
 private:
-	Ref<Chunk> m_Chunk;
+	Chunk* m_Chunk;
+	World* m_World;
 	
 	std::vector<ChunkVertex> m_Vertices;
 	std::vector<uint32_t> m_Indices;

@@ -7,10 +7,10 @@
 
 Game::Game() {
 	m_Running = true;
-	m_Model = glm::mat4(1.0f);
+	//m_Model = glm::mat4(1.0f);
 
 	m_Focused = false;
-	m_CameraSpeed = 4.0f;
+	m_CameraSpeed = 12.0f;
 	m_MouseSensitivity = 0.1f;
 	m_LastMousePos = glm::vec2(0.0f);
 }
@@ -106,11 +106,7 @@ void Game::StartUp() {
 		game->OnResize(width, height);
 	});
 
-	m_MainShader = CreateRef<Shader>("assets/shaders/Main.vert", "assets/shaders/Main.frag");
-
-	m_Chunk = CreateRef<Chunk>();
-	m_VAO = ChunkMesher(m_Chunk).Mesh();
-	m_Model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 3.0f));
+	m_World = CreateRef<World>();
 
 	// Create camera
 	Frustum frustum;
@@ -121,12 +117,10 @@ void Game::StartUp() {
 	m_Camera = CreateRef<Camera>(frustum, glm::vec3(0.0f, 17.0f, -6.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 	m_Camera->eular.y = PIHalf;
 
-	m_Texture = CreateRef<Texture>("assets/textures/atlas.png");
-
 	// Other configs
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
-	//glCullFace(GL_FRONT);
+	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	glViewport(0, 0, m_Window->GetWidth(), m_Window->GetHeight());
 	glClearColor(0.125, 0.13, 0.2, 1);
 }
@@ -135,16 +129,7 @@ void Game::Update(float delta_time) {
 
 	UpdateCamera(delta_time);
 
-	m_Texture->Bind();
-	m_MainShader->Bind();
-	m_MainShader->SetUniform("u_ViewProjection", m_Camera->view_projection);
-	m_MainShader->SetUniform("u_Model", m_Model);
-	m_MainShader->SetUniform("u_Texture", m_Texture);
-	m_VAO->Bind();
-	glDrawElements(GL_TRIANGLES, m_VAO->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
-	m_VAO->Unbind();
-	m_MainShader->Unbind();
-	m_Texture->Unbind();
+	m_World->Render(m_Camera);
 }
 void Game::ShutDown() {
 
