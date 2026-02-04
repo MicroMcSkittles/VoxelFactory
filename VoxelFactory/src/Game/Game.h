@@ -5,6 +5,7 @@
 #include "Renderer/Shader.h"
 #include "Renderer/Camera.h"
 #include "Renderer/Texture.h"
+#include "Game/Chunk.h"
 
 class Game {
 public:
@@ -32,6 +33,7 @@ private:
 	Ref<Shader> m_MainShader;
 
 	glm::mat4 m_Model;
+	Ref<Chunk> m_Chunk;
 	Ref<VertexArray> m_VAO;
 	Ref<Texture> m_Texture;
 

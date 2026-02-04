@@ -22,6 +22,7 @@ IndexBuffer::IndexBuffer(const uint32_t* data, size_t size) {
 	glGenBuffers(1, &m_Handle);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_Handle);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, size, data, GL_STATIC_DRAW);
+	m_Count = size / sizeof(uint32_t);
 }
 IndexBuffer::~IndexBuffer() {
 	glDeleteBuffers(1, &m_Handle);

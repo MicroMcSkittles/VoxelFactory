@@ -1,4 +1,5 @@
 #pragma once
+#include "Core/Core.h"
 #include <stdint.h>
 
 class VertexBuffer {
@@ -24,9 +25,11 @@ public:
 	void Unbind();
 
 	uint32_t GetHandle() { return m_Handle; }
+	uint32_t GetCount() { return m_Count; }
 
 private:
 	uint32_t m_Handle;
+	uint32_t m_Count;
 };
 
 class VertexArray {
@@ -37,6 +40,11 @@ public:
 	void Bind();
 	void Unbind();
 
+	Ref<VertexBuffer>& GetVertexBuffer() { return m_VertexBuffer; }
+	Ref<IndexBuffer>& GetIndexBuffer() { return m_IndexBuffer; }
+
 private:
 	uint32_t m_Handle;
+	Ref<VertexBuffer> m_VertexBuffer;
+	Ref<IndexBuffer> m_IndexBuffer;
 };
