@@ -52,7 +52,7 @@ private:
 public:
 	const static int ChunkWidth = 16;
 	const static int ChunkLength = 16;
-	const static int ChunkHeight = 64;
+	const static int ChunkHeight = 16;
 	const static int ChunkDataSize = ChunkWidth * ChunkHeight * ChunkLength;
 };
 
@@ -61,9 +61,6 @@ public:
 	World();
 	~World();
 
-	// Returns the block at a world position
-	//Block& At(const glm::vec3& position);
-	//bool IsVoid(const glm::vec3& position);
 	Chunk* GetChunk(const glm::vec3& position);
 
 	void Render(const Ref<Camera>& camera);

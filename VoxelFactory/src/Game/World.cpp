@@ -26,28 +26,31 @@ std::vector<Block::TextureIDs> Block::BlockTextureIDs = {
 
 Chunk::Chunk(const glm::vec3& position) {
 	m_Position = position;
-	m_Blocks.resize(ChunkDataSize, Block{ 0 });
 
 	// TODO: actual generation
-	uint32_t blockID = 1;
-	for (int y = 0; y < ChunkHeight; y++) {
-		for (int z = 0; z < ChunkLength; z++) {
-			for (int x = 0; x < ChunkWidth; x++) {
-				if (x % 4 || y % 4 || z % 4) continue;
-				At({ x,y,z }).id = blockID++;
-				if (blockID > Block::BlockTextureIDs.size()) blockID = 1;
+
+	if (m_Position.y > -2) {
+		m_Blocks.resize(ChunkDataSize, Block{ 0 });
+		uint32_t blockID = 1;
+		for (int y = 0; y < ChunkHeight; y++) {
+			for (int z = 0; z < ChunkLength; z++) {
+				for (int x = 0; x < ChunkWidth; x++) {
+					if (x % 4 || y % 4 || z % 4) continue;
+					At({ x,y,z }).id = blockID++;
+					if (blockID > Block::BlockTextureIDs.size()) blockID = 1;
+				}
 			}
 		}
 	}
-
-	// Divid chunks
-	/*for (int x = 0; x < ChunkWidth; x++) {
-		At({ x, ChunkHeight - 1, 0 }).id = 3;
-		At({ x, ChunkHeight - 1, ChunkLength - 1 }).id = 3;
-		At({ 0, ChunkHeight - 1, x }).id = 3;
-		At({ ChunkLength - 1, ChunkHeight - 1, x }).id = 3;
-	}*/
-
+	else {
+		m_Blocks.resize(ChunkDataSize, Block{ 1 });
+		for (int x = 0; x < ChunkWidth; x++) {
+			At({ x, ChunkHeight - 1, 0 }).id = 3;
+			At({ x, ChunkHeight - 1, ChunkLength - 1 }).id = 3;
+			At({ 0, ChunkHeight - 1, x }).id = 3;
+			At({ ChunkLength - 1, ChunkHeight - 1, x }).id = 3;
+		}
+	}
 }
 Chunk::~Chunk() { }
 Block& Chunk::At(const glm::vec3& position) {
@@ -73,18 +76,17 @@ glm::vec3 Chunk::ToWorld(const glm::vec3& position) {
 	};
 }
 
-// TODO: impl the y value
-
 World::World() : m_LoadedCenter({ 0,0,0 }), m_LoadedRadius(5) {
-	m_LoadedChunks.reserve((m_LoadedRadius * 2 + 1) * (m_LoadedRadius * 2 + 1));
-	m_ChunkMeshes.resize((m_LoadedRadius * 2 + 1) * (m_LoadedRadius * 2 + 1));
+	m_LoadedChunks.reserve((m_LoadedRadius * 2 + 1) * (m_LoadedRadius * 2 + 1) * (m_LoadedRadius * 2 + 1));
+	m_ChunkMeshes.resize((m_LoadedRadius * 2 + 1) * (m_LoadedRadius * 2 + 1) * (m_LoadedRadius * 2 + 1));
 
-	for (int z = -m_LoadedRadius; z <= m_LoadedRadius; z++) {
-		for (int x = -m_LoadedRadius; x <= m_LoadedRadius; x++) {
-			m_LoadedChunks.push_back(Chunk{ { x, 0, z } });
+	for (int y = -m_LoadedRadius; y <= m_LoadedRadius; y++) {
+		for (int z = -m_LoadedRadius; z <= m_LoadedRadius; z++) {
+			for (int x = -m_LoadedRadius; x <= m_LoadedRadius; x++) {
+				m_LoadedChunks.push_back(Chunk{ { x, y, z } });
+			}
 		}
 	}
-
 	for (size_t i = 0; i < m_LoadedChunks.size(); i++) {
 		m_ChunkMeshes[i] = ChunkMesher(&m_LoadedChunks[i], this).Mesh();
 	}
@@ -94,32 +96,10 @@ World::World() : m_LoadedCenter({ 0,0,0 }), m_LoadedRadius(5) {
 }
 World::~World() { }
 
-//Block& World::At(const glm::vec3& position) {
-//	
-//	glm::vec3 chunk_coord = {
-//		(position.x / Chunk::ChunkWidth) - m_LoadedCenter.x + m_LoadedRadius,
-//		//floor(position.y / Chunk::ChunkHeight) - m_LoadedCenter.y + m_LoadedRadius,
-//		position.y / Chunk::ChunkHeight,
-//		(position.z / Chunk::ChunkLength) - m_LoadedCenter.z + m_LoadedRadius
-//	};
-//	size_t chunk_index = floor(chunk_coord.x) + floor(chunk_coord.z) * (m_LoadedRadius * 2 + 1);
-//	if (chunk_index >= m_LoadedChunks.size()) return Block::Invalid;
-//
-//	glm::vec3 subchunk_coord = {
-//		(chunk_coord.x - floor(chunk_coord.x)) * Chunk::ChunkWidth,
-//		(chunk_coord.y - floor(chunk_coord.y)) * Chunk::ChunkHeight,
-//		(chunk_coord.z - floor(chunk_coord.z)) * Chunk::ChunkLength
-//	};
-//
-//	return m_LoadedChunks[chunk_index].At(subchunk_coord);
-//}
-//bool World::IsVoid(const glm::vec3& position) {
-//	Block& block = At(position);
-//	return block.id == Block::InvalidID || block.id == 0;
-//}
 Chunk* World::GetChunk(const glm::vec3& position) {
-	if (position.y != 0) return nullptr;
-	size_t index = (position.x - m_LoadedCenter.x + m_LoadedRadius) + (position.z - m_LoadedCenter.x + m_LoadedRadius) * (m_LoadedRadius * 2 + 1);
+	size_t index = (position.x - m_LoadedCenter.x + m_LoadedRadius);
+	index += (position.z - m_LoadedCenter.x + m_LoadedRadius) * (m_LoadedRadius * 2 + 1);
+	index += (position.y - m_LoadedCenter.x + m_LoadedRadius) * (m_LoadedRadius * 2 + 1) * (m_LoadedRadius * 2 + 1);
 	if (index >= m_LoadedChunks.size()) return nullptr;
 	return &m_LoadedChunks[index];
 }
@@ -131,16 +111,19 @@ void World::Render(const Ref<Camera>& camera) {
 	m_MainShader->SetUniform("u_ViewProjection", camera->view_projection);
 	m_MainShader->SetUniform("u_Texture", m_Atlas);
 
-	for (int z = 0; z < m_LoadedRadius * 2 + 1; z++) {
-		for (int x = 0; x < m_LoadedRadius * 2 + 1; x++) {
-			glm::vec3 position = { (x - m_LoadedRadius) * Chunk::ChunkWidth, 0, (z - m_LoadedRadius) * Chunk::ChunkLength };
-			glm::mat4 model = glm::translate(glm::mat4(1.0f), position);
-			m_MainShader->SetUniform("u_Model", model);
 
-			Ref<VertexArray>& vao = m_ChunkMeshes[x + z * (m_LoadedRadius * 2 + 1)];
-			vao->Bind();
-			glDrawElements(GL_TRIANGLES, vao->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
-			vao->Unbind();
+	for (int y = 0; y < m_LoadedRadius * 2 + 1; y++) {
+		for (int z = 0; z < m_LoadedRadius * 2 + 1; z++) {
+			for (int x = 0; x < m_LoadedRadius * 2 + 1; x++) {
+				glm::vec3 position = { (x - m_LoadedRadius) * Chunk::ChunkWidth, (y - m_LoadedRadius) * Chunk::ChunkHeight, (z - m_LoadedRadius) * Chunk::ChunkLength };
+				glm::mat4 model = glm::translate(glm::mat4(1.0f), position);
+				m_MainShader->SetUniform("u_Model", model);
+
+				Ref<VertexArray>& vao = m_ChunkMeshes[x + z * (m_LoadedRadius * 2 + 1) + y * (m_LoadedRadius * 2 + 1) * (m_LoadedRadius * 2 + 1)];
+				vao->Bind();
+				glDrawElements(GL_TRIANGLES, vao->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
+				vao->Unbind();
+			}
 		}
 	}
 
