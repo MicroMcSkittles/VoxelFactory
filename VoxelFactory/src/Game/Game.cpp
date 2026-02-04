@@ -5,79 +5,6 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-//struct Vertex {
-//	glm::vec3 position;
-//	glm::vec2 tex_coord;
-//};
-//const Vertex c_Vertices[] = {
-//	// Back
-//	{ { -0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f } },
-//	{ {  0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f } },
-//	{ {  0.5f,  0.5f, -0.5f }, { 1.0f, 1.0f } },
-//	{ {  0.5f,  0.5f, -0.5f }, { 1.0f, 1.0f } },
-//	{ { -0.5f,  0.5f, -0.5f }, { 0.0f, 1.0f } },
-//	{ { -0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f } },
-//
-//	// Front
-//	{ { -0.5f, -0.5f,  0.5f }, { 1.0f, 0.0f } },
-//	{ {  0.5f, -0.5f,  0.5f }, { 0.0f, 0.0f } },
-//	{ {  0.5f,  0.5f,  0.5f }, { 0.0f, 1.0f } },
-//	{ {  0.5f,  0.5f,  0.5f }, { 0.0f, 1.0f } },
-//	{ { -0.5f,  0.5f,  0.5f }, { 1.0f, 1.0f } },
-//	{ { -0.5f, -0.5f,  0.5f }, { 1.0f, 0.0f } },
-//
-//	// Right
-//	{ { -0.5f,  0.5f,  0.5f }, { 0.0f, 1.0f } },
-//	{ { -0.5f,  0.5f, -0.5f }, { 1.0f, 1.0f } },
-//	{ { -0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f } },
-//	{ { -0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f } },
-//	{ { -0.5f, -0.5f,  0.5f }, { 0.0f, 0.0f } },
-//	{ { -0.5f,  0.5f,  0.5f }, { 0.0f, 1.0f } },
-//
-//	// Left
-//	{ {  0.5f,  0.5f,  0.5f }, { 1.0f, 1.0f } },
-//	{ {  0.5f,  0.5f, -0.5f }, { 0.0f, 1.0f } },
-//	{ {  0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f } },
-//	{ {  0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f } },
-//	{ {  0.5f, -0.5f,  0.5f }, { 1.0f, 0.0f } },
-//	{ {  0.5f,  0.5f,  0.5f }, { 1.0f, 1.0f } },
-//
-//	// Bottom
-//	{ { -0.5f, -0.5f, -0.5f }, { 1.0f, 1.0f } },
-//	{ {  0.5f, -0.5f, -0.5f }, { 0.0f, 1.0f } },
-//	{ {  0.5f, -0.5f,  0.5f }, { 0.0f, 0.0f } },
-//	{ {  0.5f, -0.5f,  0.5f }, { 0.0f, 0.0f } },
-//	{ { -0.5f, -0.5f,  0.5f }, { 1.0f, 0.0f } },
-//	{ { -0.5f, -0.5f, -0.5f }, { 1.0f, 1.0f } },
-//	
-//	// Top
-//	{ { -0.5f,  0.5f, -0.5f }, { 1.0f, 1.0f } },
-//	{ {  0.5f,  0.5f, -0.5f }, { 0.0f, 1.0f } },
-//	{ {  0.5f,  0.5f,  0.5f }, { 0.0f, 0.0f } },
-//	{ {  0.5f,  0.5f,  0.5f }, { 0.0f, 0.0f } },
-//	{ { -0.5f,  0.5f,  0.5f }, { 1.0f, 0.0f } },
-//	{ { -0.5f,  0.5f, -0.5f }, { 1.0f, 1.0f } }
-//};
-//const uint32_t c_Indices[] = {
-//	0,  1,  2,
-//	3,  4,  5,
-//
-//	6,  7,  8,
-//	9,  10, 11,
-//	
-//	12, 13, 14,
-//	15, 16, 17,
-//
-//	18, 19, 20,
-//	21, 22, 23,
-//
-//	24, 25, 26,
-//	27, 28, 29,
-//
-//	30, 31, 32,
-//	33, 34, 35
-//};
-
 Game::Game() {
 	m_Running = true;
 	m_Model = glm::mat4(1.0f);
@@ -181,19 +108,6 @@ void Game::StartUp() {
 
 	m_MainShader = CreateRef<Shader>("assets/shaders/Main.vert", "assets/shaders/Main.frag");
 
-	// Create triangle
-	/*m_VAO = CreateRef<VertexArray>();
-	m_VAO->Bind();
-
-	Ref<VertexBuffer> vertex_buffer = CreateRef<VertexBuffer>(c_Vertices, sizeof(c_Vertices));
-	vertex_buffer->Bind();
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
-	glEnableVertexAttribArray(1);
-
-	Ref<IndexBuffer> index_buffer = CreateRef<IndexBuffer>(c_Indices, sizeof(c_Indices));
-	m_VAO->Unbind();*/
 	m_Chunk = CreateRef<Chunk>();
 	m_VAO = ChunkMesher(m_Chunk).Mesh();
 	m_Model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 3.0f));
@@ -207,7 +121,7 @@ void Game::StartUp() {
 	m_Camera = CreateRef<Camera>(frustum, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 	m_Camera->eular.y = PIHalf;
 
-	m_Texture = CreateRef<Texture>("assets/textures/Stone.png");
+	m_Texture = CreateRef<Texture>("assets/textures/atlas.png");
 
 	// Other configs
 	glEnable(GL_DEPTH_TEST);
@@ -225,7 +139,6 @@ void Game::Update(float delta_time) {
 	m_MainShader->SetUniform("u_Model", m_Model);
 	m_MainShader->SetUniform("u_Texture", m_Texture);
 	m_VAO->Bind();
-	//glDrawElements(GL_TRIANGLES, sizeof(c_Indices) / sizeof(uint32_t), GL_UNSIGNED_INT, nullptr);
 	glDrawElements(GL_TRIANGLES, m_VAO->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
 	m_VAO->Unbind();
 	m_MainShader->Unbind();

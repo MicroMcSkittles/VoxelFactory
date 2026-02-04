@@ -9,9 +9,15 @@ Chunk::Chunk() {
 	m_Blocks.resize(ChunkDataSize, Block{ 0 });
 
 	// TODO: actual generation
+	uint32_t blockID = 1;
 	for (int y = 0; y < ChunkHeight; y++) {
-		if (y % 2) continue;
-		memset(m_Blocks.data() + y * ChunkWidth * ChunkHeight, 1, ChunkWidth * ChunkHeight * sizeof(uint16_t));
+		for (int z = 0; z < ChunkLength; z++) {
+			for (int x = 0; x < ChunkWidth; x++) {
+				if (x % 3 || y % 3 || z % 3) continue;
+				At({ x,y,z }).id = blockID++;
+				if (blockID >= 16 * 16) blockID = 1;
+			}
+		}
 	}
 }
 Chunk::~Chunk() { }
@@ -40,6 +46,7 @@ Ref<VertexArray> ChunkMesher::Mesh() {
 	m_Indices.reserve(Chunk::ChunkDataSize);
 	m_VertexOffset = 0;
 
+	// Calculate vertices and indices
 	for (int y = 0; y < Chunk::ChunkHeight; y++) {
 		for (int z = 0; z < Chunk::ChunkLength; z++) {
 			for (int x = 0; x < Chunk::ChunkWidth; x++) {
@@ -57,15 +64,19 @@ Ref<VertexArray> ChunkMesher::Mesh() {
 		}
 	}
 
+	// Create vertex array
 	Ref<VertexArray> vertex_array = CreateRef<VertexArray>();
 	vertex_array->Bind();
 
 	Ref<VertexBuffer> vertex_buffer = CreateRef<VertexBuffer>(m_Vertices.data(), m_Vertices.size() * sizeof(ChunkVertex));
 	vertex_buffer->Bind();
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+	constexpr size_t stride = 5 * sizeof(float) + sizeof(uint32_t);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
 	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(float)));
 	glEnableVertexAttribArray(1);
+	glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT, stride, (void*)(5 * sizeof(float)));
+	glEnableVertexAttribArray(2);
 	vertex_array->GetVertexBuffer() = vertex_buffer;
 
 	Ref<IndexBuffer> index_buffer = CreateRef<IndexBuffer>(m_Indices.data(), m_Indices.size() * sizeof(uint32_t));
@@ -78,9 +89,12 @@ void ChunkMesher::MeshFace(const glm::vec3& position, const glm::vec3& face, con
 	glm::vec3 other = position + face;
 	if (m_Chunk->IsValid(other) && !m_Chunk->IsVoid(other)) return;
 
+	uint32_t id = m_Chunk->At(position).id - 1;
+	
 	for (int i = 0; i < c_FaceVertexCount; i++) {
 		ChunkVertex vertex = data[i];
 		vertex.position += position;
+		vertex.id = id;
 		m_Vertices.push_back(vertex);
 	}
 	for (int i = 0; i < c_FaceIndexCount; i++) {

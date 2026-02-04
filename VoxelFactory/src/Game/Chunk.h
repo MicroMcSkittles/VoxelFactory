@@ -4,11 +4,6 @@
 #include <vector>
 #include <glm/glm.hpp>
 
-struct ChunkVertex {
-	glm::vec3 position;
-	glm::vec2 tex_coord;
-};
-
 struct Block {
 	uint16_t id;
 	const inline static uint16_t InvalidID = std::numeric_limits<uint16_t>::max();
@@ -41,6 +36,11 @@ public:
 	const static int ChunkDataSize = ChunkWidth * ChunkHeight * ChunkLength;
 };
 
+struct ChunkVertex {
+	glm::vec3 position;
+	glm::vec2 tex_coord;
+	uint32_t id;
+};
 class ChunkMesher {
 public:
 	ChunkMesher(const Ref<Chunk>& chunk);
