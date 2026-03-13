@@ -1,16 +1,20 @@
 #include "Game/Game.h"
+#include "Core/ImGuiHandler.h"
 
 #include <GLFW/glfw3.h>
 #include <glad/glad.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <imgui.h>
+#include <imgui_internal.h>
+
 Game::Game() {
 	m_Running = true;
-	//m_Model = glm::mat4(1.0f);
 
 	m_Focused = false;
-	m_CameraSpeed = 12.0f;
+	m_MouseAvalible = true;
+	m_CameraSpeed = 24.0f;
 	m_MouseSensitivity = 0.1f;
 	m_LastMousePos = glm::vec2(0.0f);
 }
@@ -44,7 +48,7 @@ void Game::UpdateCamera(float delta_time) {
 	GLFWwindow* window_handle = (GLFWwindow*)m_Window->GetHandle();
 	
 	// Capture mouse on left click, release on escape
-	if (!m_Focused && glfwGetMouseButton(window_handle, GLFW_MOUSE_BUTTON_LEFT)) {
+	if (!m_Focused && m_MouseAvalible && glfwGetMouseButton(window_handle, GLFW_MOUSE_BUTTON_LEFT)) {
 		m_Focused = true;
 		double mouse_x = 0.0, mouse_y = 0.0;
 		glfwGetCursorPos(window_handle, &mouse_x, &mouse_y);
@@ -114,22 +118,44 @@ void Game::StartUp() {
 	frustum.fov = PI / 4.0f; // 45 degrees
 	frustum.near = 0.1f;
 	frustum.far = 1000.0f;
-	m_Camera = CreateRef<Camera>(frustum, glm::vec3(0.0f, 17.0f, -6.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	m_Camera = CreateRef<Camera>(frustum, glm::vec3(0.0f, 18.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 	m_Camera->eular.y = PIHalf;
 
-	// Other configs
+	// Other open gl configs
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
 	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	glViewport(0, 0, m_Window->GetWidth(), m_Window->GetHeight());
 	glClearColor(0.125, 0.13, 0.2, 1);
+
+	ImGuiHandler::Init(m_Window);
 }
 void Game::Update(float delta_time) {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	ImGuiHandler::StartFrame();
 
 	UpdateCamera(delta_time);
 
+	m_World->Update(m_Camera->position);
 	m_World->Render(m_Camera);
+
+	ShowImGui();
+	ImGuiHandler::EndFrame();
+}
+void Game::ShowImGui() {
+
+	ImGui::Begin("Debug Menu");
+	glm::vec3 block_pos = { roundf(m_Camera->position.x), roundf(m_Camera->position.y), roundf(m_Camera->position.z) };
+	glm::vec3 chunk_pos = Chunk::GetBlockChunkPosition(m_Camera->position);
+	ImGui::Text("Player Position: ( %.2f, %.2f, %.2f )", m_Camera->position.x, m_Camera->position.y, m_Camera->position.z);
+	ImGui::Text("Player Block Position: ( %d, %d, %d )", (int)block_pos.x, (int)block_pos.y, (int)block_pos.z);
+	ImGui::Text("Player Chunk Position: ( %d, %d, %d )", (int)chunk_pos.x, (int)chunk_pos.y, (int)chunk_pos.z);
+	
+	ImGui::InputFloat("Camera Speed", &m_CameraSpeed);
+
+	m_MouseAvalible = !ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow) || !ImGui::IsAnyItemHovered();
+	ImGui::End();
+
 }
 void Game::ShutDown() {
 

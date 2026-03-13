@@ -127,3 +127,82 @@ project "glfw"
 	filter "configurations:Release"
 		runtime "Release"
 		optimize "speed"
+
+project "ImGui"
+    kind "StaticLib"
+	staticruntime "off"
+	systemversion "latest"
+
+    language "C++"
+	
+    objdir ("%{wks.location}/bin-int/" .. outputdir .. "/%{prj.name}")
+    targetdir ("%{wks.location}/bin/" .. outputdir .. "/%{prj.name}")
+
+    files {
+		"Imgui/Imgui/imconfig.h",
+		"Imgui/Imgui/imgui_demo.cpp",
+		"Imgui/Imgui/imgui_draw.cpp",
+		"Imgui/Imgui/imgui_internal.h",
+		"Imgui/Imgui/imgui_tables.cpp",
+		"Imgui/Imgui/imgui_widgets.cpp",
+		"Imgui/Imgui/imgui.cpp",
+		"Imgui/Imgui/imgui.h",
+		"Imgui/Imgui/imstb_rectpack.h",
+		"Imgui/Imgui/imstb_textedit.h",
+		"Imgui/Imgui/imstb_truetype.h",
+
+		"Imgui/Imgui/misc/cpp/*.h",
+		"Imgui/Imgui/misc/cpp/*.cpp",
+	}
+
+    includedirs {
+        "%{wks.location}/vendor/Imgui/Imgui",
+		"%{wks.location}/vendor/glfw/include",
+        "%{wks.location}/vendor/glad/include"
+    }
+    links {
+        "Glad",
+        "GLFW"
+    }
+
+    filter "system:windows"
+        files {
+			"Imgui/Imgui/backends/imgui_impl_glfw.cpp",
+			"Imgui/Imgui/backends/imgui_impl_glfw.h",
+			"Imgui/Imgui/backends/imgui_impl_opengl3.cpp",
+			"Imgui/Imgui/backends/imgui_impl_opengl3.h",
+			"Imgui/Imgui/backends/imgui_impl_opengl3_loader.h",
+		}
+		defines { 
+			"_GLFW_WIN32",
+			"_CRT_SECURE_NO_WARNINGS"
+		}
+
+	filter "system:linux"
+		pic "On"
+
+		files {
+			"Imgui/Imgui/backends/imgui_impl_glfw.cpp",
+			"Imgui/Imgui/backends/imgui_impl_glfw.h",
+			"Imgui/Imgui/backends/imgui_impl_opengl3.cpp",
+			"Imgui/Imgui/backends/imgui_impl_opengl3.h",
+			"Imgui/Imgui/backends/imgui_impl_opengl3_loader.h",
+		}
+
+		defines {
+			"_GLFW_X11",
+			"_CRT_SECURE_NO_WARNINGS"
+		}
+
+-- Configurations
+    filter "configurations:Debug"
+		runtime "Debug"
+		symbols "on"
+	filter { "system:windows", "configurations:Debug-AS" }	
+		runtime "Debug"
+		symbols "on"
+		sanitize { "Address" }
+		flags { "NoRuntimeChecks", "NoIncrementalLink" }
+	filter "configurations:Release"
+		runtime "Release"
+		optimize "speed"

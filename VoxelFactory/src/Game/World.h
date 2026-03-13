@@ -10,7 +10,7 @@
 class ChunkMesher;
 
 struct Block {
-	uint16_t id;
+	uint8_t id;
 
 	struct TextureIDs {
 		uint32_t front;
@@ -28,7 +28,7 @@ struct Block {
 	};
 	static std::vector<TextureIDs> BlockTextureIDs;
 
-	const inline static uint16_t InvalidID = std::numeric_limits<uint16_t>::max();
+	const inline static uint8_t InvalidID = std::numeric_limits<uint8_t>::max();
 	static Block Invalid;
 };
 class Chunk {
@@ -38,10 +38,11 @@ public:
 
 	Block& At(const glm::vec3& position);
 	bool IsVoid(const glm::vec3& position);
-	bool IsValid(const glm::vec3& position);
+	bool IsValid(const glm::vec3& position); // Returns true if position is inbounds
 	glm::vec3 ToWorld(const glm::vec3& position);
 
 	const glm::vec3& GetPosition() { return m_Position; }
+	static glm::vec3 GetBlockChunkPosition(const glm::vec3& position);
 
 private:
 	std::vector<Block> m_Blocks;
@@ -50,10 +51,10 @@ private:
 	friend ChunkMesher;
 
 public:
-	const static int ChunkWidth = 16;
-	const static int ChunkLength = 16;
-	const static int ChunkHeight = 16;
-	const static int ChunkDataSize = ChunkWidth * ChunkHeight * ChunkLength;
+	const static int ChunkLength = 16; // The width and length
+	const static int ChunkArea = ChunkLength * ChunkLength; // The number of blocks in a horizontal slice of the chunk
+	const static int ChunkHeight = 256;
+	const static int ChunkDataSize = ChunkArea * ChunkHeight; // Total number of blocks
 };
 
 class World {
@@ -61,15 +62,22 @@ public:
 	World();
 	~World();
 
+	void Update(const glm::vec3& position);
+	void Render(const Ref<Camera>& camera);
+
 	Chunk* GetChunk(const glm::vec3& position);
 
-	void Render(const Ref<Camera>& camera);
+private:
+	void LoadChunks(const glm::vec3& delta);
 
 private:
 	glm::vec3 m_LoadedCenter; // The point in the middle of the currently loaded chunks
 	int m_LoadedRadius;  // The radius around m_LoadedCenter where chunks are loaded
+	int m_LoadedDiameter;
+	int m_LoadedArea;
 
-	std::vector<Chunk> m_LoadedChunks;
+	std::vector<size_t> m_ChunkIndices;
+	std::vector<Chunk> m_Chunks;
 	std::vector<Ref<VertexArray>> m_ChunkMeshes;
 
 	Ref<Shader> m_MainShader;
@@ -89,7 +97,7 @@ public:
 	Ref<VertexArray> Mesh();
 
 private:
-	void MeshFace(const glm::vec3& position, const glm::vec3& face, uint32_t id, const ChunkVertex* data);
+	void MeshFace(const glm::vec3& position, const glm::vec3& face_dir, uint32_t id, const ChunkVertex* data);
 
 private:
 	Chunk* m_Chunk;
