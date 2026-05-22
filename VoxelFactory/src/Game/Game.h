@@ -6,6 +6,7 @@
 #include "Renderer/Camera.h"
 #include "Renderer/Texture.h"
 #include "Game/World.h"
+#include "Game/Player.h"
 
 struct DebugVertex {
 	glm::vec3 position;
@@ -29,8 +30,8 @@ public:
 	void OnResize(int width, int height);
 
 	// Processes user input for camera
-	void UpdateCamera(float delta_time);
-	void HandleClick();
+	//void UpdateCamera(float delta_time);
+	//void HandleClick();
 
 	void StartUp();
 	void Update(float delta_time);
@@ -38,12 +39,13 @@ public:
 	void ShutDown();
 
 	void ClearDebugLines();
-	void PushDebugLine(const DebugLine& line);
+	static void PushDebugLine(const DebugLine& line);
 	void ShowDebugLines();
 
 private:
 	// Misc
 	Ref<Window> m_Window;
+	Ref<Player> m_Player;
 	bool m_Running;
 
 	// Rendering
@@ -52,13 +54,14 @@ private:
 
 	Ref<Shader> m_DebugShader;
 	Ref<VertexArray> m_DebugLineMesh;
-	std::vector<DebugLine> m_DebugLines;
+	inline static std::vector<DebugLine> m_DebugLines;
 
 	// Input
 	bool m_Focused;
 	bool m_MouseAvalible;
-	bool m_MouseLClickLast;
-	float m_CameraSpeed;
-	float m_MouseSensitivity;
+	//bool m_MouseLClickLast;
+	//float m_CameraSpeed;
+	//float m_MouseSensitivity;
 	glm::vec2 m_LastMousePos;
+
 };

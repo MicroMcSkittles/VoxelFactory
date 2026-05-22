@@ -11,15 +11,13 @@
 
 #include <imgui.h>
 #include <imgui_internal.h>
+#include "Player.h"
 
 Game::Game() {
 	m_Running = true;
 
 	m_Focused = false;
 	m_MouseAvalible = true;
-	m_MouseLClickLast = false;
-	m_CameraSpeed = 24.0f;
-	m_MouseSensitivity = 0.1f;
 	m_LastMousePos = glm::vec2(0.0f);
 
 	m_DebugLineMesh = nullptr;
@@ -48,80 +46,6 @@ void Game::OnResize(int width, int height) {
 	m_Camera->frustum.aspect_ratio = static_cast<float>(width) / static_cast<float>(height);
 	m_Camera->UpdateProjection();
 	glViewport(0, 0, width, height);
-}
-
-// Man, this function is awful
-void Game::UpdateCamera(float delta_time) {
-	GLFWwindow* window_handle = (GLFWwindow*)m_Window->GetHandle();
-	
-	bool mouse_left_click = glfwGetMouseButton(window_handle, GLFW_MOUSE_BUTTON_LEFT);
-	if (mouse_left_click && !m_MouseLClickLast) {
-		if (m_Focused) HandleClick();
-		m_MouseLClickLast = true;
-	}
-	else if (!mouse_left_click && m_MouseLClickLast) {
-		m_MouseLClickLast = false;
-	}
-	// Capture mouse on left click, release on escape
-	if (!m_Focused && m_MouseAvalible && mouse_left_click) {
-		m_Focused = true;
-		double mouse_x = 0.0, mouse_y = 0.0;
-		glfwGetCursorPos(window_handle, &mouse_x, &mouse_y);
-		m_LastMousePos = glm::vec2(static_cast<float>(mouse_x), static_cast<float>(mouse_y));
-		glfwSetInputMode(window_handle, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-	}
-	else if(!m_Focused) return;
-	if (glfwGetKey(window_handle, GLFW_KEY_ESCAPE)) {
-		m_Focused = false;
-		glfwSetInputMode(window_handle, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-		return;
-	}
-	
-	// Camera position input
-	glm::vec3 camera_up = glm::vec3(0.0f, 1.0f, 0.0f);
-	glm::vec3 camera_right = glm::normalize(glm::cross(m_Camera->direction, camera_up));
-	glm::vec3 delta_position = glm::vec3(0.0f);
-	if (glfwGetKey(window_handle, GLFW_KEY_W))          delta_position += m_Camera->direction * m_CameraSpeed * delta_time;
-	if (glfwGetKey(window_handle, GLFW_KEY_S))          delta_position -= m_Camera->direction * m_CameraSpeed * delta_time;
-	if (glfwGetKey(window_handle, GLFW_KEY_A))          delta_position -= camera_right * m_CameraSpeed * delta_time;
-	if (glfwGetKey(window_handle, GLFW_KEY_D))          delta_position += camera_right * m_CameraSpeed * delta_time;
-	if (glfwGetKey(window_handle, GLFW_KEY_SPACE))      delta_position += camera_up * m_CameraSpeed * delta_time;
-	if (glfwGetKey(window_handle, GLFW_KEY_LEFT_SHIFT)) delta_position -= camera_up * m_CameraSpeed * delta_time;
-
-	// Get mouse delta
-	double mouse_x = 0.0, mouse_y = 0.0;
-	glfwGetCursorPos(window_handle, &mouse_x, &mouse_y);
-	glm::vec2 mouse_pos = glm::vec2(static_cast<float>(mouse_x), static_cast<float>(mouse_y));
-	glm::vec2 delta_mouse = {
-		mouse_pos.x - m_LastMousePos.x,
-		m_LastMousePos.y - mouse_pos.y // Invert Y, because opengl is bottom to top
-	};
-	delta_mouse *= ((m_MouseSensitivity * PI) / 180.0f);
-
-	m_LastMousePos = mouse_pos;
-
-	// Adjust rotation
-	m_Camera->eular.y += delta_mouse.x; // Yaw
-	m_Camera->eular.x += delta_mouse.y; // Pitch
-
-	// Cap pitch
-	constexpr float c_MaxPitch =  PIHalf - (PI / 180.0f); // 89 degrees
-	constexpr float c_MinPitch = -PIHalf + (PI / 180.0f); // -89 degrees
-	m_Camera->eular.x = std::min(c_MaxPitch, std::max(m_Camera->eular.x, c_MinPitch));
-
-	if (delta_position != glm::vec3(0.0f) || delta_mouse != glm::vec2(0.0f)) {
-		m_Camera->direction = Camera::EulerDirection(m_Camera->eular.x, m_Camera->eular.y);
-		m_Camera->position += delta_position;
-		m_Camera->UpdateView();
-	}
-}
-void Game::HandleClick() {
-	RayResultData ray_data = m_World->CastRay({ m_Camera->position, m_Camera->direction });
-	if (ray_data) {
-		glm::vec3 hit_position = m_Camera->position + m_Camera->direction * ray_data.dist;
-		PushDebugLine({ m_Camera->position, hit_position, { 1.0f,0.0f,1.0f } });
-		PushDebugLine({ hit_position, hit_position + (ray_data.normal * 2.0f), { 0.0f,1.0f,1.0f } });
-	}
 }
 
 void Game::StartUp() {
@@ -155,12 +79,29 @@ void Game::StartUp() {
 	ImGuiHandler::Init(m_Window);
 
 	m_DebugShader = CreateRef<Shader>("assets/shaders/DebugLine.vert", "assets/shaders/DebugLine.frag");
+
+	m_Player = CreateRef<Player>(m_Camera, m_World);
 }
 void Game::Update(float delta_time) {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	ImGuiHandler::StartFrame();
 
-	UpdateCamera(delta_time);
+	GLFWwindow* window_handle = (GLFWwindow*)m_Window->GetHandle();
+
+	if (!m_Focused && m_MouseAvalible && glfwGetMouseButton(window_handle, GLFW_MOUSE_BUTTON_LEFT)) {
+		m_Focused = true;
+		double mouse_x = 0.0, mouse_y = 0.0;
+		glfwGetCursorPos(window_handle, &mouse_x, &mouse_y);
+		m_LastMousePos = glm::vec2(static_cast<float>(mouse_x), static_cast<float>(mouse_y));
+		glfwSetInputMode(window_handle, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+	}
+	else if (m_Focused) {
+		m_Player->Update(delta_time, m_LastMousePos, m_Window);
+	}
+	if (glfwGetKey(window_handle, GLFW_KEY_ESCAPE)) {
+		m_Focused = false;
+		glfwSetInputMode(window_handle, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+	}
 
 	m_World->Update(m_Camera->position);
 	m_World->Render(m_Camera);
@@ -182,7 +123,7 @@ void Game::ShowImGui() {
 	ImGui::Text("Player Chunk Block Position: ( %d, %d, %d )", (int)chunk_block_pos.x, (int)chunk_block_pos.y, (int)chunk_block_pos.z);
 	ImGui::Text("Player Chunk Position: ( %d, %d )", (int)chunk_pos.x, (int)chunk_pos.z);
 	
-	ImGui::InputFloat("Camera Speed", &m_CameraSpeed);
+	//ImGui::InputFloat("Camera Speed", &m_CameraSpeed);
 
 	if (ImGui::Button("Clear Debug Lines")) {
 		ClearDebugLines();

@@ -39,7 +39,8 @@ Chunk::Chunk(const glm::vec3& position) {
 	m_Blocks.resize(ChunkDataSize, Block{ 0 });
 	
 	int dirt_height = 16 + m_Position.x + m_Position.z;
-	std::fill(m_Blocks.begin(), m_Blocks.begin() + ChunkArea * dirt_height, Block{ 5 });
+	std::fill(m_Blocks.begin(), m_Blocks.begin() + ChunkArea * (dirt_height - 1), Block{ 4 });
+	std::fill(m_Blocks.begin() + ChunkArea * (dirt_height - 1), m_Blocks.begin() + ChunkArea * dirt_height, Block{ 1 });
 	for (int x = 0; x < ChunkLength; x++) {
 		At({ x, dirt_height - 1, 0 }).id = 3;
 		At({ x, dirt_height - 1, ChunkLength - 1 }).id = 3;
@@ -80,7 +81,7 @@ glm::vec3 Chunk::ToWorld(const glm::vec3& position) {
 	return {
 		position.x + m_Position.x * ChunkLength,
 		position.y,
-		position.z + m_Position.y * ChunkLength
+		position.z + m_Position.z * ChunkLength
 	};
 }
 glm::vec3 Chunk::GetBlockChunkPosition(const glm::vec3& position) {
@@ -124,6 +125,11 @@ Chunk* World::GetChunk(const glm::vec3& position) {
 	size_t index = position.x + m_LoadedRadius + (position.z + m_LoadedRadius) * m_LoadedWidth;
 	if (index >= m_Chunks.size()) return nullptr;
 	return &m_Chunks[index];
+}
+void World::RebuildChunk(const glm::vec3& position) {
+	Chunk* chunk = GetChunk(position);
+	if (chunk == nullptr) return;
+	m_ChunkMeshes[position.x + m_LoadedRadius + (position.z + m_LoadedRadius) * m_LoadedWidth] = ChunkMesher(chunk, this).Mesh();
 }
 
 RayResultData World::RayAABBIntersection(const Ray& ray, const glm::vec3& aabb_min, const glm::vec3& aabb_max) {
@@ -205,7 +211,7 @@ RayResultData World::CastRay(const Ray& ray) {
 		// Exit loop if a voxel is hit
 		if (!current_chunk->IsVoid(voxel_position)) {
 			result.hit = true;
-			result.voxel_position = voxel_position;
+			result.voxel_position = current_chunk->ToWorld(voxel_position);
 			result.dist += initial_dist;
 			break;
 		}
@@ -246,20 +252,6 @@ RayResultData World::CastRay(const Ray& ray) {
 			max_dist.y += delta_dist.y;
 		}
 	}
-
-	// DEBUG INFO ========
-	std::cout << "chunk_position: " << VEC3_STR(chunk_position) << std::endl;
-	std::cout << "local_position: " << VEC3_STR(local_position) << std::endl;
-	if (result.hit) {
-		std::cout << "hit" << std::endl;
-		std::cout << "voxel_position: " << VEC3_STR(result.voxel_position) << std::endl;
-		std::cout << "normal: " << VEC3_STR(result.normal) << std::endl;
-		std::cout << "dist: " << result.dist << std::endl;
-	}
-	else {
-		std::cout << "Missed" << std::endl;
-	}
-	// ===================
 
 	return result;
 }

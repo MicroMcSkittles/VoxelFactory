@@ -85,6 +85,7 @@ public:
 	void Render(const Ref<Camera>& camera);
 
 	Chunk* GetChunk(const glm::vec3& position);
+	void RebuildChunk(const glm::vec3& position);
 
 	RayResultData CastRay(const Ray& ray);
 
