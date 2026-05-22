@@ -7,6 +7,18 @@
 #include "Renderer/Texture.h"
 #include "Game/World.h"
 
+struct DebugVertex {
+	glm::vec3 position;
+	glm::vec3 color;
+};
+struct DebugLine {
+	DebugVertex vertex1;
+	DebugVertex vertex2;
+
+	DebugLine(const glm::vec3& point1, const glm::vec3& point2, const glm::vec3& color):
+		vertex1(point1, color), vertex2(point2, color) { }
+};
+
 class Game {
 public:
 	Game();
@@ -18,11 +30,16 @@ public:
 
 	// Processes user input for camera
 	void UpdateCamera(float delta_time);
+	void HandleClick();
 
 	void StartUp();
 	void Update(float delta_time);
 	void ShowImGui();
 	void ShutDown();
+
+	void ClearDebugLines();
+	void PushDebugLine(const DebugLine& line);
+	void ShowDebugLines();
 
 private:
 	// Misc
@@ -33,9 +50,14 @@ private:
 	Ref<Camera> m_Camera;
 	Ref<World> m_World;
 
+	Ref<Shader> m_DebugShader;
+	Ref<VertexArray> m_DebugLineMesh;
+	std::vector<DebugLine> m_DebugLines;
+
 	// Input
 	bool m_Focused;
 	bool m_MouseAvalible;
+	bool m_MouseLClickLast;
 	float m_CameraSpeed;
 	float m_MouseSensitivity;
 	glm::vec2 m_LastMousePos;

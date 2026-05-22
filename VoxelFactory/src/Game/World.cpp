@@ -1,8 +1,10 @@
 #include "Game/World.h"
+#include "Core/Utils.h"
 #include <algorithm>
 #include <iostream>
 #include <glad/glad.h>
 #include <glm/gtc/matrix_transform.hpp>
+#include <limits>
 
 #define TEX_COORD(x,y) y * 16 + x
 
@@ -35,17 +37,19 @@ Chunk::Chunk(const glm::vec3& position) {
 	// TODO: actual generation
 
 	m_Blocks.resize(ChunkDataSize, Block{ 0 });
-	std::fill(m_Blocks.begin(), m_Blocks.begin() + ChunkArea * 16, Block{ 1 });
+	
+	int dirt_height = 16 + m_Position.x + m_Position.z;
+	std::fill(m_Blocks.begin(), m_Blocks.begin() + ChunkArea * dirt_height, Block{ 5 });
 	for (int x = 0; x < ChunkLength; x++) {
-		At({ x, 15, 0 }).id = 3;
-		At({ x, 15, ChunkLength - 1 }).id = 3;
-		At({ 0, 15, x }).id = 3;
-		At({ ChunkLength - 1, 15, x }).id = 3;
+		At({ x, dirt_height - 1, 0 }).id = 3;
+		At({ x, dirt_height - 1, ChunkLength - 1 }).id = 3;
+		At({ 0, dirt_height - 1, x }).id = 3;
+		At({ ChunkLength - 1, dirt_height - 1, x }).id = 3;
 	}
 
-	uint32_t blockID = 1;
+	/*uint32_t blockID = 1;
 	for (int y = 0; y < ChunkHeight; y++) {
-		if (y < 16) continue;
+		if (y < dirt_height) continue;
 		for (int z = 0; z < ChunkLength; z++) {
 			for (int x = 0; x < ChunkLength; x++) {
 				if (x % 4 || y % 4 || z % 4) continue;
@@ -53,7 +57,7 @@ Chunk::Chunk(const glm::vec3& position) {
 				if (blockID > Block::BlockTextureIDs.size()) blockID = 1;
 			}
 		}
-	}
+	}*/
 }
 Chunk::~Chunk() { }
 
@@ -75,29 +79,30 @@ bool Chunk::IsValid(const glm::vec3& position) {
 glm::vec3 Chunk::ToWorld(const glm::vec3& position) {
 	return {
 		position.x + m_Position.x * ChunkLength,
-		position.y + m_Position.y * ChunkHeight,
-		position.z + m_Position.z * ChunkLength
+		position.y,
+		position.z + m_Position.y * ChunkLength
 	};
 }
 glm::vec3 Chunk::GetBlockChunkPosition(const glm::vec3& position) {
-	return {
-		floor(position.x / Chunk::ChunkLength),
-		floor(position.y / Chunk::ChunkHeight),
-		floor(position.z / Chunk::ChunkLength),
-	};
+	return { floor((position.x) / Chunk::ChunkLength), 0, floor((position.z) / Chunk::ChunkLength) };
+}
+glm::vec3 Chunk::GetBlockLocalPosition(const glm::vec3& position) {
+	glm::vec3 chunk_pos = Chunk::GetBlockChunkPosition(position);
+	return position - chunk_pos * (float)(Chunk::ChunkLength);
+}
+glm::vec3 Chunk::GetBlockPosition(const glm::vec3& position) {
+	return { floor(position.x), floor(position.y), floor(position.z) };
 }
 
-World::World() : m_LoadedCenter({ 0,0,0 }), m_LoadedRadius(1) {
-	m_LoadedDiameter = m_LoadedRadius * 2 + 1;
-	m_LoadedArea = m_LoadedDiameter * m_LoadedDiameter;
+World::World() : m_LoadedCenter({ 0,0,0 }), m_LoadedRadius(3) {
+	m_LoadedWidth = m_LoadedRadius * 2 + 1;
+	m_LoadedArea = m_LoadedWidth * m_LoadedWidth;
 
-	m_ChunkIndices.reserve(m_LoadedArea);
 	m_Chunks.reserve(m_LoadedArea);
 	m_ChunkMeshes.resize(m_LoadedArea);
 
 	for (int z = -m_LoadedRadius; z <= m_LoadedRadius; z++) {
 		for (int x = -m_LoadedRadius; x <= m_LoadedRadius; x++) {
-			m_ChunkIndices.push_back((x + m_LoadedRadius) + (z + m_LoadedRadius) * m_LoadedDiameter);
 			m_Chunks.push_back(Chunk{ { x, 0, z } });
 		}
 	}
@@ -111,10 +116,152 @@ World::World() : m_LoadedCenter({ 0,0,0 }), m_LoadedRadius(1) {
 World::~World() { }
 
 Chunk* World::GetChunk(const glm::vec3& position) {
-	size_t index = (position.x - m_LoadedCenter.x + m_LoadedRadius);
-	index += (position.z - m_LoadedCenter.x + m_LoadedRadius) * m_LoadedDiameter;
+	// Check if chunk position is in bounds
+	if (position.x < -m_LoadedRadius || position.x > m_LoadedRadius ||
+		position.z < -m_LoadedRadius || position.z > m_LoadedRadius) return nullptr;
+
+	// Get chunk index
+	size_t index = position.x + m_LoadedRadius + (position.z + m_LoadedRadius) * m_LoadedWidth;
 	if (index >= m_Chunks.size()) return nullptr;
-	return &m_Chunks[m_ChunkIndices[index]];
+	return &m_Chunks[index];
+}
+
+RayResultData World::RayAABBIntersection(const Ray& ray, const glm::vec3& aabb_min, const glm::vec3& aabb_max) {
+	
+	float min_dist = 0.0f;
+	float max_dist = std::numeric_limits<float>::max();
+
+	for (int i = 0; i < 3; i++) {
+		float dist_t1 = (aabb_min[i] - ray.origin[i]) * ray.inv_direction[i];
+		float dist_t2 = (aabb_max[i] - ray.origin[i]) * ray.inv_direction[i];
+
+		min_dist = std::max(min_dist, std::min(dist_t1, dist_t2));
+		max_dist = std::min(max_dist, std::max(dist_t1, dist_t2));
+	}
+
+	if (max_dist >= min_dist) {
+		return { true, min_dist };
+	}
+	return { false };
+}
+RayResultData World::CastRay(const Ray& ray) {
+
+	// Find current chunk position
+	float initial_dist = 0.0f;
+	glm::vec3 origin = ray.origin;
+	glm::vec3 chunk_position = Chunk::GetBlockChunkPosition(ray.origin);
+	Chunk* current_chunk = GetChunk(chunk_position);
+
+	// If ray is outside of the voxel grid than find the point the ray enters the grid
+	if (current_chunk == nullptr) {
+		// Find bounding box for all loaded chunks
+		glm::vec3 aabb_min = {
+			-m_LoadedRadius * Chunk::ChunkLength,
+			0,
+			-m_LoadedRadius * Chunk::ChunkLength
+		};
+		glm::vec3 aabb_max = {
+			(m_LoadedRadius + 1) * Chunk::ChunkLength,
+			Chunk::ChunkHeight,
+			(m_LoadedRadius + 1) * Chunk::ChunkLength
+		};
+		RayResultData aabb_result = RayAABBIntersection(ray, aabb_min, aabb_max);
+		if (!aabb_result) return { false };
+
+		// Find entry point
+		glm::vec3 entry_point = ray.origin + (ray.direction * aabb_result.dist);
+		initial_dist = aabb_result.dist;
+		origin = entry_point;
+		chunk_position = Chunk::GetBlockChunkPosition(entry_point);
+		current_chunk = GetChunk(chunk_position);
+	}
+
+	// Find origin positions
+	glm::vec3 local_position = Chunk::GetBlockLocalPosition(origin);
+	glm::vec3 voxel_position = Chunk::GetBlockLocalPosition(Chunk::GetBlockPosition(origin));
+
+	// Find step values based on sign of direction, 0 if direction == 0
+	glm::vec3 step = {
+		(ray.direction.x > 0) - (ray.direction.x < 0),
+		(ray.direction.y > 0) - (ray.direction.y < 0),
+		(ray.direction.z > 0) - (ray.direction.z < 0)
+	};
+
+	// Find which planes the ray will pass through
+	glm::vec3 plane = voxel_position + (step * 0.5f) + glm::vec3(0.5f);
+	
+	// Find initial distances from planes
+	glm::vec3 max_dist = plane - local_position;
+	max_dist.x *= ray.inv_direction.x;
+	max_dist.y *= ray.inv_direction.y;
+	max_dist.z *= ray.inv_direction.z;
+
+	// Find distances between planes along the ray
+	glm::vec3 delta_dist = { fabsf(ray.inv_direction.x), fabsf(ray.inv_direction.y), fabsf(ray.inv_direction.z) };
+	
+	// Traversal loop
+	RayResultData result;
+	while (current_chunk != nullptr && current_chunk->IsValid(voxel_position)) {
+		// Exit loop if a voxel is hit
+		if (!current_chunk->IsVoid(voxel_position)) {
+			result.hit = true;
+			result.voxel_position = voxel_position;
+			result.dist += initial_dist;
+			break;
+		}
+
+		// Step along the x-axis
+		if (max_dist.x < max_dist.y && max_dist.x < max_dist.z) {
+			result.dist = max_dist.x;
+			result.normal = { -step.x,0,0 };
+			voxel_position.x += step.x;
+			max_dist.x += delta_dist.x;
+
+			// Move to new chunk if boundery is crossed
+			if (voxel_position.x < 0 || voxel_position.x >= Chunk::ChunkLength) {
+				voxel_position.x = (step.x > 0) ? 0 : Chunk::ChunkLength - 1;
+				chunk_position.x += step.x;
+				current_chunk = GetChunk(chunk_position);
+			}
+		}
+		// Step along the z-axis
+		else if (max_dist.z < max_dist.y) {
+			result.dist = max_dist.z;
+			result.normal = { 0,0,-step.z };
+			voxel_position.z += step.z;
+			max_dist.z += delta_dist.z;
+
+			// Move to new chunk if boundery is crossed
+			if (voxel_position.z < 0 || voxel_position.z >= Chunk::ChunkLength) {
+				voxel_position.z = (step.z > 0) ? 0 : Chunk::ChunkLength - 1;
+				chunk_position.z += step.z;
+				current_chunk = GetChunk(chunk_position);
+			}
+		}
+		// Step along the y-axis
+		else {
+			result.dist = max_dist.y;
+			result.normal = { 0,-step.y,0 };
+			voxel_position.y += step.y;
+			max_dist.y += delta_dist.y;
+		}
+	}
+
+	// DEBUG INFO ========
+	std::cout << "chunk_position: " << VEC3_STR(chunk_position) << std::endl;
+	std::cout << "local_position: " << VEC3_STR(local_position) << std::endl;
+	if (result.hit) {
+		std::cout << "hit" << std::endl;
+		std::cout << "voxel_position: " << VEC3_STR(result.voxel_position) << std::endl;
+		std::cout << "normal: " << VEC3_STR(result.normal) << std::endl;
+		std::cout << "dist: " << result.dist << std::endl;
+	}
+	else {
+		std::cout << "Missed" << std::endl;
+	}
+	// ===================
+
+	return result;
 }
 
 void World::Render(const Ref<Camera>& camera) {
@@ -124,12 +271,8 @@ void World::Render(const Ref<Camera>& camera) {
 	m_MainShader->SetUniform("u_ViewProjection", camera->view_projection);
 	m_MainShader->SetUniform("u_Texture", m_Atlas);
 
-	glm::vec3 world_position = {
-		m_LoadedCenter.x * Chunk::ChunkLength,
-		m_LoadedCenter.y * Chunk::ChunkHeight,
-		m_LoadedCenter.z * Chunk::ChunkLength,
-	};
-	glm::mat4 world = glm::mat4(1.0f);//= glm::translate(glm::mat4(1.0f), world_position);
+	glm::vec3 world_position = glm::vec3(0.5f);
+	glm::mat4 world = glm::translate(glm::mat4(1.0f), world_position); 
 
 	for (int z = 0; z < m_LoadedRadius * 2 + 1; z++) {
 		for (int x = 0; x < m_LoadedRadius * 2 + 1; x++) {
@@ -137,7 +280,7 @@ void World::Render(const Ref<Camera>& camera) {
 			glm::mat4 model = glm::translate(world, position);
 			m_MainShader->SetUniform("u_Model", model);
 
-			Ref<VertexArray>& vao = m_ChunkMeshes[x + z * m_LoadedDiameter];
+			Ref<VertexArray>& vao = m_ChunkMeshes[x + z * m_LoadedWidth];
 			vao->Bind();
 			glDrawElements(GL_TRIANGLES, vao->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
 			vao->Unbind();
@@ -151,12 +294,12 @@ void World::Update(const glm::vec3& position) {
 	glm::vec3 chunk_position = Chunk::GetBlockChunkPosition(position);
 	glm::vec3 chunk_delta = chunk_position - m_LoadedCenter;
 	if (chunk_delta.x != 0 || chunk_delta.y != 0 || chunk_delta.z != 0) {
-		std::cout << "Moved Chunks: " << chunk_delta.x << ", " << chunk_delta.y << ", " << chunk_delta.z << std::endl;
 		m_LoadedCenter = chunk_position;
-		LoadChunks(chunk_delta);
+		LoadChunks({ chunk_delta.x, chunk_delta.y });
 	}
 }
-void World::LoadChunks(const glm::vec3& delta) {
+
+void World::LoadChunks(const glm::vec2& delta) {
 	
 }
 
@@ -215,17 +358,25 @@ void ChunkMesher::MeshFace(const glm::vec3& position, const glm::vec3& face_dir,
 
 	// Check if adjacent block is in the curent chunk
 	if (!m_Chunk->IsValid(other_pos) && other_pos.y >= 0 && other_pos.y < Chunk::ChunkHeight) {
-
+		
 		// Get chunk the adjacent block is in
-		glm::vec3 other_chunk_pos = Chunk::GetBlockChunkPosition(other_pos);
+		glm::vec3 other_world_pos = {
+			m_Chunk->GetPosition().x * Chunk::ChunkLength + other_pos.x,
+			other_pos.y,
+			m_Chunk->GetPosition().z * Chunk::ChunkLength + other_pos.z,
+		};
+		glm::vec3 other_chunk_pos = Chunk::GetBlockChunkPosition(other_world_pos);
 		Chunk* other_chunk = m_World->GetChunk(other_chunk_pos);
+		
+		// Don't mesh face if at the edge of the loaded world
+		if (!other_chunk) return;
 
 		// Find adjacent block position in the other chunk
 		if      (face_dir.x > 0) other_pos.x = 0;
 		else if (face_dir.x < 0) other_pos.x = Chunk::ChunkLength - 1;
 		else if (face_dir.z > 0) other_pos.z = 0;
 		else if (face_dir.z < 0) other_pos.z = Chunk::ChunkLength - 1;
-
+		
 		// Mesh face if adjacent block is not void
 		if (!other_chunk->IsVoid(other_pos)) return;
 	}
@@ -244,25 +395,3 @@ void ChunkMesher::MeshFace(const glm::vec3& position, const glm::vec3& face_dir,
 	}
 	m_VertexOffset += c_FaceVertexCount;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-/*glm::vec3 other = position + face_dir;
-	if (!m_Chunk->IsValid(other)) {
-		other.x = (int)(Chunk::ChunkLength + other.x) % Chunk::ChunkLength;
-		other.y = (int)(Chunk::ChunkHeight + other.y) % Chunk::ChunkHeight;
-		other.z = (int)(Chunk::ChunkLength + other.z) % Chunk::ChunkLength;
-		Chunk* chunk = m_World->GetChunk(m_Chunk->m_Position + face_dir);
-		if (chunk != nullptr && !chunk->IsVoid(other)) return;
-	}
-	else if (!m_Chunk->IsVoid(other)) return;*/

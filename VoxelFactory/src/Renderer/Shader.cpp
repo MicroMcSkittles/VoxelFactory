@@ -21,8 +21,8 @@ std::string ReadSource(const std::string& filename) {
 Shader::Shader(const std::string& vertex_path, const std::string& fragment_path) {
 
 	// Load source
-	std::string vertex_source = ReadSource("assets/shaders/Main.vert");
-	std::string fragment_source = ReadSource("assets/shaders/Main.frag");
+	std::string vertex_source = ReadSource(vertex_path);
+	std::string fragment_source = ReadSource(fragment_path);
 	const char* vertex_c_cource = vertex_source.c_str();
 	const char* fragment_c_cource = fragment_source.c_str();
 

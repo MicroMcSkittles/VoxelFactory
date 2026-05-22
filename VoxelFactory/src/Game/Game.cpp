@@ -1,5 +1,8 @@
 #include "Game/Game.h"
 #include "Core/ImGuiHandler.h"
+#include "Core/Utils.h"
+
+#include <iostream>
 
 #include <GLFW/glfw3.h>
 #include <glad/glad.h>
@@ -14,9 +17,12 @@ Game::Game() {
 
 	m_Focused = false;
 	m_MouseAvalible = true;
+	m_MouseLClickLast = false;
 	m_CameraSpeed = 24.0f;
 	m_MouseSensitivity = 0.1f;
 	m_LastMousePos = glm::vec2(0.0f);
+
+	m_DebugLineMesh = nullptr;
 }
 Game::~Game() { }
 
@@ -44,11 +50,20 @@ void Game::OnResize(int width, int height) {
 	glViewport(0, 0, width, height);
 }
 
+// Man, this function is awful
 void Game::UpdateCamera(float delta_time) {
 	GLFWwindow* window_handle = (GLFWwindow*)m_Window->GetHandle();
 	
+	bool mouse_left_click = glfwGetMouseButton(window_handle, GLFW_MOUSE_BUTTON_LEFT);
+	if (mouse_left_click && !m_MouseLClickLast) {
+		if (m_Focused) HandleClick();
+		m_MouseLClickLast = true;
+	}
+	else if (!mouse_left_click && m_MouseLClickLast) {
+		m_MouseLClickLast = false;
+	}
 	// Capture mouse on left click, release on escape
-	if (!m_Focused && m_MouseAvalible && glfwGetMouseButton(window_handle, GLFW_MOUSE_BUTTON_LEFT)) {
+	if (!m_Focused && m_MouseAvalible && mouse_left_click) {
 		m_Focused = true;
 		double mouse_x = 0.0, mouse_y = 0.0;
 		glfwGetCursorPos(window_handle, &mouse_x, &mouse_y);
@@ -100,6 +115,14 @@ void Game::UpdateCamera(float delta_time) {
 		m_Camera->UpdateView();
 	}
 }
+void Game::HandleClick() {
+	RayResultData ray_data = m_World->CastRay({ m_Camera->position, m_Camera->direction });
+	if (ray_data) {
+		glm::vec3 hit_position = m_Camera->position + m_Camera->direction * ray_data.dist;
+		PushDebugLine({ m_Camera->position, hit_position, { 1.0f,0.0f,1.0f } });
+		PushDebugLine({ hit_position, hit_position + (ray_data.normal * 2.0f), { 0.0f,1.0f,1.0f } });
+	}
+}
 
 void Game::StartUp() {
 	// Create window and set window events
@@ -125,10 +148,13 @@ void Game::StartUp() {
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
 	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	glLineWidth(1.0f);
 	glViewport(0, 0, m_Window->GetWidth(), m_Window->GetHeight());
 	glClearColor(0.125, 0.13, 0.2, 1);
 
 	ImGuiHandler::Init(m_Window);
+
+	m_DebugShader = CreateRef<Shader>("assets/shaders/DebugLine.vert", "assets/shaders/DebugLine.frag");
 }
 void Game::Update(float delta_time) {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -139,24 +165,68 @@ void Game::Update(float delta_time) {
 	m_World->Update(m_Camera->position);
 	m_World->Render(m_Camera);
 
+	ShowDebugLines();
+
 	ShowImGui();
 	ImGuiHandler::EndFrame();
 }
 void Game::ShowImGui() {
 
 	ImGui::Begin("Debug Menu");
-	glm::vec3 block_pos = { roundf(m_Camera->position.x), roundf(m_Camera->position.y), roundf(m_Camera->position.z) };
+	ImVec2 window_pos = ImGui::GetWindowPos();
+	glm::vec3 block_pos = Chunk::GetBlockPosition(m_Camera->position);
 	glm::vec3 chunk_pos = Chunk::GetBlockChunkPosition(m_Camera->position);
+	glm::vec3 chunk_block_pos = Chunk::GetBlockLocalPosition(block_pos);
 	ImGui::Text("Player Position: ( %.2f, %.2f, %.2f )", m_Camera->position.x, m_Camera->position.y, m_Camera->position.z);
 	ImGui::Text("Player Block Position: ( %d, %d, %d )", (int)block_pos.x, (int)block_pos.y, (int)block_pos.z);
-	ImGui::Text("Player Chunk Position: ( %d, %d, %d )", (int)chunk_pos.x, (int)chunk_pos.y, (int)chunk_pos.z);
+	ImGui::Text("Player Chunk Block Position: ( %d, %d, %d )", (int)chunk_block_pos.x, (int)chunk_block_pos.y, (int)chunk_block_pos.z);
+	ImGui::Text("Player Chunk Position: ( %d, %d )", (int)chunk_pos.x, (int)chunk_pos.z);
 	
 	ImGui::InputFloat("Camera Speed", &m_CameraSpeed);
 
-	m_MouseAvalible = !ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow) || !ImGui::IsAnyItemHovered();
-	ImGui::End();
+	if (ImGui::Button("Clear Debug Lines")) {
+		ClearDebugLines();
+	}
 
+	ImVec2 window_size = ImGui::GetWindowSize();
+	window_size.x += window_pos.x;
+	window_size.y += window_pos.y;
+	ImGui::End();
+	ImVec2 cursor_pos = ImGui::GetMousePos();
+	
+	m_MouseAvalible = (window_pos.x > cursor_pos.x || window_size.x < cursor_pos.x) || (window_pos.y > cursor_pos.y || window_size.y < cursor_pos.y);
+	m_MouseAvalible &= !m_Focused;
 }
 void Game::ShutDown() {
 
+}
+
+void Game::ClearDebugLines() {
+	m_DebugLines.clear();
+	m_DebugLineMesh = nullptr;
+}
+void Game::PushDebugLine(const DebugLine& line) {
+	m_DebugLines.push_back(line);
+}
+void Game::ShowDebugLines() {
+	if (m_DebugLines.empty()) return;
+	m_DebugLineMesh = CreateRef<VertexArray>();
+	m_DebugLineMesh->Bind();
+
+	Ref<VertexBuffer> vertex_buffer = CreateRef<VertexBuffer>(m_DebugLines.data(), m_DebugLines.size() * sizeof(DebugLine));
+	vertex_buffer->Bind();
+	constexpr size_t c_Stride = 6 * sizeof(float);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, c_Stride, (void*)0);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, c_Stride, (void*)(3 * sizeof(float)));
+	glEnableVertexAttribArray(1);
+	m_DebugLineMesh->GetVertexBuffer() = vertex_buffer;
+
+	m_DebugShader->Bind();
+	m_DebugShader->SetUniform("u_ViewProjection", m_Camera->view_projection);
+
+	glDrawArrays(GL_LINES, 0, 2 * m_DebugLines.size());
+
+	m_DebugShader->Unbind();
+	m_DebugLineMesh->Unbind();
 }

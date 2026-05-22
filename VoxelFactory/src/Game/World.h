@@ -42,7 +42,9 @@ public:
 	glm::vec3 ToWorld(const glm::vec3& position);
 
 	const glm::vec3& GetPosition() { return m_Position; }
-	static glm::vec3 GetBlockChunkPosition(const glm::vec3& position);
+	static glm::vec3 GetBlockChunkPosition(const glm::vec3& position); // Returns the position of the chunk a block is in
+	static glm::vec3 GetBlockLocalPosition(const glm::vec3& position); // Returns the local position of a block in a chunk
+	static glm::vec3 GetBlockPosition(const glm::vec3& position); // Returns the position of the voxel a point is in
 
 private:
 	std::vector<Block> m_Blocks;
@@ -57,6 +59,23 @@ public:
 	const static int ChunkDataSize = ChunkArea * ChunkHeight; // Total number of blocks
 };
 
+struct Ray {
+	glm::vec3 origin;
+	glm::vec3 direction;
+	glm::vec3 inv_direction;
+
+	Ray(const glm::vec3& origin, const glm::vec3& direction) :
+		origin(origin), direction(direction), inv_direction(1.0f / direction) { }
+};
+struct RayResultData {
+	bool hit = false;
+	float dist = 0.0f;
+	glm::vec3 voxel_position = glm::vec3(0.0f);
+	glm::vec3 normal = glm::vec3(0.0f);
+
+	operator bool() { return hit; }
+};
+
 class World {
 public:
 	World();
@@ -67,16 +86,18 @@ public:
 
 	Chunk* GetChunk(const glm::vec3& position);
 
+	RayResultData CastRay(const Ray& ray);
+
 private:
-	void LoadChunks(const glm::vec3& delta);
+	RayResultData RayAABBIntersection(const Ray& ray, const glm::vec3& aabb_min, const glm::vec3& aabb_max);
+	void LoadChunks(const glm::vec2& delta);
 
 private:
 	glm::vec3 m_LoadedCenter; // The point in the middle of the currently loaded chunks
-	int m_LoadedRadius;  // The radius around m_LoadedCenter where chunks are loaded
-	int m_LoadedDiameter;
+	int m_LoadedRadius;
+	int m_LoadedWidth;
 	int m_LoadedArea;
 
-	std::vector<size_t> m_ChunkIndices;
 	std::vector<Chunk> m_Chunks;
 	std::vector<Ref<VertexArray>> m_ChunkMeshes;
 
