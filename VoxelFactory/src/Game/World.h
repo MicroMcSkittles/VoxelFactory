@@ -112,6 +112,7 @@ struct ChunkVertex {
 	glm::vec3 position;
 	glm::vec3 normal;
 	glm::vec2 tex_coord;
+	float ambient_occlusion;
 	uint32_t id;
 };
 class ChunkMesher {
@@ -122,6 +123,7 @@ public:
 	Ref<VertexArray> Mesh();
 
 private:
+	bool IsVoid(const glm::vec3& position);
 	void MeshFace(const glm::vec3& position, const glm::vec3& face_dir, uint32_t id, const ChunkVertex* data);
 
 private:

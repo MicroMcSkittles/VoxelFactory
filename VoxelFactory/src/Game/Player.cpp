@@ -139,6 +139,10 @@ void Player::HandleRightClick() {
 
 	// Rebuild affected chunks
 	m_World->RebuildChunk(chunk_position);
+	if (local_position.x == 0) m_World->RebuildChunk({ chunk_position.x - 1, 0, chunk_position.z });
+	else if (local_position.x == Chunk::ChunkLength - 1) m_World->RebuildChunk({ chunk_position.x + 1, 0, chunk_position.z });
+	if (local_position.z == 0) m_World->RebuildChunk({ chunk_position.x, 0, chunk_position.z - 1 });
+	else if (local_position.z == Chunk::ChunkLength - 1) m_World->RebuildChunk({ chunk_position.x, 0, chunk_position.z + 1 });
 }
 void Player::InitSelector() {
 	m_SelectorMesh = CreateRef<VertexArray>();

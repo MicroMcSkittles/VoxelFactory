@@ -67,6 +67,9 @@ Chunk::Chunk(const glm::vec3& position) {
 Chunk::~Chunk() { }
 
 Block& Chunk::At(const glm::vec3& position) {
+	if (position.x < 0 || position.x >= ChunkLength) return Block::Invalid;
+	if (position.y < 0 || position.y >= ChunkHeight) return Block::Invalid;
+	if (position.z < 0 || position.z >= ChunkLength) return Block::Invalid;
 	size_t index = position.x + position.z * ChunkLength + position.y * ChunkArea;
 	if (index >= ChunkDataSize) return Block::Invalid;
 	return m_Blocks[index];
@@ -337,15 +340,17 @@ Ref<VertexArray> ChunkMesher::Mesh() {
 
 	Ref<VertexBuffer> vertex_buffer = CreateRef<VertexBuffer>(m_Vertices.data(), m_Vertices.size() * sizeof(ChunkVertex));
 	vertex_buffer->Bind();
-	constexpr size_t stride = 8 * sizeof(float) + sizeof(uint32_t);
+	constexpr size_t stride = 9 * sizeof(float) + sizeof(uint32_t);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
 	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(float)));
 	glEnableVertexAttribArray(1);
 	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (void*)(6 * sizeof(float)));
 	glEnableVertexAttribArray(2);
-	glVertexAttribIPointer(3, 1, GL_UNSIGNED_INT, stride, (void*)(8 * sizeof(float)));
+	glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, stride, (void*)(8 * sizeof(float)));
 	glEnableVertexAttribArray(3);
+	glVertexAttribIPointer(4, 1, GL_UNSIGNED_INT, stride, (void*)(9 * sizeof(float)));
+	glEnableVertexAttribArray(4);
 	vertex_array->GetVertexBuffer() = vertex_buffer;
 
 	Ref<IndexBuffer> index_buffer = CreateRef<IndexBuffer>(m_Indices.data(), m_Indices.size() * sizeof(uint32_t));
@@ -353,6 +358,18 @@ Ref<VertexArray> ChunkMesher::Mesh() {
 
 	vertex_array->Unbind();
 	return vertex_array;
+}
+bool ChunkMesher::IsVoid(const glm::vec3& position) {
+	if (m_Chunk->IsValid(position)) return m_Chunk->IsVoid(position);
+	glm::vec3 world_pos = {
+		m_Chunk->GetPosition().x * Chunk::ChunkLength + position.x,
+		position.y,
+		m_Chunk->GetPosition().z * Chunk::ChunkLength + position.z,
+	};
+	glm::vec3 other_chunk_pos = Chunk::GetBlockChunkPosition(world_pos);
+	Chunk* other_chunk = m_World->GetChunk(other_chunk_pos);
+	if (!other_chunk) return true;
+	return other_chunk->IsVoid(Chunk::GetBlockLocalPosition(position));
 }
 void ChunkMesher::MeshFace(const glm::vec3& position, const glm::vec3& face_dir, uint32_t id, const ChunkVertex* data) {
 	
@@ -388,6 +405,30 @@ void ChunkMesher::MeshFace(const glm::vec3& position, const glm::vec3& face_dir,
 	// Add face data to mesh
 	for (int i = 0; i < c_FaceVertexCount; i++) {
 		ChunkVertex vertex = data[i];
+		// Calculate ambient occlusion
+		glm::vec3 step = vertex.position * 2.0f;
+
+		glm::vec3 left_voxel_offset = glm::vec3(0.0f);
+		glm::vec3 right_voxel_offset = glm::vec3(0.0f);
+		if (face_dir.x != 0) {
+			left_voxel_offset = glm::vec3(step.x, step.y, 0.0f);
+			right_voxel_offset = glm::vec3(step.x, 0.0f, step.z);
+		}
+		else if (face_dir.y != 0) {
+			left_voxel_offset = glm::vec3(step.x, step.y, 0.0f);
+			right_voxel_offset = glm::vec3(0.0f, step.y, step.z);
+		}
+		else if (face_dir.z != 0) {
+			left_voxel_offset = glm::vec3(step.x, 0.0f, step.z);
+			right_voxel_offset = glm::vec3(0.0f, step.y, step.z);
+		}
+		uint32_t left_voxel   = !IsVoid(position + left_voxel_offset);
+		uint32_t right_voxel  = !IsVoid(position + right_voxel_offset);
+		uint32_t corner_voxel = !IsVoid(position + step);
+
+		if (left_voxel && right_voxel) vertex.ambient_occlusion = 0;
+		else vertex.ambient_occlusion = 3 - (left_voxel + right_voxel + corner_voxel);
+
 		vertex.position += position;
 		vertex.id = id;
 		m_Vertices.push_back(vertex);

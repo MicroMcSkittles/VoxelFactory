@@ -1,11 +1,12 @@
 #version 460 core
 out vec4 o_FragColor;
 
-uniform vec3 u_LightDirection; // -0.6, -0.8, -0.55
 uniform sampler2D u_Texture;
 in vec2 TexCoord;
-in vec3 Normal;
 flat in uint TextureID;
+
+in float AmbientOcclusion;
+in vec3 Normal;
 
 const int c_AtlasSize = 16;
 
@@ -19,7 +20,7 @@ void main() {
     
     // Apply basic lighting
     const vec3 light_direction = normalize(-vec3(-0.6, -0.8, -0.55));
-    const vec3 ambient = vec3(0.4);
+    const vec3 ambient = vec3(0.3 * AmbientOcclusion);
     const vec3 diffuse = vec3(max(dot(Normal, light_direction), 0.0));
 
     o_FragColor = vec4(ambient + diffuse, 1.0) * texture_color;
