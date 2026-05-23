@@ -115,18 +115,16 @@ void Game::ShowImGui() {
 
 	ImGui::Begin("Debug Menu");
 	ImVec2 window_pos = ImGui::GetWindowPos();
-	glm::vec3 block_pos = Chunk::GetBlockPosition(m_Camera->position);
-	glm::vec3 chunk_pos = Chunk::GetBlockChunkPosition(m_Camera->position);
-	glm::vec3 chunk_block_pos = Chunk::GetBlockLocalPosition(block_pos);
-	ImGui::Text("Player Position: ( %.2f, %.2f, %.2f )", m_Camera->position.x, m_Camera->position.y, m_Camera->position.z);
-	ImGui::Text("Player Block Position: ( %d, %d, %d )", (int)block_pos.x, (int)block_pos.y, (int)block_pos.z);
-	ImGui::Text("Player Chunk Block Position: ( %d, %d, %d )", (int)chunk_block_pos.x, (int)chunk_block_pos.y, (int)chunk_block_pos.z);
-	ImGui::Text("Player Chunk Position: ( %d, %d )", (int)chunk_pos.x, (int)chunk_pos.z);
 	
-	//ImGui::InputFloat("Camera Speed", &m_CameraSpeed);
-
 	if (ImGui::Button("Clear Debug Lines")) {
 		ClearDebugLines();
+	}
+	
+	if (ImGui::CollapsingHeader("Player")) {
+		m_Player->ShowImGui();
+	}
+	if (ImGui::CollapsingHeader("World")) {
+		m_World->ShowImGui();
 	}
 
 	ImVec2 window_size = ImGui::GetWindowSize();

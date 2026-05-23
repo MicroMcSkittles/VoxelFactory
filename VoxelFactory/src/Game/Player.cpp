@@ -4,7 +4,10 @@
 #include <GLFW/glfw3.h>
 #include <glad/glad.h>
 #include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+
+#include <imgui.h>
 
 Player::Player(const Ref<Camera>& camera, const Ref<World>& world)
 	: m_Camera(camera), m_World(world) {
@@ -19,6 +22,27 @@ Player::Player(const Ref<Camera>& camera, const Ref<World>& world)
 	m_MouseRClickLast = false;
 
 	InitSelector();
+}
+
+void Player::ShowImGui() {
+	glm::vec3 block_pos = Chunk::GetBlockPosition(m_Camera->position);
+	glm::vec3 chunk_pos = Chunk::GetBlockChunkPosition(m_Camera->position);
+	glm::vec3 chunk_block_pos = Chunk::GetBlockLocalPosition(block_pos);
+	
+	if (ImGui::InputFloat3("Position", glm::value_ptr(m_Camera->position))) {
+		m_Camera->UpdateView();
+	}
+	ImGui::Text("Block Position: ( %d, %d, %d )", (int)block_pos.x, (int)block_pos.y, (int)block_pos.z);
+	ImGui::Text("Chunk Block Position: ( %d, %d, %d )", (int)chunk_block_pos.x, (int)chunk_block_pos.y, (int)chunk_block_pos.z);
+	ImGui::Text("Chunk Position: ( %d, %d )", (int)chunk_pos.x, (int)chunk_pos.z);
+	ImGui::Separator();
+
+	ImGui::Text("Selector Visible: %s", (m_ShowSelector ? "true" : "false"));
+	ImGui::Text("Selector Position: ( %d, %d, %d )", (int)m_SelectorPosition.x, (int)m_SelectorPosition.y, (int)m_SelectorPosition.z);
+	ImGui::Separator();
+
+	ImGui::InputFloat("Speed", &m_Speed);
+	ImGui::InputFloat("Mouse Sensitivity", &m_MouseSensitivity);
 }
 
 void Player::Update(float delta_time, glm::vec2& last_mouse_pos, const Ref<Window>& window) {

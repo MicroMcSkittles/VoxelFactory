@@ -11,6 +11,7 @@ public:
 
 	Player(const Ref<Camera>& camera, const Ref<World>& world);
 
+	void ShowImGui();
 	void Update(float delta_time, glm::vec2& last_mouse_pos, const Ref<Window>& window);
 
 private:

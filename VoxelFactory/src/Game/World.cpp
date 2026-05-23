@@ -1,10 +1,14 @@
 #include "Game/World.h"
 #include "Core/Utils.h"
+
 #include <algorithm>
 #include <iostream>
-#include <glad/glad.h>
-#include <glm/gtc/matrix_transform.hpp>
 #include <limits>
+
+#include <imgui.h>
+#include <glad/glad.h>
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 #define TEX_COORD(x,y) y * 16 + x
 
@@ -290,6 +294,10 @@ void World::Update(const glm::vec3& position) {
 		LoadChunks({ chunk_delta.x, chunk_delta.y });
 	}
 }
+void World::ShowImGui() {
+	ImGui::Text("Chunk Count: %d", m_Chunks.size());
+	ImGui::Text("Loaded Radius: %d", m_LoadedRadius);
+}
 
 void World::LoadChunks(const glm::vec2& delta) {
 	
@@ -329,13 +337,15 @@ Ref<VertexArray> ChunkMesher::Mesh() {
 
 	Ref<VertexBuffer> vertex_buffer = CreateRef<VertexBuffer>(m_Vertices.data(), m_Vertices.size() * sizeof(ChunkVertex));
 	vertex_buffer->Bind();
-	constexpr size_t stride = 5 * sizeof(float) + sizeof(uint32_t);
+	constexpr size_t stride = 8 * sizeof(float) + sizeof(uint32_t);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
 	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(float)));
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(float)));
 	glEnableVertexAttribArray(1);
-	glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT, stride, (void*)(5 * sizeof(float)));
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (void*)(6 * sizeof(float)));
 	glEnableVertexAttribArray(2);
+	glVertexAttribIPointer(3, 1, GL_UNSIGNED_INT, stride, (void*)(8 * sizeof(float)));
+	glEnableVertexAttribArray(3);
 	vertex_array->GetVertexBuffer() = vertex_buffer;
 
 	Ref<IndexBuffer> index_buffer = CreateRef<IndexBuffer>(m_Indices.data(), m_Indices.size() * sizeof(uint32_t));
