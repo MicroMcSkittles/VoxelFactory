@@ -59,6 +59,20 @@ public:
 	const static int ChunkDataSize = ChunkArea * ChunkHeight; // Total number of blocks
 };
 
+struct AABB {
+	glm::vec3 min;
+	glm::vec3 max;
+	glm::vec3 position;
+	glm::vec3 size;
+
+	void SetPosition(const glm::vec3& position) { this->position = position; CalculateMinMax(); }
+	void SetSize(const glm::vec3& size) { this->size = size; CalculateMinMax(); }
+	void CalculateMinMax();
+
+	AABB();
+	AABB(const glm::vec3& min, const glm::vec3& max, const glm::vec3& position, const glm::vec3& size);
+	AABB(const glm::vec3& position, const glm::vec3& size);
+};
 struct Ray {
 	glm::vec3 origin;
 	glm::vec3 direction;
@@ -67,7 +81,7 @@ struct Ray {
 	Ray(const glm::vec3& origin, const glm::vec3& direction) :
 		origin(origin), direction(direction), inv_direction(1.0f / direction) { }
 };
-struct RayResultData {
+struct CollisionResultData {
 	bool hit = false;
 	float dist = 0.0f;
 	glm::vec3 voxel_position = glm::vec3(0.0f);
@@ -86,13 +100,22 @@ public:
 	void Update(const glm::vec3& position);
 	void Render(const Ref<Camera>& camera);
 
+	void SetVoxel(const glm::vec3& position, uint8_t new_id);
 	Chunk* GetChunk(const glm::vec3& position);
 	void RebuildChunk(const glm::vec3& position);
 
-	RayResultData CastRay(const Ray& ray);
+	CollisionResultData CastRay(const Ray& ray);
+
+	std::vector<glm::vec3> AABBIntersectedVoxels(const AABB& aabb);
+	bool WillIntersect(const AABB& aabb, const glm::vec3& voxel);
+	bool ResolveDynamicAABB(const AABB& aabb, glm::vec3& velocity, glm::vec3& normal);
+
+	bool IsVoid(const glm::vec3& position);
 
 private:
-	RayResultData RayAABBIntersection(const Ray& ray, const glm::vec3& aabb_min, const glm::vec3& aabb_max);
+	CollisionResultData LineAABBIntersection(const glm::vec3& start_position, const glm::vec3& end_position, const AABB& aabb);
+	CollisionResultData DynamicAABBIntersection(const AABB& aabb, const glm::vec3& velocity, const AABB& target);
+	CollisionResultData RayAABBIntersection(const Ray& ray, const glm::vec3& aabb_min, const glm::vec3& aabb_max);
 	void LoadChunks(const glm::vec2& delta);
 
 private:

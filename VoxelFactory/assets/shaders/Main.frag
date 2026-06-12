@@ -20,8 +20,8 @@ void main() {
     
     // Apply basic lighting
     const vec3 light_direction = normalize(-vec3(-0.6, -0.8, -0.55));
-    const vec3 ambient = vec3(0.3 * AmbientOcclusion);
     const vec3 diffuse = vec3(max(dot(Normal, light_direction), 0.0));
+    vec3 ambient = vec3(0.3);
 
-    o_FragColor = vec4(ambient + diffuse, 1.0) * texture_color;
+    o_FragColor = vec4((ambient + diffuse * 0.4) * AmbientOcclusion, 1.0) * texture_color;
 } 

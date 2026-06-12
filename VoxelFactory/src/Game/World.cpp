@@ -35,6 +35,28 @@ std::vector<Block::TextureIDs> Block::BlockTextureIDs = {
 	{ TEX_COORD(11,3), TEX_COORD(11,3), TEX_COORD(12,3), TEX_COORD(11,3), TEX_COORD(11,2), TEX_COORD(10,4) }, // Work bench
 };
 
+AABB::AABB() : min(0.0f), max(0.0f), position(0.0f), size(0.0f) { }
+AABB::AABB(const glm::vec3& min, const glm::vec3& max, const glm::vec3& position, const glm::vec3& size)
+	: min(min), max(max), position(position), size(size) { }
+AABB::AABB(const glm::vec3& position, const glm::vec3& size)
+	: position(position), size(size) 
+{
+	CalculateMinMax();
+}
+
+void AABB::CalculateMinMax() {
+	min = {
+		position.x - size.x * 0.5f,
+		position.y - size.y * 0.5f,
+		position.z - size.z * 0.5f
+	};
+	max = {
+		position.x + size.x * 0.5f,
+		position.y + size.y * 0.5f,
+		position.z + size.z * 0.5f
+	};
+}
+
 Chunk::Chunk(const glm::vec3& position) {
 	m_Position = position;
 
@@ -123,6 +145,21 @@ World::World() : m_LoadedCenter({ 0,0,0 }), m_LoadedRadius(3) {
 }
 World::~World() { }
 
+void World::SetVoxel(const glm::vec3& position, uint8_t new_id) {
+	glm::vec3 local_position = Chunk::GetBlockLocalPosition(position);
+	glm::vec3 chunk_position = Chunk::GetBlockChunkPosition(position);
+	Chunk* chunk = GetChunk(chunk_position);
+	if (chunk == nullptr) return;
+	chunk->At(local_position).id = new_id;
+
+	// Rebuild affected chunks
+	RebuildChunk(chunk_position);
+	if (local_position.x == 0) RebuildChunk({ chunk_position.x - 1, 0, chunk_position.z });
+	else if (local_position.x == Chunk::ChunkLength - 1)RebuildChunk({ chunk_position.x + 1, 0, chunk_position.z });
+	if (local_position.z == 0) RebuildChunk({ chunk_position.x, 0, chunk_position.z - 1 });
+	else if (local_position.z == Chunk::ChunkLength - 1) RebuildChunk({ chunk_position.x, 0, chunk_position.z + 1 });
+}
+
 Chunk* World::GetChunk(const glm::vec3& position) {
 	// Check if chunk position is in bounds
 	if (position.x < -m_LoadedRadius || position.x > m_LoadedRadius ||
@@ -139,7 +176,56 @@ void World::RebuildChunk(const glm::vec3& position) {
 	m_ChunkMeshes[position.x + m_LoadedRadius + (position.z + m_LoadedRadius) * m_LoadedWidth] = ChunkMesher(chunk, this).Mesh();
 }
 
-RayResultData World::RayAABBIntersection(const Ray& ray, const glm::vec3& aabb_min, const glm::vec3& aabb_max) {
+CollisionResultData World::LineAABBIntersection(const glm::vec3& start_position, const glm::vec3& end_position, const AABB& aabb) {
+
+	// Find the distances from start position to the greater planes
+	glm::vec3 direction = end_position - start_position;
+	glm::vec3 near_dist = (aabb.position - (aabb.size * 0.5f) - start_position) / direction;
+	glm::vec3 far_dist = (aabb.position + (aabb.size * 0.5f) - start_position) / direction;
+
+	// Order values properly
+	if (far_dist.x < near_dist.x) std::swap(far_dist.x, near_dist.x);
+	if (far_dist.y < near_dist.y) std::swap(far_dist.y, near_dist.y);
+	if (far_dist.z < near_dist.z) std::swap(far_dist.z, near_dist.z);
+	
+	if (near_dist.x > far_dist.y) return { };
+	if (near_dist.y > far_dist.x) return { };
+	if (near_dist.z > far_dist.x) return { };
+
+	if (near_dist.x > far_dist.z) return { };
+	if (near_dist.y > far_dist.z) return { };
+	if (near_dist.z > far_dist.y) return { };
+
+	// Find distance to the entry point and exit point
+	float near_hit_dist = std::max({ near_dist.x, near_dist.y, near_dist.z });
+	float far_hit_dist = std::min({ far_dist.x, far_dist.y, far_dist.z });
+
+	// Discard if didn't intersect on the line
+	if (far_hit_dist < 0) return { };
+	if (near_hit_dist > 1) return { };
+
+	// Find normal
+	glm::vec3 normal = glm::vec3(0.0f);
+	if (near_dist.x > near_dist.y && near_dist.x > near_dist.z) {
+		if (direction.x < 0) normal = { 1.0f, 0.0f, 0.0f };
+		else normal = { -1.0f, 0.0f, 0.0f };
+	}
+	else if (near_dist.y > near_dist.z) {
+		if (direction.y < 0) normal = { 0.0f, 1.0f, 0.0f };
+		else normal = { 0.0f, -1.0f, 0.0f };
+	}
+	else {
+		if (direction.z < 0) normal = { 0.0f, 0.0f, 1.0f };
+		else normal = { 0.0f, 0.0f, -1.0f };
+	}
+
+	return { true, near_hit_dist, glm::vec3(0.0f), normal };
+}
+CollisionResultData World::DynamicAABBIntersection(const AABB& aabb, const glm::vec3& velocity, const AABB& target) {
+	AABB expanded_target = { target.position, target.size + aabb.size };
+	return LineAABBIntersection(aabb.position, aabb.position + velocity, expanded_target);
+}
+CollisionResultData World::RayAABBIntersection(const Ray& ray, const glm::vec3& aabb_min, const glm::vec3& aabb_max) {
 	
 	float min_dist = 0.0f;
 	float max_dist = std::numeric_limits<float>::max();
@@ -155,9 +241,9 @@ RayResultData World::RayAABBIntersection(const Ray& ray, const glm::vec3& aabb_m
 	if (max_dist >= min_dist) {
 		return { true, min_dist };
 	}
-	return { false };
+	return { };
 }
-RayResultData World::CastRay(const Ray& ray) {
+CollisionResultData World::CastRay(const Ray& ray) {
 
 	// Find current chunk position
 	float initial_dist = 0.0f;
@@ -178,7 +264,7 @@ RayResultData World::CastRay(const Ray& ray) {
 			Chunk::ChunkHeight,
 			(m_LoadedRadius + 1) * Chunk::ChunkLength
 		};
-		RayResultData aabb_result = RayAABBIntersection(ray, aabb_min, aabb_max);
+		CollisionResultData aabb_result = RayAABBIntersection(ray, aabb_min, aabb_max);
 		if (!aabb_result) return { false };
 
 		// Find entry point
@@ -213,7 +299,7 @@ RayResultData World::CastRay(const Ray& ray) {
 	glm::vec3 delta_dist = { fabsf(ray.inv_direction.x), fabsf(ray.inv_direction.y), fabsf(ray.inv_direction.z) };
 	
 	// Traversal loop
-	RayResultData result;
+	CollisionResultData result;
 	while (current_chunk != nullptr && current_chunk->IsValid(voxel_position)) {
 		// Exit loop if a voxel is hit
 		if (!current_chunk->IsVoid(voxel_position)) {
@@ -238,7 +324,7 @@ RayResultData World::CastRay(const Ray& ray) {
 			}
 		}
 		// Step along the z-axis
-		else if (max_dist.z < max_dist.y) {
+		else if (max_dist.z < max_dist.y || std::isnan(max_dist.y)) {
 			result.dist = max_dist.z;
 			result.normal = { 0,0,-step.z };
 			voxel_position.z += step.z;
@@ -261,6 +347,99 @@ RayResultData World::CastRay(const Ray& ray) {
 	}
 
 	return result;
+}
+
+std::vector<glm::vec3> World::AABBIntersectedVoxels(const AABB& aabb)
+{
+	// Get the min and max of effected area
+	glm::vec3 min_voxel = Chunk::GetBlockPosition(aabb.min);
+	glm::vec3 max_voxel = Chunk::GetBlockPosition(aabb.max);
+
+	std::vector<glm::vec3> intersected;
+
+	// Loop through each effected voxel
+	glm::vec3 voxel_position = glm::vec3(0.0f);
+	for (voxel_position.y = min_voxel.y; voxel_position.y <= max_voxel.y; voxel_position.y++) {
+		for (voxel_position.z = min_voxel.z; voxel_position.z <= max_voxel.z; voxel_position.z++) {
+			for (voxel_position.x = min_voxel.x; voxel_position.x <= max_voxel.x; voxel_position.x++) {
+
+				// Find chunk the voxel is in
+				glm::vec3 chunk_position = Chunk::GetBlockChunkPosition(voxel_position);
+				Chunk* chunk = GetChunk(chunk_position);
+				if (chunk == nullptr) continue;
+
+				// If current voxel isnt void then store voxel to intersected
+				glm::vec3 chunk_voxel_position = Chunk::GetBlockLocalPosition(voxel_position);
+				if (!chunk->IsVoid(chunk_voxel_position)) {
+					intersected.push_back(voxel_position);
+				}
+			}
+		}
+	}
+
+	return intersected;
+}
+bool World::WillIntersect(const AABB& aabb, const glm::vec3& voxel) {
+	// Get the min and max of effected area
+	glm::vec3 min_voxel = Chunk::GetBlockPosition(aabb.min);
+	glm::vec3 max_voxel = Chunk::GetBlockPosition(aabb.max);
+	if (min_voxel.x <= voxel.x && min_voxel.y <= voxel.y && min_voxel.z <= voxel.z &&
+		max_voxel.x >= voxel.x && max_voxel.y >= voxel.y && max_voxel.z >= voxel.z)
+		return true;
+	return false;
+}
+bool World::ResolveDynamicAABB(const AABB& aabb, glm::vec3& velocity, glm::vec3& normal) {
+	
+	// Find min and max of where collisions can occure
+	glm::vec3 search_area_min = Chunk::GetBlockPosition(aabb.min) - 2.0f;
+	glm::vec3 search_area_max = Chunk::GetBlockPosition(aabb.max) + 2.0f;
+
+	// Search the search area for any occupied voxels
+	std::vector<glm::vec3> potential_collisions;
+	for (int y = (int)search_area_min.y; y < (int)search_area_max.y; y++) {
+		for (int z = (int)search_area_min.z; z < (int)search_area_max.z; z++) {
+			for (int x = (int)search_area_min.x; x < (int)search_area_max.x; x++) {
+				glm::vec3 voxel = glm::vec3(x,y,z);
+				if (!IsVoid(voxel)) potential_collisions.push_back(voxel + 0.5f); // +0.5 to center the voxel
+			}
+		}
+	}
+	if (potential_collisions.empty()) return false;
+
+	// Check if potential collisions are collisions
+	std::vector<std::pair<float, glm::vec3>> collisions;
+	for (glm::vec3& voxel : potential_collisions) {
+		CollisionResultData collision_result = DynamicAABBIntersection(aabb, velocity, AABB{ voxel, glm::vec3(1.0f) });
+		if (collision_result.hit) collisions.push_back({ collision_result.dist, voxel });
+	}
+
+	// Sort collisions by distance
+	std::sort(collisions.begin(), collisions.end(), [](const std::pair<float, glm::vec3>& left, const std::pair<float, glm::vec3>& right) {
+		return left.first < right.first;
+	});
+
+	// Resolve collisions
+	for (std::pair<float, glm::vec3>& collision : collisions) {
+		glm::vec3 voxel = collision.second;
+		CollisionResultData collision_result = DynamicAABBIntersection(aabb, velocity, AABB{ voxel, glm::vec3(1.0f) });
+		glm::vec3 abs_velocity = { std::abs(velocity.x), std::abs(velocity.y), std::abs(velocity.z) };
+		velocity += collision_result.normal * (abs_velocity * (1.0f - collision_result.dist) + 0.001f);
+		normal += collision_result.normal;
+	}
+	normal = glm::normalize(normal);
+
+	return !collisions.empty();
+}
+
+bool World::IsVoid(const glm::vec3& position) {
+
+	// Get chunk
+	glm::vec3 chunk_position = Chunk::GetBlockChunkPosition(position);
+	Chunk* chunk = GetChunk(chunk_position);
+	if (chunk == nullptr) return true;
+
+	glm::vec3 local_voxel_position = Chunk::GetBlockLocalPosition(position);
+	return chunk->IsVoid(local_voxel_position);
 }
 
 void World::Render(const Ref<Camera>& camera) {
@@ -438,3 +617,4 @@ void ChunkMesher::MeshFace(const glm::vec3& position, const glm::vec3& face_dir,
 	}
 	m_VertexOffset += c_FaceVertexCount;
 }
+

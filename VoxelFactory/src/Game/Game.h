@@ -28,10 +28,7 @@ public:
 	void Run();
 
 	void OnResize(int width, int height);
-
-	// Processes user input for camera
-	//void UpdateCamera(float delta_time);
-	//void HandleClick();
+	void OnMouseClick(int button, int action, int mods);
 
 	void StartUp();
 	void Update(float delta_time);
@@ -41,6 +38,10 @@ public:
 	void ClearDebugLines();
 	static void PushDebugLine(const DebugLine& line);
 	void ShowDebugLines();
+
+private:
+	void OnLeftClick();
+	void OnRightClick();
 
 private:
 	// Misc
@@ -59,9 +60,6 @@ private:
 	// Input
 	bool m_Focused;
 	bool m_MouseAvalible;
-	//bool m_MouseLClickLast;
-	//float m_CameraSpeed;
-	//float m_MouseSensitivity;
 	glm::vec2 m_LastMousePos;
 
 };

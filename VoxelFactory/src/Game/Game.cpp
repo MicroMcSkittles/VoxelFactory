@@ -47,14 +47,45 @@ void Game::OnResize(int width, int height) {
 	m_Camera->UpdateProjection();
 	glViewport(0, 0, width, height);
 }
+void Game::OnMouseClick(int button, int action, int mods) {
+	if (action != GLFW_PRESS) return;
+	if (button == GLFW_MOUSE_BUTTON_LEFT) OnLeftClick();
+	else if (button == GLFW_MOUSE_BUTTON_RIGHT) OnRightClick();
+}
+void Game::OnLeftClick() {
+	GLFWwindow* window_handle = (GLFWwindow*)m_Window->GetHandle();
+
+	// If window not focused and mouse isnt hovering gui than capture cursor
+	if (!m_Focused && m_MouseAvalible) {
+		m_Focused = true;
+
+		double mouse_x = 0.0, mouse_y = 0.0;
+		glfwGetCursorPos(window_handle, &mouse_x, &mouse_y);
+		m_LastMousePos = glm::vec2(static_cast<float>(mouse_x), static_cast<float>(mouse_y));
+		glfwSetInputMode(window_handle, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+	
+		return;
+	}
+	else if (!m_Focused) return;
+
+	m_Player->OnLeftClick();
+}
+void Game::OnRightClick() {
+	m_Player->OnRightClick();
+}
 
 void Game::StartUp() {
 	// Create window and set window events
 	m_Window = CreateRef<Window>(1080, 800, "Voxel Factory");
-	glfwSetWindowUserPointer((GLFWwindow*)m_Window->GetHandle(), this);
-	glfwSetWindowSizeCallback((GLFWwindow*)m_Window->GetHandle(), [](GLFWwindow* window, int width, int height) {
+	GLFWwindow* window_handle = (GLFWwindow*)m_Window->GetHandle();
+	glfwSetWindowUserPointer(window_handle, this);
+	glfwSetWindowSizeCallback(window_handle, [](GLFWwindow* window, int width, int height) {
 		Game* game = reinterpret_cast<Game*>(glfwGetWindowUserPointer(window));
 		game->OnResize(width, height);
+	});
+	glfwSetMouseButtonCallback(window_handle, [](GLFWwindow* window, int button, int action, int mods) {
+		Game* game = reinterpret_cast<Game*>(glfwGetWindowUserPointer(window));
+		game->OnMouseClick(button, action, mods);
 	});
 
 	m_World = CreateRef<World>();
@@ -65,14 +96,14 @@ void Game::StartUp() {
 	frustum.fov = PI / 4.0f; // 45 degrees
 	frustum.near = 0.1f;
 	frustum.far = 1000.0f;
-	m_Camera = CreateRef<Camera>(frustum, glm::vec3(0.0f, 18.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	m_Camera = CreateRef<Camera>(frustum, glm::vec3(0.0f, 20.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 	m_Camera->eular.y = PIHalf;
 
 	// Other open gl configs
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
 	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-	glLineWidth(1.0f);
+	glLineWidth(3.0f);
 	glViewport(0, 0, m_Window->GetWidth(), m_Window->GetHeight());
 	glClearColor(0.125, 0.13, 0.2, 1);
 
@@ -87,23 +118,20 @@ void Game::Update(float delta_time) {
 	ImGuiHandler::StartFrame();
 
 	GLFWwindow* window_handle = (GLFWwindow*)m_Window->GetHandle();
-
-	if (!m_Focused && m_MouseAvalible && glfwGetMouseButton(window_handle, GLFW_MOUSE_BUTTON_LEFT)) {
-		m_Focused = true;
-		double mouse_x = 0.0, mouse_y = 0.0;
-		glfwGetCursorPos(window_handle, &mouse_x, &mouse_y);
-		m_LastMousePos = glm::vec2(static_cast<float>(mouse_x), static_cast<float>(mouse_y));
-		glfwSetInputMode(window_handle, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-	}
-	else if (m_Focused) {
-		m_Player->Update(delta_time, m_LastMousePos, m_Window);
-	}
+	
+	// Release mouse on escape
 	if (glfwGetKey(window_handle, GLFW_KEY_ESCAPE)) {
 		m_Focused = false;
 		glfwSetInputMode(window_handle, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 	}
 
+	if (m_Focused) {
+		m_Player->Update(delta_time, m_LastMousePos, m_Window);
+	}
+
 	m_World->Update(m_Camera->position);
+
+	m_Player->Render();
 	m_World->Render(m_Camera);
 
 	ShowDebugLines();

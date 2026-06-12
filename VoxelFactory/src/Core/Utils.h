@@ -2,6 +2,10 @@
 #include <iostream>
 #include <format>
 
+inline bool FloatEquals(float f1, float f2, float epsilon = 0.001f) {
+	return (f1 >= f2 - epsilon && f1 <= f2 + epsilon);
+}
+
 #ifdef DEBUG
 
 #define ASSERT(cond)               if(!(cond)) { exit(-1); }

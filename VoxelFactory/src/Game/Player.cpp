@@ -1,5 +1,6 @@
 #include "Game/Player.h"
 #include "Game/Game.h"
+#include "Core/Utils.h"
 
 #include <GLFW/glfw3.h>
 #include <glad/glad.h>
@@ -9,74 +10,162 @@
 
 #include <imgui.h>
 
+#include <iostream>
+
 Player::Player(const Ref<Camera>& camera, const Ref<World>& world)
 	: m_Camera(camera), m_World(world) {
 
-	m_Position = m_Camera->position;
+	m_CameraOffset = glm::vec3(0.0f, 1.7f, 0.0f);
+	m_Position = m_Camera->position - m_CameraOffset;
+
+	glm::vec3 collider_size = glm::vec3(0.8f, 1.8f, 0.8f);
+	m_ColliderOffset = glm::vec3(0.0f, collider_size.y * 0.5f, 0.0f);
+	m_Collider = AABB{ m_Position + m_ColliderOffset, collider_size };
+	m_Velocity = glm::vec3(0.0f);
+	m_GravitationalConstant = -0.388f;
+	m_Drag = 0.901f;
+
+	m_GroundCheckDist = 0.05f;
+	m_OnGround = false;
+
 	m_SelectorPosition = glm::vec3(0.0f);
 	m_ShowSelector = false;
 
 	m_MouseSensitivity = 0.1f;
-	m_Speed = 24.0f;
-	m_MouseLClickLast = false;
-	m_MouseRClickLast = false;
+	m_Speed = 5.612f;
+	m_JumpForce = 0.125f;
+	m_Reach = 7.0f;
 
 	InitSelector();
 }
 
 void Player::ShowImGui() {
-	glm::vec3 block_pos = Chunk::GetBlockPosition(m_Camera->position);
-	glm::vec3 chunk_pos = Chunk::GetBlockChunkPosition(m_Camera->position);
+	// Position stuff
+	glm::vec3 block_pos = Chunk::GetBlockPosition(m_Position);
+	glm::vec3 chunk_pos = Chunk::GetBlockChunkPosition(m_Position);
 	glm::vec3 chunk_block_pos = Chunk::GetBlockLocalPosition(block_pos);
-	
-	if (ImGui::InputFloat3("Position", glm::value_ptr(m_Camera->position))) {
+
+	ImGui::SeparatorText("General");
+	if (ImGui::InputFloat3("Position", glm::value_ptr(m_Position))) {
+		m_Collider.SetPosition(m_Position);
+		m_Camera->position = m_Position + m_CameraOffset;
+		m_Camera->UpdateView();
+	}
+	if (ImGui::DragFloat3("Camera Offset", glm::value_ptr(m_CameraOffset), 0.1f)) {
+		m_Camera->position = m_Position + m_CameraOffset;
 		m_Camera->UpdateView();
 	}
 	ImGui::Text("Block Position: ( %d, %d, %d )", (int)block_pos.x, (int)block_pos.y, (int)block_pos.z);
 	ImGui::Text("Chunk Block Position: ( %d, %d, %d )", (int)chunk_block_pos.x, (int)chunk_block_pos.y, (int)chunk_block_pos.z);
 	ImGui::Text("Chunk Position: ( %d, %d )", (int)chunk_pos.x, (int)chunk_pos.z);
-	ImGui::Separator();
 
-	ImGui::Text("Selector Visible: %s", (m_ShowSelector ? "true" : "false"));
-	ImGui::Text("Selector Position: ( %d, %d, %d )", (int)m_SelectorPosition.x, (int)m_SelectorPosition.y, (int)m_SelectorPosition.z);
-	ImGui::Separator();
+	// Physics
+	ImGui::SeparatorText("Physics");
+	if (ImGui::DragFloat3("Collider Size", glm::value_ptr(m_Collider.size), 0.1f)) {
+		m_Collider.CalculateMinMax();
+	}
+	ImGui::Text("On Ground: %s", (m_OnGround ? "true" : "false"));
+	ImGui::DragFloat("Ground Check Distance", &m_GroundCheckDist);
+	ImGui::Text("Velocity: %s", VEC3_STR(m_Velocity).c_str());
+	ImGui::Text("Collider Position: %s", VEC3_STR(m_Collider.position).c_str());
+	ImGui::Text("Collider Min: %s", VEC3_STR(m_Collider.min).c_str());
+	ImGui::Text("Collider Max: %s", VEC3_STR(m_Collider.max).c_str());
+	ImGui::DragFloat("Gravity", &m_GravitationalConstant, 0.1f);
+	ImGui::DragFloat("Drag", &m_Drag, 0.1f);
 
+	// Selector
+	ImGui::SeparatorText("Selector");
+	ImGui::Text("Visible: %s", (m_ShowSelector ? "true" : "false"));
+	ImGui::Text("Position: ( %d, %d, %d )", (int)m_SelectorPosition.x, (int)m_SelectorPosition.y, (int)m_SelectorPosition.z);
+
+	// Input
+	ImGui::SeparatorText("Input");
 	ImGui::InputFloat("Speed", &m_Speed);
+	ImGui::InputFloat("Jump Force", &m_JumpForce);
 	ImGui::InputFloat("Mouse Sensitivity", &m_MouseSensitivity);
+	ImGui::InputFloat("Reach", &m_Reach);
 }
 
 void Player::Update(float delta_time, glm::vec2& last_mouse_pos, const Ref<Window>& window) {
 
+	Input(delta_time, window);
+
+	// Check for/resolve collisions
+	glm::vec3 collision_normal = glm::vec3(0.0f);
+	m_Collider.CalculateMinMax();
+	m_World->ResolveDynamicAABB(m_Collider, m_Velocity, collision_normal);
+	m_Collider.position += m_Velocity;
+	m_Position = m_Collider.position - m_ColliderOffset;
+
+	// Create hitbox directly beneath the player
+	AABB ground_check;
+	m_Collider.CalculateMinMax();
+	ground_check.max = glm::vec3(m_Collider.max.x, m_Collider.min.y, m_Collider.max.z);
+	ground_check.min = m_Collider.min - glm::vec3(0.0f, m_GroundCheckDist, 0.0f);
+	ground_check.position = (ground_check.min + ground_check.max) * 0.5f;
+	ground_check.size = ground_check.max - ground_check.min;
+
+	// Check if player is on the ground
+	m_OnGround = !m_World->AABBIntersectedVoxels(ground_check).empty();
+
+	CameraInput(last_mouse_pos, window);
+
+	// Selector ray
+	CollisionResultData ray_result = m_World->CastRay({ m_Camera->position, m_Camera->direction });
+	m_ShowSelector = (ray_result.hit && ray_result.dist <= m_Reach);
+	m_SelectorPosition = ray_result.voxel_position;
+}
+void Player::Render() {
+	RenderSelector();
+}
+
+void Player::OnLeftClick() {
+	if (!m_ShowSelector) return;
+
+	// Delete voxel
+	m_World->SetVoxel(m_SelectorPosition, 0);
+}
+void Player::OnRightClick() {
+	if (!m_ShowSelector) return;
+	CollisionResultData ray_data = m_World->CastRay({ m_Camera->position, m_Camera->direction });
+
+	// Place dirt block
+	glm::vec3 voxel = ray_data.voxel_position + ray_data.normal;
+	if (m_World->WillIntersect(m_Collider, voxel)) return;
+	m_World->SetVoxel(voxel, 3);
+}
+
+void Player::Input(float delta_time, const Ref<Window>& window) {
+	GLFWwindow* window_handle = (GLFWwindow*)window->GetHandle();
+
+	// Direction vectors
+	glm::vec3 up_dir = glm::vec3(0.0f, 1.0f, 0.0f);
+	glm::vec3 right_dir = glm::normalize(glm::cross(m_Camera->direction, up_dir));
+	glm::vec3 forward_dir = glm::normalize(glm::cross(up_dir, right_dir));
+
+	m_Velocity.x = 0.0f;
+	m_Velocity.z = 0.0f;
+	if (glfwGetKey(window_handle, GLFW_KEY_W)) m_Velocity += forward_dir * m_Speed * delta_time;
+	if (glfwGetKey(window_handle, GLFW_KEY_S)) m_Velocity -= forward_dir * m_Speed * delta_time;
+	if (glfwGetKey(window_handle, GLFW_KEY_A)) m_Velocity -= right_dir * m_Speed * delta_time;
+	if (glfwGetKey(window_handle, GLFW_KEY_D)) m_Velocity += right_dir * m_Speed * delta_time;
+
+	// Apply Gravity
+	m_Velocity.y += m_GravitationalConstant * delta_time;
+
+	// Apply drag
+	float drag_force = m_Velocity.y * m_Drag * delta_time;
+	if (m_OnGround) m_Velocity.y -= drag_force;
+	else m_Velocity -= drag_force;
+
+	// Handle Jump
+	if (glfwGetKey(window_handle, GLFW_KEY_SPACE) && m_OnGround) {
+		m_Velocity.y = m_JumpForce;
+	}
+}
+void Player::CameraInput(glm::vec2& last_mouse_pos, const Ref<Window>& window) {
 	GLFWwindow* window_handle = (GLFWwindow*)window->GetHandle();
 	
-	bool mouse_left_click = glfwGetMouseButton(window_handle, GLFW_MOUSE_BUTTON_LEFT);
-	if (mouse_left_click && !m_MouseLClickLast) {
-		HandleLeftClick();
-		m_MouseLClickLast = true;
-	}
-	else if (!mouse_left_click && m_MouseLClickLast) {
-		m_MouseLClickLast = false;
-	}
-	bool mouse_right_click = glfwGetMouseButton(window_handle, GLFW_MOUSE_BUTTON_RIGHT);
-	if (mouse_right_click && !m_MouseRClickLast) {
-		HandleRightClick();
-		m_MouseRClickLast = true;
-	}
-	else if (!mouse_right_click && m_MouseRClickLast) {
-		m_MouseRClickLast = false;
-	}
-
-	// Camera position input
-	glm::vec3 camera_up = glm::vec3(0.0f, 1.0f, 0.0f);
-	glm::vec3 camera_right = glm::normalize(glm::cross(m_Camera->direction, camera_up));
-	glm::vec3 delta_position = glm::vec3(0.0f);
-	if (glfwGetKey(window_handle, GLFW_KEY_W))          delta_position += m_Camera->direction * m_Speed * delta_time;
-	if (glfwGetKey(window_handle, GLFW_KEY_S))          delta_position -= m_Camera->direction * m_Speed * delta_time;
-	if (glfwGetKey(window_handle, GLFW_KEY_A))          delta_position -= camera_right * m_Speed * delta_time;
-	if (glfwGetKey(window_handle, GLFW_KEY_D))          delta_position += camera_right * m_Speed * delta_time;
-	if (glfwGetKey(window_handle, GLFW_KEY_SPACE))      delta_position += camera_up * m_Speed * delta_time;
-	if (glfwGetKey(window_handle, GLFW_KEY_LEFT_SHIFT)) delta_position -= camera_up * m_Speed * delta_time;
-
 	// Get mouse delta
 	double mouse_x = 0.0, mouse_y = 0.0;
 	glfwGetCursorPos(window_handle, &mouse_x, &mouse_y);
@@ -94,56 +183,18 @@ void Player::Update(float delta_time, glm::vec2& last_mouse_pos, const Ref<Windo
 	m_Camera->eular.x += delta_mouse.y; // Pitch
 
 	// Cap pitch
-	constexpr float c_MaxPitch =  PIHalf - (PI / 180.0f); // 89 degrees
+	constexpr float c_MaxPitch = PIHalf - (PI / 180.0f); // 89 degrees
 	constexpr float c_MinPitch = -PIHalf + (PI / 180.0f); // -89 degrees
 	m_Camera->eular.x = std::min(c_MaxPitch, std::max(m_Camera->eular.x, c_MinPitch));
 
-	if (delta_position != glm::vec3(0.0f) || delta_mouse != glm::vec2(0.0f)) {
+	if (delta_mouse != glm::vec2(0.0f)) {
 		m_Camera->direction = Camera::EulerDirection(m_Camera->eular.x, m_Camera->eular.y);
-		m_Camera->position += delta_position;
-		m_Camera->UpdateView();
 	}
 
-	RayResultData ray_result = m_World->CastRay({ m_Camera->position, m_Camera->direction });
-	m_ShowSelector = ray_result;
-	m_SelectorPosition = ray_result.voxel_position;
-
-	RenderSelector();
+	m_Camera->position = m_Position + m_CameraOffset;
+	m_Camera->UpdateView();
 }
 
-void Player::HandleLeftClick() {
-	RayResultData ray_data = m_World->CastRay({ m_Camera->position, m_Camera->direction });
-	if (!ray_data) return;
-	
-	// Delete voxel
-	glm::vec3 local_position = Chunk::GetBlockLocalPosition(ray_data.voxel_position);
-	glm::vec3 chunk_position = Chunk::GetBlockChunkPosition(ray_data.voxel_position);
-	m_World->GetChunk(chunk_position)->At(local_position).id = 0;
-	
-	// Rebuild affected chunks
-	m_World->RebuildChunk(chunk_position);
-	if (local_position.x == 0) m_World->RebuildChunk({ chunk_position.x - 1, 0, chunk_position.z });
-	else if (local_position.x == Chunk::ChunkLength - 1) m_World->RebuildChunk({ chunk_position.x + 1, 0, chunk_position.z });
-	if (local_position.z == 0) m_World->RebuildChunk({ chunk_position.x, 0, chunk_position.z - 1 });
-	else if (local_position.z == Chunk::ChunkLength - 1) m_World->RebuildChunk({ chunk_position.x, 0, chunk_position.z + 1 });
-}
-void Player::HandleRightClick() {
-	RayResultData ray_data = m_World->CastRay({ m_Camera->position, m_Camera->direction });
-	if (!ray_data) return;
-
-	// Place dirt block
-	glm::vec3 voxel_position = ray_data.voxel_position + ray_data.normal;
-	glm::vec3 local_position = Chunk::GetBlockLocalPosition(voxel_position);
-	glm::vec3 chunk_position = Chunk::GetBlockChunkPosition(voxel_position);
-	m_World->GetChunk(chunk_position)->At(local_position).id = 3;
-
-	// Rebuild affected chunks
-	m_World->RebuildChunk(chunk_position);
-	if (local_position.x == 0) m_World->RebuildChunk({ chunk_position.x - 1, 0, chunk_position.z });
-	else if (local_position.x == Chunk::ChunkLength - 1) m_World->RebuildChunk({ chunk_position.x + 1, 0, chunk_position.z });
-	if (local_position.z == 0) m_World->RebuildChunk({ chunk_position.x, 0, chunk_position.z - 1 });
-	else if (local_position.z == Chunk::ChunkLength - 1) m_World->RebuildChunk({ chunk_position.x, 0, chunk_position.z + 1 });
-}
 void Player::InitSelector() {
 	m_SelectorMesh = CreateRef<VertexArray>();
 	m_SelectorMesh->Bind();

@@ -13,30 +13,50 @@ public:
 
 	void ShowImGui();
 	void Update(float delta_time, glm::vec2& last_mouse_pos, const Ref<Window>& window);
+	void Render();
 
+	void OnLeftClick();
+	void OnRightClick();
 private:
-	void HandleLeftClick();
-	void HandleRightClick();
+
+	// Update velocity based on input
+	void Input(float delta_time, const Ref<Window>& window);
+	// Update camera rotation based on mouse movement
+	void CameraInput(glm::vec2& last_mouse_pos, const Ref<Window>& window);
+
 	void InitSelector();
 	void RenderSelector();
 
 private:
-
-	glm::vec3 m_Position;
-
+	
+	// General
 	Ref<World> m_World;
 	Ref<Camera> m_Camera;
+	
+	glm::vec3 m_Position;
+	glm::vec3 m_CameraOffset;
+	
+	// Physics
+	glm::vec3 m_ColliderOffset;
+	AABB m_Collider;
+	glm::vec3 m_Velocity;
+	float m_GravitationalConstant;
+	float m_Drag;
 
+	float m_GroundCheckDist;
+	bool m_OnGround;
+
+	// Selector
 	Ref<Shader> m_SelectorShader;
 	Ref<VertexArray> m_SelectorMesh;
 	glm::vec3 m_SelectorPosition;
 	bool m_ShowSelector;
 
-	// Controlls
-	bool m_MouseLClickLast;
-	bool m_MouseRClickLast;
+	// Controls
 	float m_MouseSensitivity;
 	float m_Speed;
+	float m_JumpForce;
+	float m_Reach;
 
 private:
 	const inline static float c_SelectorVertices[] = {
