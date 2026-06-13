@@ -180,13 +180,12 @@ void Game::ShowDebugLines() {
 	m_DebugLineMesh = CreateRef<VertexArray>();
 	m_DebugLineMesh->Bind();
 
-	Ref<VertexBuffer> vertex_buffer = CreateRef<VertexBuffer>(m_DebugLines.data(), m_DebugLines.size() * sizeof(DebugLine));
+	VertexLayout vertex_layout = { {
+		{ GL_FLOAT, 3 },
+		{ GL_FLOAT, 3 }
+	} };
+	Ref<VertexBuffer> vertex_buffer = CreateRef<VertexBuffer>(m_DebugLines.data(), m_DebugLines.size() * sizeof(DebugLine), vertex_layout);
 	vertex_buffer->Bind();
-	constexpr size_t c_Stride = 6 * sizeof(float);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, c_Stride, (void*)0);
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, c_Stride, (void*)(3 * sizeof(float)));
-	glEnableVertexAttribArray(1);
 	m_DebugLineMesh->GetVertexBuffer() = vertex_buffer;
 
 	m_DebugShader->Bind();

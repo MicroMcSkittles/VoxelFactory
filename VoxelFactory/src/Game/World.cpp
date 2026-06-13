@@ -517,19 +517,14 @@ Ref<VertexArray> ChunkMesher::Mesh() {
 	Ref<VertexArray> vertex_array = CreateRef<VertexArray>();
 	vertex_array->Bind();
 
-	Ref<VertexBuffer> vertex_buffer = CreateRef<VertexBuffer>(m_Vertices.data(), m_Vertices.size() * sizeof(ChunkVertex));
-	vertex_buffer->Bind();
-	constexpr size_t stride = 9 * sizeof(float) + sizeof(uint32_t);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(float)));
-	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (void*)(6 * sizeof(float)));
-	glEnableVertexAttribArray(2);
-	glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, stride, (void*)(8 * sizeof(float)));
-	glEnableVertexAttribArray(3);
-	glVertexAttribIPointer(4, 1, GL_UNSIGNED_INT, stride, (void*)(9 * sizeof(float)));
-	glEnableVertexAttribArray(4);
+	VertexLayout vertex_layout = { {
+		{ GL_FLOAT, 3 }, // a_Pos
+		{ GL_FLOAT, 3 }, // a_Normal
+		{ GL_FLOAT, 2 }, // a_TexCoord
+		{ GL_FLOAT, 1 }, // a_AmbientOcclution
+		{ GL_UNSIGNED_INT, 1 }, // a_TextureID
+	} };
+	Ref<VertexBuffer> vertex_buffer = CreateRef<VertexBuffer>(m_Vertices.data(), m_Vertices.size() * sizeof(ChunkVertex), vertex_layout);
 	vertex_array->GetVertexBuffer() = vertex_buffer;
 
 	Ref<IndexBuffer> index_buffer = CreateRef<IndexBuffer>(m_Indices.data(), m_Indices.size() * sizeof(uint32_t));

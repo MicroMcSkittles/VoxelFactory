@@ -1,10 +1,24 @@
 #pragma once
 #include "Core/Core.h"
 #include <stdint.h>
+#include <vector>
+
+struct VertexAttribute {
+	uint32_t type;
+	int count;
+	size_t GetSize() const;
+};
+
+struct VertexLayout {
+	std::vector<VertexAttribute> attributes;
+	size_t stride = 0;
+
+	VertexLayout(const std::vector<VertexAttribute>& attributes);
+};
 
 class VertexBuffer {
 public:
-	VertexBuffer(const void* data, size_t size);
+	VertexBuffer(const void* data, size_t size, const VertexLayout& vertex_layout);
 	~VertexBuffer();
 
 	void Bind();

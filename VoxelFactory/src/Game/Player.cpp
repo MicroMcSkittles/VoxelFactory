@@ -199,13 +199,12 @@ void Player::InitSelector() {
 	m_SelectorMesh = CreateRef<VertexArray>();
 	m_SelectorMesh->Bind();
 
-	Ref<VertexBuffer> vertex_buffer = CreateRef<VertexBuffer>(c_SelectorVertices, 48 * sizeof(float));
+	VertexLayout vertex_layout = { {
+		{ GL_FLOAT, 3 },
+		{ GL_FLOAT, 3 }
+	} };
+	Ref<VertexBuffer> vertex_buffer = CreateRef<VertexBuffer>(c_SelectorVertices, 48 * sizeof(float), vertex_layout);
 	vertex_buffer->Bind();
-	constexpr size_t c_Stride = 6 * sizeof(float);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, c_Stride, (void*)0);
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, c_Stride, (void*)(3 * sizeof(float)));
-	glEnableVertexAttribArray(1);
 	m_SelectorMesh->GetVertexBuffer() = vertex_buffer;
 
 	Ref<IndexBuffer> index_buffer = CreateRef<IndexBuffer>(c_SelectorIndices, 24 * sizeof(uint32_t));
