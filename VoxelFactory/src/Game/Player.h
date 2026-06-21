@@ -14,6 +14,7 @@ public:
 	void ShowImGui();
 	void Update(float delta_time, glm::vec2& last_mouse_pos, const Ref<Window>& window);
 	void Render();
+	void RenderUI(Ref<Shader>& ui_shader);
 
 	void OnLeftClick();
 	void OnRightClick();
@@ -24,6 +25,8 @@ private:
 	// Update camera rotation based on mouse movement
 	void CameraInput(glm::vec2& last_mouse_pos, const Ref<Window>& window);
 
+	void InitUI();
+
 	void InitSelector();
 	void RenderSelector();
 
@@ -33,6 +36,8 @@ private:
 	Ref<World> m_World;
 	Ref<Camera> m_Camera;
 	
+	Ref<Texture> m_CrossHair;
+
 	glm::vec3 m_Position;
 	glm::vec3 m_CameraOffset;
 	
@@ -53,7 +58,10 @@ private:
 	bool m_ShowSelector;
 
 	// Controls
+	bool m_Flight;
 	float m_MouseSensitivity;
+	float m_WalkSpeed;
+	float m_SprintMultiplier;
 	float m_Speed;
 	float m_JumpForce;
 	float m_Reach;

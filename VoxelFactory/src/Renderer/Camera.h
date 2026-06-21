@@ -26,3 +26,24 @@ struct Camera {
 
 	Camera(const Frustum& frustum, const glm::vec3& position, const glm::vec3& direction);
 };
+
+struct ViewBox {
+	float width;
+	float height;
+	float near;
+	float far;
+};
+struct OrthographicCamera {
+
+	ViewBox view_box;
+	glm::vec3 position;
+
+	glm::mat4 view;
+	glm::mat4 projection;
+	glm::mat4 view_projection;
+
+	void UpdateView();
+	void UpdateProjection();
+
+	OrthographicCamera(const ViewBox& view_box, const glm::vec3& position);
+};

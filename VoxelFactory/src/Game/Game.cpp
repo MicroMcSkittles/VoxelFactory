@@ -45,6 +45,9 @@ void Game::Run() {
 void Game::OnResize(int width, int height) {
 	m_Camera->frustum.aspect_ratio = static_cast<float>(width) / static_cast<float>(height);
 	m_Camera->UpdateProjection();
+	m_UICamera->view_box.width = width;
+	m_UICamera->view_box.height = height;
+	m_UICamera->UpdateProjection();
 	glViewport(0, 0, width, height);
 }
 void Game::OnMouseClick(int button, int action, int mods) {
@@ -111,7 +114,30 @@ void Game::StartUp() {
 
 	m_DebugShader = CreateRef<Shader>("assets/shaders/DebugLine.vert", "assets/shaders/DebugLine.frag");
 
+	ViewBox view_box;
+	view_box.width = m_Window->GetWidth();
+	view_box.height = m_Window->GetHeight();
+	view_box.near = 0.1f;
+	view_box.far = 1000.0f;
 	m_Player = CreateRef<Player>(m_Camera, m_World);
+
+	m_UICamera = CreateRef<OrthographicCamera>(view_box, glm::vec3(0.0f));
+	m_UIShader = CreateRef<Shader>("assets/shaders/UI.vert", "assets/shaders/UI.frag");
+
+	m_UIQuad = CreateRef<VertexArray>();
+	m_UIQuad->Bind();
+
+	VertexLayout vertex_layout = { {
+		{ GL_FLOAT, 2 },
+		{ GL_FLOAT, 2 }
+	} };
+	Ref<VertexBuffer> vertex_buffer = CreateRef<VertexBuffer>(c_UIQuadVertices, 16 * sizeof(float), vertex_layout);
+	m_UIQuad->GetVertexBuffer() = vertex_buffer;
+
+	Ref<IndexBuffer> index_buffer = CreateRef<IndexBuffer>(c_UIQuadIndices, 6 * sizeof(uint32_t));
+	m_UIQuad->GetIndexBuffer() = index_buffer;
+
+	m_UIQuad->Unbind();
 }
 void Game::Update(float delta_time) {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -133,6 +159,15 @@ void Game::Update(float delta_time) {
 
 	m_Player->Render();
 	m_World->Render(m_Camera);
+
+	m_UIShader->Bind();
+	m_UIShader->SetUniform("u_ViewProjection", m_UICamera->view_projection);
+	m_UIQuad->Bind();
+
+	m_Player->RenderUI(m_UIShader);
+
+	m_UIQuad->Unbind();
+	m_UIShader->Unbind();
 
 	ShowDebugLines();
 

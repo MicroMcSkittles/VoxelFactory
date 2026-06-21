@@ -4,6 +4,7 @@
 #include "Renderer/Shader.h"
 #include "Renderer/Texture.h"
 #include "Renderer/Camera.h"
+#include "Renderer/Mesh.h"
 #include <vector>
 #include <glm/glm.hpp>
 
@@ -57,6 +58,13 @@ public:
 	const static int ChunkArea = ChunkLength * ChunkLength; // The number of blocks in a horizontal slice of the chunk
 	const static int ChunkHeight = 256;
 	const static int ChunkDataSize = ChunkArea * ChunkHeight; // Total number of blocks
+};
+struct ChunkVertex {
+	glm::vec3 position;
+	glm::vec3 normal;
+	glm::vec2 tex_coord;
+	float ambient_occlusion;
+	uint32_t id;
 };
 
 struct AABB {
@@ -116,7 +124,9 @@ private:
 	CollisionResultData LineAABBIntersection(const glm::vec3& start_position, const glm::vec3& end_position, const AABB& aabb);
 	CollisionResultData DynamicAABBIntersection(const AABB& aabb, const glm::vec3& velocity, const AABB& target);
 	CollisionResultData RayAABBIntersection(const Ray& ray, const glm::vec3& aabb_min, const glm::vec3& aabb_max);
-	void LoadChunks(const glm::vec2& delta);
+	
+	void MoveLoadedCenter(const glm::vec2& delta);
+	void CreateChunk(const glm::vec2& position);
 
 private:
 	glm::vec3 m_LoadedCenter; // The point in the middle of the currently loaded chunks
@@ -125,25 +135,18 @@ private:
 	int m_LoadedArea;
 
 	std::vector<Chunk> m_Chunks;
-	std::vector<Ref<VertexArray>> m_ChunkMeshes;
+	std::vector<Ref<Mesh<ChunkVertex>>> m_ChunkMeshes;
 
 	Ref<Shader> m_MainShader;
 	Ref<Texture> m_Atlas;
 };
 
-struct ChunkVertex {
-	glm::vec3 position;
-	glm::vec3 normal;
-	glm::vec2 tex_coord;
-	float ambient_occlusion;
-	uint32_t id;
-};
 class ChunkMesher {
 public:
 	ChunkMesher(Chunk* chunk, World* world);
 	~ChunkMesher();
 
-	Ref<VertexArray> Mesh();
+	Ref<Mesh<ChunkVertex>> CreateMesh();
 
 private:
 	bool IsVoid(const glm::vec3& position);
@@ -152,7 +155,7 @@ private:
 private:
 	Chunk* m_Chunk;
 	World* m_World;
-	
+
 	std::vector<ChunkVertex> m_Vertices;
 	std::vector<uint32_t> m_Indices;
 	uint32_t m_VertexOffset;
@@ -184,7 +187,7 @@ private:
 		{ {  0.5f,  0.5f,  0.5f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f } },
 		{ {  0.5f, -0.5f,  0.5f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },
 		{ {  0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } }
-	}; 
+	};
 	const inline static ChunkVertex c_RightVertices[] = {
 		{ { -0.5f,  0.5f,  0.5f }, { -1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f } },
 		{ { -0.5f,  0.5f, -0.5f }, { -1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f } },

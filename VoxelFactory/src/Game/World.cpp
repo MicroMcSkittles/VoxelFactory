@@ -65,6 +65,7 @@ Chunk::Chunk(const glm::vec3& position) {
 	m_Blocks.resize(ChunkDataSize, Block{ 0 });
 	
 	int dirt_height = 16 + m_Position.x + m_Position.z;
+	if (dirt_height <= 0) dirt_height = 1;
 	std::fill(m_Blocks.begin(), m_Blocks.begin() + ChunkArea * (dirt_height - 1), Block{ 4 });
 	std::fill(m_Blocks.begin() + ChunkArea * (dirt_height - 1), m_Blocks.begin() + ChunkArea * dirt_height, Block{ 1 });
 	for (int x = 0; x < ChunkLength; x++) {
@@ -137,7 +138,8 @@ World::World() : m_LoadedCenter({ 0,0,0 }), m_LoadedRadius(3) {
 		}
 	}
 	for (size_t i = 0; i < m_Chunks.size(); i++) {
-		m_ChunkMeshes[i] = ChunkMesher(&m_Chunks[i], this).Mesh();
+		m_ChunkMeshes[i] = ChunkMesher(&m_Chunks[i], this).CreateMesh();
+		m_ChunkMeshes[i]->CreateVertexArray();
 	}
 
 	m_MainShader = CreateRef<Shader>("assets/shaders/Main.vert", "assets/shaders/Main.frag");
@@ -162,18 +164,20 @@ void World::SetVoxel(const glm::vec3& position, uint8_t new_id) {
 
 Chunk* World::GetChunk(const glm::vec3& position) {
 	// Check if chunk position is in bounds
-	if (position.x < -m_LoadedRadius || position.x > m_LoadedRadius ||
-		position.z < -m_LoadedRadius || position.z > m_LoadedRadius) return nullptr;
+	if (position.x - m_LoadedCenter.x < -m_LoadedRadius || position.x - m_LoadedCenter.x > m_LoadedRadius ||
+		position.z - m_LoadedCenter.z < -m_LoadedRadius || position.z - m_LoadedCenter.z > m_LoadedRadius) return nullptr;
 
 	// Get chunk index
-	size_t index = position.x + m_LoadedRadius + (position.z + m_LoadedRadius) * m_LoadedWidth;
+	size_t index = position.x - m_LoadedCenter.x + m_LoadedRadius + (position.z - m_LoadedCenter.z + m_LoadedRadius) * m_LoadedWidth;
 	if (index >= m_Chunks.size()) return nullptr;
 	return &m_Chunks[index];
 }
 void World::RebuildChunk(const glm::vec3& position) {
 	Chunk* chunk = GetChunk(position);
 	if (chunk == nullptr) return;
-	m_ChunkMeshes[position.x + m_LoadedRadius + (position.z + m_LoadedRadius) * m_LoadedWidth] = ChunkMesher(chunk, this).Mesh();
+	int index = position.x - m_LoadedCenter.x + m_LoadedRadius + (position.z - m_LoadedCenter.z + m_LoadedRadius) * m_LoadedWidth;
+	m_ChunkMeshes[index] = ChunkMesher(chunk, this).CreateMesh();
+	m_ChunkMeshes[index]->CreateVertexArray();
 }
 
 CollisionResultData World::LineAABBIntersection(const glm::vec3& start_position, const glm::vec3& end_position, const AABB& aabb) {
@@ -243,6 +247,7 @@ CollisionResultData World::RayAABBIntersection(const Ray& ray, const glm::vec3& 
 	}
 	return { };
 }
+
 CollisionResultData World::CastRay(const Ray& ray) {
 
 	// Find current chunk position
@@ -449,7 +454,7 @@ void World::Render(const Ref<Camera>& camera) {
 	m_MainShader->SetUniform("u_ViewProjection", camera->view_projection);
 	m_MainShader->SetUniform("u_Texture", m_Atlas);
 
-	glm::vec3 world_position = glm::vec3(0.5f);
+	glm::vec3 world_position = glm::vec3(0.5f) + m_LoadedCenter * (float)Chunk::ChunkLength;
 	glm::mat4 world = glm::translate(glm::mat4(1.0f), world_position); 
 
 	for (int z = 0; z < m_LoadedRadius * 2 + 1; z++) {
@@ -458,7 +463,8 @@ void World::Render(const Ref<Camera>& camera) {
 			glm::mat4 model = glm::translate(world, position);
 			m_MainShader->SetUniform("u_Model", model);
 
-			Ref<VertexArray>& vao = m_ChunkMeshes[x + z * m_LoadedWidth];
+			Ref<VertexArray>& vao = m_ChunkMeshes[x + z * m_LoadedWidth]->GetVertexArray();
+			if (vao == nullptr) continue;
 			vao->Bind();
 			glDrawElements(GL_TRIANGLES, vao->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
 			vao->Unbind();
@@ -468,28 +474,85 @@ void World::Render(const Ref<Camera>& camera) {
 	m_MainShader->Unbind();
 	m_Atlas->Unbind();
 }
+void World::ShowImGui() {
+	ImGui::Text("Chunk Count: %d", m_Chunks.size());
+	ImGui::Text("Loaded Radius: %d", m_LoadedRadius);
+	ImGui::Text("Loaded Center: %s", VEC3_STR(m_LoadedCenter).c_str());
+}
+
 void World::Update(const glm::vec3& position) {
 	glm::vec3 chunk_position = Chunk::GetBlockChunkPosition(position);
 	glm::vec3 chunk_delta = chunk_position - m_LoadedCenter;
 	if (chunk_delta.x != 0 || chunk_delta.y != 0 || chunk_delta.z != 0) {
 		m_LoadedCenter = chunk_position;
-		LoadChunks({ chunk_delta.x, chunk_delta.y });
+		MoveLoadedCenter({ chunk_delta.x, chunk_delta.z });
 	}
 }
-void World::ShowImGui() {
-	ImGui::Text("Chunk Count: %d", m_Chunks.size());
-	ImGui::Text("Loaded Radius: %d", m_LoadedRadius);
-}
-
-void World::LoadChunks(const glm::vec2& delta) {
+void World::MoveLoadedCenter(const glm::vec2& delta) {
+	// Shift existing chunks to new location
+	int shift_count = 0;
+	shift_count += (int)delta.x;
+	shift_count += m_LoadedWidth * (int)delta.y;
+	std::rotate(m_Chunks.begin(), ((shift_count > 0) ? m_Chunks.begin() : m_Chunks.end()) + shift_count, m_Chunks.end());
+	std::rotate(m_ChunkMeshes.begin(), ((shift_count > 0) ? m_ChunkMeshes.begin() : m_ChunkMeshes.end()) + shift_count, m_ChunkMeshes.end());
 	
+	std::vector<glm::vec2> new_chunks;
+	std::vector<glm::vec2> chunks_to_rebuild;
+
+	// Find the chunks that need to be created
+	int column = (delta.x < 0) ? 0 : m_LoadedWidth - 1;
+	int row = (delta.y < 0) ? 0 : m_LoadedWidth - 1;
+	if (delta.x != 0) {
+		for (int i = 0; i < m_LoadedWidth; i++) {
+			if (column == i && delta.y != 0) continue;
+			new_chunks.push_back({ column, i });
+		}
+	}
+	if (delta.y != 0) {
+		for (int i = 0; i < m_LoadedWidth; i++) {
+			if (row == i && delta.x != 0) continue;
+			new_chunks.push_back({ i, row });
+		}
+	}
+	if (delta.x != 0 && delta.y != 0) {
+		new_chunks.push_back({ column, row });
+	}
+
+	// Find existing chunks that need to be rebuilt
+	column -= delta.x;
+	row -= delta.y;
+	for (int i = 1; i < m_LoadedWidth - 1; i++) {
+		if (delta.x != 0) chunks_to_rebuild.push_back({ column, i });
+		if (delta.y != 0) chunks_to_rebuild.push_back({ i, row });
+	}
+
+	// Create new chunks
+	for (auto& chunk : new_chunks) {
+		CreateChunk(chunk);
+	}
+
+	// Build chunks
+	for (auto& chunk : new_chunks) {
+		int index = (int)chunk.x + m_LoadedWidth * (int)chunk.y;
+		m_ChunkMeshes[index] = ChunkMesher(&m_Chunks[index], this).CreateMesh();
+		m_ChunkMeshes[index]->CreateVertexArray();
+	}
+	for (auto& chunk : chunks_to_rebuild) {
+		int index = (int)chunk.x + m_LoadedWidth * (int)chunk.y;
+		m_ChunkMeshes[index] = ChunkMesher(&m_Chunks[index], this).CreateMesh();
+		m_ChunkMeshes[index]->CreateVertexArray();
+	}
+}
+void World::CreateChunk(const glm::vec2& position) {
+	int index = position.x + m_LoadedWidth * position.y;
+	m_Chunks[index] = Chunk({ position.x - m_LoadedRadius + m_LoadedCenter.x, 0, position.y - m_LoadedRadius + m_LoadedCenter.z});
 }
 
 ChunkMesher::ChunkMesher(Chunk* chunk, World* world): m_Chunk(chunk), m_World(world), m_VertexOffset(0) {}
 ChunkMesher::~ChunkMesher() { }
 
-Ref<VertexArray> ChunkMesher::Mesh() {
-
+Ref<Mesh<ChunkVertex>> ChunkMesher::CreateMesh()
+{
 	m_Vertices.reserve(Chunk::ChunkDataSize);
 	m_Indices.reserve(Chunk::ChunkDataSize);
 	m_VertexOffset = 0;
@@ -503,20 +566,17 @@ Ref<VertexArray> ChunkMesher::Mesh() {
 				if (m_Chunk->IsVoid(position)) continue;
 
 				Block::TextureIDs& textures = Block::BlockTextureIDs[m_Chunk->At({ x,y,z }).id - 1];
-				MeshFace(position, {  0,  0,  1 }, textures.front,  c_FrontVertices);
-				MeshFace(position, {  0,  0, -1 }, textures.back,   c_BackVertices);
-				MeshFace(position, {  1,  0,  0 }, textures.left,   c_LeftVertices);
-				MeshFace(position, { -1,  0,  0 }, textures.right,  c_RightVertices);
-				MeshFace(position, {  0,  1,  0 }, textures.top,    c_TopVertices);
-				MeshFace(position, {  0, -1,  0 }, textures.bottom, c_BottomVertices);
+				MeshFace(position, { 0,  0,  1 }, textures.front, c_FrontVertices);
+				MeshFace(position, { 0,  0, -1 }, textures.back, c_BackVertices);
+				MeshFace(position, { 1,  0,  0 }, textures.left, c_LeftVertices);
+				MeshFace(position, { -1,  0,  0 }, textures.right, c_RightVertices);
+				MeshFace(position, { 0,  1,  0 }, textures.top, c_TopVertices);
+				MeshFace(position, { 0, -1,  0 }, textures.bottom, c_BottomVertices);
 			}
 		}
 	}
 
-	// Create vertex array
-	Ref<VertexArray> vertex_array = CreateRef<VertexArray>();
-	vertex_array->Bind();
-
+	// Create mesh
 	VertexLayout vertex_layout = { {
 		{ GL_FLOAT, 3 }, // a_Pos
 		{ GL_FLOAT, 3 }, // a_Normal
@@ -524,15 +584,10 @@ Ref<VertexArray> ChunkMesher::Mesh() {
 		{ GL_FLOAT, 1 }, // a_AmbientOcclution
 		{ GL_UNSIGNED_INT, 1 }, // a_TextureID
 	} };
-	Ref<VertexBuffer> vertex_buffer = CreateRef<VertexBuffer>(m_Vertices.data(), m_Vertices.size() * sizeof(ChunkVertex), vertex_layout);
-	vertex_array->GetVertexBuffer() = vertex_buffer;
-
-	Ref<IndexBuffer> index_buffer = CreateRef<IndexBuffer>(m_Indices.data(), m_Indices.size() * sizeof(uint32_t));
-	vertex_array->GetIndexBuffer() = index_buffer;
-
-	vertex_array->Unbind();
-	return vertex_array;
+	Ref<Mesh<ChunkVertex>> mesh = CreateRef<Mesh<ChunkVertex>>(m_Vertices, m_Indices, vertex_layout);
+	return mesh;
 }
+
 bool ChunkMesher::IsVoid(const glm::vec3& position) {
 	if (m_Chunk->IsValid(position)) return m_Chunk->IsVoid(position);
 	glm::vec3 world_pos = {

@@ -53,6 +53,10 @@ private:
 	Ref<Camera> m_Camera;
 	Ref<World> m_World;
 
+	Ref<VertexArray> m_UIQuad;
+	Ref<OrthographicCamera> m_UICamera;
+	Ref<Shader> m_UIShader;
+
 	Ref<Shader> m_DebugShader;
 	Ref<VertexArray> m_DebugLineMesh;
 	inline static std::vector<DebugLine> m_DebugLines;
@@ -62,4 +66,15 @@ private:
 	bool m_MouseAvalible;
 	glm::vec2 m_LastMousePos;
 
+private:
+	const inline static float c_UIQuadVertices[] = {
+		-1.0f, -1.0f, -1.0f, -1.0f,
+		-1.0f,  1.0f, -1.0f,  1.0f,
+		 1.0f,  1.0f,  1.0f,  1.0f,
+		 1.0f, -1.0f,  1.0f, -1.0f
+	};
+	const inline static uint32_t c_UIQuadIndices[] = {
+		0, 1, 2,
+		2, 3, 0
+	};
 };

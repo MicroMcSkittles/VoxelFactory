@@ -31,11 +31,15 @@ Player::Player(const Ref<Camera>& camera, const Ref<World>& world)
 	m_SelectorPosition = glm::vec3(0.0f);
 	m_ShowSelector = false;
 
+	m_Flight = false;
 	m_MouseSensitivity = 0.1f;
-	m_Speed = 5.612f;
+	m_WalkSpeed = 5.612f;
+	m_Speed = m_WalkSpeed;
+	m_SprintMultiplier = 1.5f;
 	m_JumpForce = 0.125f;
 	m_Reach = 7.0f;
 
+	InitUI();
 	InitSelector();
 }
 
@@ -61,15 +65,15 @@ void Player::ShowImGui() {
 
 	// Physics
 	ImGui::SeparatorText("Physics");
+	ImGui::Text("Velocity: %s", VEC3_STR(m_Velocity).c_str());
 	if (ImGui::DragFloat3("Collider Size", glm::value_ptr(m_Collider.size), 0.1f)) {
 		m_Collider.CalculateMinMax();
 	}
-	ImGui::Text("On Ground: %s", (m_OnGround ? "true" : "false"));
-	ImGui::DragFloat("Ground Check Distance", &m_GroundCheckDist);
-	ImGui::Text("Velocity: %s", VEC3_STR(m_Velocity).c_str());
 	ImGui::Text("Collider Position: %s", VEC3_STR(m_Collider.position).c_str());
 	ImGui::Text("Collider Min: %s", VEC3_STR(m_Collider.min).c_str());
 	ImGui::Text("Collider Max: %s", VEC3_STR(m_Collider.max).c_str());
+	ImGui::Text("On Ground: %s", (m_OnGround ? "true" : "false"));
+	ImGui::DragFloat("Ground Check Distance", &m_GroundCheckDist);
 	ImGui::DragFloat("Gravity", &m_GravitationalConstant, 0.1f);
 	ImGui::DragFloat("Drag", &m_Drag, 0.1f);
 
@@ -80,10 +84,13 @@ void Player::ShowImGui() {
 
 	// Input
 	ImGui::SeparatorText("Input");
-	ImGui::InputFloat("Speed", &m_Speed);
-	ImGui::InputFloat("Jump Force", &m_JumpForce);
-	ImGui::InputFloat("Mouse Sensitivity", &m_MouseSensitivity);
-	ImGui::InputFloat("Reach", &m_Reach);
+	ImGui::Checkbox("Flight", &m_Flight);
+	ImGui::DragFloat("Walk Speed", &m_WalkSpeed, 0.1f);
+	ImGui::DragFloat("Sprint Multiplier", &m_SprintMultiplier, 0.1f);
+	ImGui::Text("Speed: %f", m_Speed);
+	ImGui::DragFloat("Jump Force", &m_JumpForce);
+	ImGui::DragFloat("Mouse Sensitivity", &m_MouseSensitivity);
+	ImGui::DragFloat("Reach", &m_Reach);
 }
 
 void Player::Update(float delta_time, glm::vec2& last_mouse_pos, const Ref<Window>& window) {
@@ -138,6 +145,10 @@ void Player::OnRightClick() {
 void Player::Input(float delta_time, const Ref<Window>& window) {
 	GLFWwindow* window_handle = (GLFWwindow*)window->GetHandle();
 
+	// Handle Sprint
+	if (glfwGetKey(window_handle, GLFW_KEY_LEFT_SHIFT)) m_Speed = m_WalkSpeed * m_SprintMultiplier;
+	else m_Speed = m_WalkSpeed;
+
 	// Direction vectors
 	glm::vec3 up_dir = glm::vec3(0.0f, 1.0f, 0.0f);
 	glm::vec3 right_dir = glm::normalize(glm::cross(m_Camera->direction, up_dir));
@@ -145,13 +156,17 @@ void Player::Input(float delta_time, const Ref<Window>& window) {
 
 	m_Velocity.x = 0.0f;
 	m_Velocity.z = 0.0f;
+	if (m_Flight) m_Velocity.y = 0.0f;
 	if (glfwGetKey(window_handle, GLFW_KEY_W)) m_Velocity += forward_dir * m_Speed * delta_time;
 	if (glfwGetKey(window_handle, GLFW_KEY_S)) m_Velocity -= forward_dir * m_Speed * delta_time;
 	if (glfwGetKey(window_handle, GLFW_KEY_A)) m_Velocity -= right_dir * m_Speed * delta_time;
 	if (glfwGetKey(window_handle, GLFW_KEY_D)) m_Velocity += right_dir * m_Speed * delta_time;
 
+	if (glfwGetKey(window_handle, GLFW_KEY_SPACE) && m_Flight) m_Velocity += up_dir * m_Speed * delta_time;
+	if (glfwGetKey(window_handle, GLFW_KEY_LEFT_CONTROL) && m_Flight) m_Velocity -= up_dir * m_Speed * delta_time;
+
 	// Apply Gravity
-	m_Velocity.y += m_GravitationalConstant * delta_time;
+	if (!m_Flight) m_Velocity.y += m_GravitationalConstant * delta_time;
 
 	// Apply drag
 	float drag_force = m_Velocity.y * m_Drag * delta_time;
@@ -195,6 +210,20 @@ void Player::CameraInput(glm::vec2& last_mouse_pos, const Ref<Window>& window) {
 	m_Camera->UpdateView();
 }
 
+void Player::InitUI() {
+
+	m_CrossHair = CreateRef<Texture>("assets/textures/CrossHair.png");
+
+}
+void Player::RenderUI(Ref<Shader>& ui_shader)
+{
+	glm::mat4 cross_hair_model = glm::mat4(1.0f);
+	ui_shader->SetUniform("u_Model", cross_hair_model);
+	ui_shader->SetUniform("u_Tint", glm::vec3(1.0f));
+	
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+}
+
 void Player::InitSelector() {
 	m_SelectorMesh = CreateRef<VertexArray>();
 	m_SelectorMesh->Bind();
@@ -204,7 +233,6 @@ void Player::InitSelector() {
 		{ GL_FLOAT, 3 }
 	} };
 	Ref<VertexBuffer> vertex_buffer = CreateRef<VertexBuffer>(c_SelectorVertices, 48 * sizeof(float), vertex_layout);
-	vertex_buffer->Bind();
 	m_SelectorMesh->GetVertexBuffer() = vertex_buffer;
 
 	Ref<IndexBuffer> index_buffer = CreateRef<IndexBuffer>(c_SelectorIndices, 24 * sizeof(uint32_t));
