@@ -1,5 +1,7 @@
 #include "Game/World.h"
 #include "Core/Utils.h"
+#include "Core/ImGuiUtils.h"
+#include "Game/Noise.h"
 
 #include <algorithm>
 #include <iostream>
@@ -60,32 +62,23 @@ void AABB::CalculateMinMax() {
 Chunk::Chunk(const glm::vec3& position) {
 	m_Position = position;
 
-	// TODO: actual generation
-
 	m_Blocks.resize(ChunkDataSize, Block{ 0 });
 	
-	int dirt_height = 16 + m_Position.x + m_Position.z;
-	if (dirt_height <= 0) dirt_height = 1;
-	std::fill(m_Blocks.begin(), m_Blocks.begin() + ChunkArea * (dirt_height - 1), Block{ 4 });
-	std::fill(m_Blocks.begin() + ChunkArea * (dirt_height - 1), m_Blocks.begin() + ChunkArea * dirt_height, Block{ 1 });
-	for (int x = 0; x < ChunkLength; x++) {
-		At({ x, dirt_height - 1, 0 }).id = 3;
-		At({ x, dirt_height - 1, ChunkLength - 1 }).id = 3;
-		At({ 0, dirt_height - 1, x }).id = 3;
-		At({ ChunkLength - 1, dirt_height - 1, x }).id = 3;
-	}
-
-	/*uint32_t blockID = 1;
-	for (int y = 0; y < ChunkHeight; y++) {
-		if (y < dirt_height) continue;
-		for (int z = 0; z < ChunkLength; z++) {
-			for (int x = 0; x < ChunkLength; x++) {
-				if (x % 4 || y % 4 || z % 4) continue;
-				At({ x,y,z }).id = blockID++;
-				if (blockID > Block::BlockTextureIDs.size()) blockID = 1;
+	for (int z = 0; z < ChunkLength; z++) {
+		for (int x = 0; x < ChunkLength; x++) {
+			float noise = NoiseGenerator::SamplePerlinNoise({ x,z }, { position.x, position.z }, 2, 6942067) * 0.5;
+			noise += NoiseGenerator::SamplePerlinNoise({ x,z }, { position.x, position.z }, 4, 6942067) * 0.25;
+			noise += NoiseGenerator::SamplePerlinNoise({ x,z }, { position.x, position.z }, 8, 6942067) * 0.125;
+			noise += NoiseGenerator::SamplePerlinNoise({ x,z }, { position.x, position.z }, 16, 6942067) * 0.0625;
+			noise = (noise + 1.0f) / 2.0f;
+			int height = std::max(std::min(noise * (ChunkHeight / 8.0f), (float)ChunkHeight), 0.0f);
+			for (int y = 0; y < height; y++) {
+				At({ x,y + 20,z }).id = 4; // Stone
 			}
+			At({ x,height + 19, z }).id = 3; // Dirt
+			At({ x,height + 20, z }).id = 1; // Grass
 		}
-	}*/
+	}
 }
 Chunk::~Chunk() { }
 
@@ -125,7 +118,7 @@ glm::vec3 Chunk::GetBlockPosition(const glm::vec3& position) {
 	return { floor(position.x), floor(position.y), floor(position.z) };
 }
 
-World::World() : m_LoadedCenter({ 0,0,0 }), m_LoadedRadius(3) {
+World::World() : m_LoadedCenter({ 0,0,0 }), m_LoadedRadius(6) {
 	m_LoadedWidth = m_LoadedRadius * 2 + 1;
 	m_LoadedArea = m_LoadedWidth * m_LoadedWidth;
 
@@ -478,6 +471,7 @@ void World::ShowImGui() {
 	ImGui::Text("Chunk Count: %d", m_Chunks.size());
 	ImGui::Text("Loaded Radius: %d", m_LoadedRadius);
 	ImGui::Text("Loaded Center: %s", VEC3_STR(m_LoadedCenter).c_str());
+	ImGuiImage("Atlas", m_Atlas, { 0.0f, 150.0f });
 }
 
 void World::Update(const glm::vec3& position) {

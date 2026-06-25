@@ -4,6 +4,7 @@
 class Texture {
 public:
 	Texture(const std::string& filename);
+	Texture(const uint8_t* data, int width, int height, int internal, int format);
 	~Texture();
 
 	void Bind();

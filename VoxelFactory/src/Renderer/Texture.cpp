@@ -25,6 +25,28 @@ Texture::Texture(const std::string& filename) {
 
 	m_Slot = std::numeric_limits<uint32_t>::max();
 }
+Texture::Texture(const uint8_t* data, int width, int height, int internal, int format)
+	: m_Width(width), m_Height(height)
+{
+	ASSERT_MSG(data, "A OpenGL error occured: Failed to create texture data cannot be nullptr");
+	
+	glGenTextures(1, &m_Handle);
+	glBindTexture(GL_TEXTURE_2D, m_Handle);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+	if (internal == GL_R8 && format == GL_RED) {
+		GLint swizzle_mask[] = { GL_RED, GL_RED, GL_RED, GL_ONE };
+		glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_RGBA, swizzle_mask);
+	}
+
+	glTexImage2D(GL_TEXTURE_2D, 0, internal, m_Width, m_Height, 0, format, GL_UNSIGNED_BYTE, data);
+	
+	m_Slot = std::numeric_limits<uint32_t>::max();
+}
 Texture::~Texture() {
 	glDeleteTextures(1, &m_Handle);
 }

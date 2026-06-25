@@ -1,6 +1,8 @@
 #include "Game/Game.h"
 #include "Core/ImGuiHandler.h"
 #include "Core/Utils.h"
+#include "Core/ImGuiUtils.h"
+#include "Game/Noise.h"
 
 #include <iostream>
 
@@ -14,6 +16,7 @@
 #include "Player.h"
 
 Game::Game() {
+
 	m_Running = true;
 
 	m_Focused = false;
@@ -99,7 +102,7 @@ void Game::StartUp() {
 	frustum.fov = PI / 4.0f; // 45 degrees
 	frustum.near = 0.1f;
 	frustum.far = 1000.0f;
-	m_Camera = CreateRef<Camera>(frustum, glm::vec3(0.0f, 20.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	m_Camera = CreateRef<Camera>(frustum, glm::vec3(0.0f, 200.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 	m_Camera->eular.y = PIHalf;
 
 	// Other open gl configs
@@ -188,6 +191,24 @@ void Game::ShowImGui() {
 	}
 	if (ImGui::CollapsingHeader("World")) {
 		m_World->ShowImGui();
+	}
+	if (ImGui::CollapsingHeader("Noise")) {
+		
+		ImGui::InputInt("Seed", &m_NoiseSeed);
+		ImGui::InputInt("Width", &m_NoiseWidth);
+		ImGui::InputInt("Height", &m_NoiseHeight);
+		ImGui::InputInt("Frequency", &m_NoiseFrequency);
+		ImGui::InputFloat2("Offset", &m_NoiseOffset.x);
+		if (ImGui::Button("White Noise")) {
+			m_Noise = NoiseGenerator::GenerateWhiteNoise(m_NoiseWidth, m_NoiseHeight, (uint32_t)glfwGetTime());
+		}
+		if (ImGui::Button("Perlin Noise")) {
+			m_Noise = NoiseGenerator::GeneratePerlinNoise(m_NoiseWidth, m_NoiseHeight, m_NoiseFrequency, m_NoiseOffset, m_NoiseSeed);
+		}
+
+		if (m_Noise != nullptr) {
+			ImGuiImage("Noise", m_Noise, { 0.0f, 300.0f });
+		}
 	}
 
 	ImVec2 window_size = ImGui::GetWindowSize();

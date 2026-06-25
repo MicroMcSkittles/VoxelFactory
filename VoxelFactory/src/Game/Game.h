@@ -61,6 +61,14 @@ private:
 	Ref<VertexArray> m_DebugLineMesh;
 	inline static std::vector<DebugLine> m_DebugLines;
 
+	// Noise Test
+	Ref<Texture> m_Noise;
+	int m_NoiseWidth = 100;
+	int m_NoiseHeight = 100;
+	int m_NoiseFrequency = 2;
+	glm::vec2 m_NoiseOffset = { 0.0f, 0.0f };
+	int m_NoiseSeed = 6942067;
+
 	// Input
 	bool m_Focused;
 	bool m_MouseAvalible;
