@@ -27,16 +27,16 @@ Ref<Texture> NoiseGenerator::GeneratePerlinNoise(int width, int height, int freq
 	std::vector<uint8_t> data;
 	data.reserve(width * height);
 
-	int lattice_width = 2 * frequency;
-	int lattice_height = ceil((float)(lattice_width * height) / (float)width);
+	float lattice_width = 1.0f / frequency;
+	//int lattice_height = ceil((float)(lattice_width * height) / (float)width);
 
 	for (int y = 0; y < height; y++) {
 		for (int x = 0; x < width; x++) {
 			glm::vec2 lattice_pos = {
 				//(offset.x + ((float)x / 16.0f)) * (float)(lattice_width - 1),
 				//(offset.y + ((float)y / 16.0f)) * (float)(lattice_height - 1)
-				((float)x / (float)width) * (float)(lattice_width - 1),
-				((float)y / (float)height) * (float)(lattice_height - 1)
+				(offset.x + ((float)x / (float)width)) * (float)(lattice_width - 1),
+				(offset.y + ((float)y / (float)height)) * (float)(lattice_width - 1)
 			};
 
 			glm::vec2 cell_min = { floor(lattice_pos.x), floor(lattice_pos.y) };
@@ -95,6 +95,15 @@ float NoiseGenerator::SamplePerlinNoise(const glm::vec2& position, const glm::ve
 	float value = CubicInterp(upper, lower, interp_weight.y);
 
 	return value;
+}
+
+float NoiseGenerator::SampleFractalPerlinNoise(const glm::vec2& position, const glm::vec2& offset, uint32_t seed) {
+	float noise = 0.0f;
+	noise += NoiseGenerator::SamplePerlinNoise(position, offset, 2, seed) * 0.5f;
+	noise += NoiseGenerator::SamplePerlinNoise(position, offset, 4, seed) * 0.25f;
+	noise += NoiseGenerator::SamplePerlinNoise(position, offset, 8, seed) * 0.125f;
+	noise += NoiseGenerator::SamplePerlinNoise(position, offset, 16, seed) * 0.0625f;
+	return noise;
 }
 
 float NoiseGenerator::CubicInterp(float v1, float v2, float weight) {

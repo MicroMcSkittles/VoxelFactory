@@ -1,5 +1,6 @@
 #pragma once
 #include "Core/Core.h"
+#include "Renderer/Texture.h"
 #include <stdint.h>
 #include <vector>
 
@@ -61,4 +62,22 @@ private:
 	uint32_t m_Handle;
 	Ref<VertexBuffer> m_VertexBuffer;
 	Ref<IndexBuffer> m_IndexBuffer;
+};
+
+class FrameBuffer {
+public:
+	FrameBuffer(int width, int height);
+	~FrameBuffer();
+
+	void Resize(int width, int height);
+
+	void Bind();
+	void Unbind();
+
+	Ref<Texture>& GetColorBuffer() { return m_ColorBuffer; }
+
+private:
+	uint32_t m_Handle;
+	uint32_t m_RenderBufferHandle;
+	Ref<Texture> m_ColorBuffer;
 };

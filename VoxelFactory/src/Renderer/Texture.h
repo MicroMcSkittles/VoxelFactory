@@ -7,6 +7,8 @@ public:
 	Texture(const uint8_t* data, int width, int height, int internal, int format);
 	~Texture();
 
+	void Resize(int width, int height);
+
 	void Bind();
 	void Unbind();
 
@@ -18,6 +20,8 @@ public:
 private:
 	uint32_t m_Handle;
 	uint32_t m_Slot;
+	int m_Internal;
+	int m_Format;
 	int m_Width;
 	int m_Height;
 

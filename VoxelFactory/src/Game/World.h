@@ -34,7 +34,7 @@ struct Block {
 };
 class Chunk {
 public:
-	Chunk(const glm::vec3& position);
+	Chunk(const glm::vec3& position, uint32_t seed);
 	~Chunk();
 
 	Block& At(const glm::vec3& position);
@@ -100,7 +100,7 @@ struct CollisionResultData {
 
 class World {
 public:
-	World();
+	World(uint32_t seed);
 	~World();
 
 	void ShowImGui();
@@ -129,6 +129,8 @@ private:
 	void CreateChunk(const glm::vec2& position);
 
 private:
+	uint32_t m_Seed;
+
 	glm::vec3 m_LoadedCenter; // The point in the middle of the currently loaded chunks
 	int m_LoadedRadius;
 	int m_LoadedWidth;

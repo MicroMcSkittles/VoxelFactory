@@ -59,24 +59,23 @@ void AABB::CalculateMinMax() {
 	};
 }
 
-Chunk::Chunk(const glm::vec3& position) {
+Chunk::Chunk(const glm::vec3& position, uint32_t seed) {
 	m_Position = position;
 
 	m_Blocks.resize(ChunkDataSize, Block{ 0 });
 	
 	for (int z = 0; z < ChunkLength; z++) {
 		for (int x = 0; x < ChunkLength; x++) {
-			float noise = NoiseGenerator::SamplePerlinNoise({ x,z }, { position.x, position.z }, 2, 6942067) * 0.5;
-			noise += NoiseGenerator::SamplePerlinNoise({ x,z }, { position.x, position.z }, 4, 6942067) * 0.25;
-			noise += NoiseGenerator::SamplePerlinNoise({ x,z }, { position.x, position.z }, 8, 6942067) * 0.125;
-			noise += NoiseGenerator::SamplePerlinNoise({ x,z }, { position.x, position.z }, 16, 6942067) * 0.0625;
+			float noise = NoiseGenerator::SampleFractalPerlinNoise({ x,z }, { position.x,position.z }, seed);
 			noise = (noise + 1.0f) / 2.0f;
 			int height = std::max(std::min(noise * (ChunkHeight / 8.0f), (float)ChunkHeight), 0.0f);
 			for (int y = 0; y < height; y++) {
 				At({ x,y + 20,z }).id = 4; // Stone
 			}
 			At({ x,height + 19, z }).id = 3; // Dirt
-			At({ x,height + 20, z }).id = 1; // Grass
+			
+			if (x == 0 || z == 0 || x == ChunkLength - 1 || z == ChunkLength - 1) At({ x,height + 20, z }).id = 3; // Border Dirt
+			else At({ x,height + 20, z }).id = 1; // Grass
 		}
 	}
 }
@@ -118,7 +117,7 @@ glm::vec3 Chunk::GetBlockPosition(const glm::vec3& position) {
 	return { floor(position.x), floor(position.y), floor(position.z) };
 }
 
-World::World() : m_LoadedCenter({ 0,0,0 }), m_LoadedRadius(6) {
+World::World(uint32_t seed) : m_Seed(seed), m_LoadedCenter({ 0,0,0 }), m_LoadedRadius(6) {
 	m_LoadedWidth = m_LoadedRadius * 2 + 1;
 	m_LoadedArea = m_LoadedWidth * m_LoadedWidth;
 
@@ -127,7 +126,7 @@ World::World() : m_LoadedCenter({ 0,0,0 }), m_LoadedRadius(6) {
 
 	for (int z = -m_LoadedRadius; z <= m_LoadedRadius; z++) {
 		for (int x = -m_LoadedRadius; x <= m_LoadedRadius; x++) {
-			m_Chunks.push_back(Chunk{ { x, 0, z } });
+			m_Chunks.push_back(Chunk{ { x, 0, z }, m_Seed });
 		}
 	}
 	for (size_t i = 0; i < m_Chunks.size(); i++) {
@@ -539,7 +538,7 @@ void World::MoveLoadedCenter(const glm::vec2& delta) {
 }
 void World::CreateChunk(const glm::vec2& position) {
 	int index = position.x + m_LoadedWidth * position.y;
-	m_Chunks[index] = Chunk({ position.x - m_LoadedRadius + m_LoadedCenter.x, 0, position.y - m_LoadedRadius + m_LoadedCenter.z});
+	m_Chunks[index] = Chunk({ position.x - m_LoadedRadius + m_LoadedCenter.x, 0, position.y - m_LoadedRadius + m_LoadedCenter.z}, m_Seed);
 }
 
 ChunkMesher::ChunkMesher(Chunk* chunk, World* world): m_Chunk(chunk), m_World(world), m_VertexOffset(0) {}

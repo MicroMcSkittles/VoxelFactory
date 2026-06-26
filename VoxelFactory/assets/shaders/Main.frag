@@ -24,4 +24,5 @@ void main() {
     vec3 ambient = vec3(0.3);
 
     o_FragColor = vec4((ambient + diffuse * 0.4) * AmbientOcclusion, 1.0) * texture_color;
+   //o_FragColor = vec4((ambient + diffuse * 0.4), 1.0) * texture_color;
 } 

@@ -12,11 +12,12 @@
 
 #include <iostream>
 
-Player::Player(const Ref<Camera>& camera, const Ref<World>& world)
-	: m_Camera(camera), m_World(world) {
+Player::Player(const glm::vec3& position, const Ref<Camera>& camera, const Ref<World>& world)
+	: m_Position(position), m_Camera(camera), m_World(world) {
 
 	m_CameraOffset = glm::vec3(0.0f, 1.7f, 0.0f);
-	m_Position = m_Camera->position - m_CameraOffset;
+	m_Camera->position = m_Position + m_CameraOffset;
+	m_Camera->UpdateView();
 
 	glm::vec3 collider_size = glm::vec3(0.8f, 1.8f, 0.8f);
 	m_ColliderOffset = glm::vec3(0.0f, collider_size.y * 0.5f, 0.0f);

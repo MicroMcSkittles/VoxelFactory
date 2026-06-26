@@ -35,6 +35,8 @@ public:
 	void ShowImGui();
 	void ShutDown();
 
+	void NewWorld();
+
 	void ClearDebugLines();
 	static void PushDebugLine(const DebugLine& line);
 	void ShowDebugLines();
@@ -52,6 +54,8 @@ private:
 	// Rendering
 	Ref<Camera> m_Camera;
 	Ref<World> m_World;
+	Ref<FrameBuffer> m_MainFrameBuffer;
+	Ref<Shader> m_PostProcShader;
 
 	Ref<VertexArray> m_UIQuad;
 	Ref<OrthographicCamera> m_UICamera;
@@ -76,13 +80,13 @@ private:
 
 private:
 	const inline static float c_UIQuadVertices[] = {
-		-1.0f, -1.0f, -1.0f, -1.0f,
-		-1.0f,  1.0f, -1.0f,  1.0f,
-		 1.0f,  1.0f,  1.0f,  1.0f,
-		 1.0f, -1.0f,  1.0f, -1.0f
+		-1.0f, -1.0f, 0.0f, 0.0f,
+		-1.0f,  1.0f, 0.0f, 1.0f,
+		 1.0f,  1.0f, 1.0f, 1.0f,
+		 1.0f, -1.0f, 1.0f, 0.0f
 	};
 	const inline static uint32_t c_UIQuadIndices[] = {
-		0, 1, 2,
-		2, 3, 0
+		2, 1, 0,
+		0, 3, 2
 	};
 };

@@ -52,6 +52,7 @@ void Game::OnResize(int width, int height) {
 	m_UICamera->view_box.height = height;
 	m_UICamera->UpdateProjection();
 	glViewport(0, 0, width, height);
+	m_MainFrameBuffer->Resize(width, height);
 }
 void Game::OnMouseClick(int button, int action, int mods) {
 	if (action != GLFW_PRESS) return;
@@ -94,39 +95,32 @@ void Game::StartUp() {
 		game->OnMouseClick(button, action, mods);
 	});
 
-	m_World = CreateRef<World>();
-
-	// Create camera
+	// Create Main Camera
 	Frustum frustum;
 	frustum.aspect_ratio = static_cast<float>(m_Window->GetWidth()) / static_cast<float>(m_Window->GetHeight());
-	frustum.fov = PI / 4.0f; // 45 degrees
+	frustum.fov = glm::radians(70.0f);
 	frustum.near = 0.1f;
 	frustum.far = 1000.0f;
-	m_Camera = CreateRef<Camera>(frustum, glm::vec3(0.0f, 200.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	m_Camera = CreateRef<Camera>(frustum, glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 	m_Camera->eular.y = PIHalf;
 
-	// Other open gl configs
-	glEnable(GL_DEPTH_TEST);
-	glEnable(GL_CULL_FACE);
-	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-	glLineWidth(3.0f);
-	glViewport(0, 0, m_Window->GetWidth(), m_Window->GetHeight());
-	glClearColor(0.125, 0.13, 0.2, 1);
-
-	ImGuiHandler::Init(m_Window);
-
-	m_DebugShader = CreateRef<Shader>("assets/shaders/DebugLine.vert", "assets/shaders/DebugLine.frag");
-
+	// Create UI Camera
 	ViewBox view_box;
 	view_box.width = m_Window->GetWidth();
 	view_box.height = m_Window->GetHeight();
 	view_box.near = 0.1f;
 	view_box.far = 1000.0f;
-	m_Player = CreateRef<Player>(m_Camera, m_World);
-
 	m_UICamera = CreateRef<OrthographicCamera>(view_box, glm::vec3(0.0f));
+
+	// Create Shaders
+	m_PostProcShader = CreateRef<Shader>("assets/shaders/PostProc.vert", "assets/shaders/PostProc.frag");
+	m_DebugShader = CreateRef<Shader>("assets/shaders/DebugLine.vert", "assets/shaders/DebugLine.frag");
 	m_UIShader = CreateRef<Shader>("assets/shaders/UI.vert", "assets/shaders/UI.frag");
 
+	// Create Main Frame Buffer
+	m_MainFrameBuffer = CreateRef<FrameBuffer>(m_Window->GetWidth(), m_Window->GetHeight());
+
+	// Create UI Quad
 	m_UIQuad = CreateRef<VertexArray>();
 	m_UIQuad->Bind();
 
@@ -141,6 +135,18 @@ void Game::StartUp() {
 	m_UIQuad->GetIndexBuffer() = index_buffer;
 
 	m_UIQuad->Unbind();
+
+	ImGuiHandler::Init(m_Window);
+
+	// Other open gl configs
+	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_CULL_FACE);
+	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	glLineWidth(3.0f);
+	glViewport(0, 0, m_Window->GetWidth(), m_Window->GetHeight());
+	glClearColor(0.125, 0.13, 0.2, 1);
+
+	NewWorld();
 }
 void Game::Update(float delta_time) {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -160,17 +166,23 @@ void Game::Update(float delta_time) {
 
 	m_World->Update(m_Camera->position);
 
+	// Render Scene
+	m_MainFrameBuffer->Bind();
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
 	m_Player->Render();
 	m_World->Render(m_Camera);
 
-	m_UIShader->Bind();
-	m_UIShader->SetUniform("u_ViewProjection", m_UICamera->view_projection);
+	m_MainFrameBuffer->Unbind();
+
+	m_PostProcShader->Bind();
+	m_MainFrameBuffer->GetColorBuffer()->Bind();
+	m_PostProcShader->SetUniform("u_FrameTexture", m_MainFrameBuffer->GetColorBuffer());
 	m_UIQuad->Bind();
-
-	m_Player->RenderUI(m_UIShader);
-
+	glDrawElements(GL_TRIANGLES, m_UIQuad->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
 	m_UIQuad->Unbind();
-	m_UIShader->Unbind();
+	m_MainFrameBuffer->GetColorBuffer()->Unbind();
+	m_PostProcShader->Unbind();
 
 	ShowDebugLines();
 
@@ -222,6 +234,15 @@ void Game::ShowImGui() {
 }
 void Game::ShutDown() {
 
+}
+
+void Game::NewWorld() {
+	m_World = CreateRef<World>(6437065572);
+	// Spawn player on the ground
+	glm::vec3 player_position = glm::vec3(0.0f, Chunk::ChunkHeight - 1.0f, 0.0f);
+	player_position = m_World->CastRay(Ray(player_position, glm::vec3(0.0f, -1.0f, 0.0f))).voxel_position;
+	player_position += glm::vec3(0.0f, 1.001f, 0.0f);
+	m_Player = CreateRef<Player>(player_position, m_Camera, m_World);
 }
 
 void Game::ClearDebugLines() {
