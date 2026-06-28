@@ -81,11 +81,11 @@ void VertexArray::Unbind() {
 	glBindVertexArray(0);
 }
 
-FrameBuffer::FrameBuffer(int width, int height) {
+FrameBuffer::FrameBuffer(int width, int height, int internal, int format) {
 	glGenFramebuffers(1, &m_Handle);
 	glBindFramebuffer(GL_FRAMEBUFFER, m_Handle);
 	
-	m_ColorBuffer = CreateRef<Texture>(nullptr, width, height, GL_RGB, GL_RGB);
+	m_ColorBuffer = CreateRef<Texture>(nullptr, width, height, internal, format);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_ColorBuffer->GetHandle(), 0);
 
 	glGenRenderbuffers(1, &m_RenderBufferHandle);

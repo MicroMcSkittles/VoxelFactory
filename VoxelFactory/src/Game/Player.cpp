@@ -15,6 +15,8 @@
 Player::Player(const glm::vec3& position, const Ref<Camera>& camera, const Ref<World>& world)
 	: m_Position(position), m_Camera(camera), m_World(world) {
 
+	m_HoldingBlockID = 3;
+
 	m_CameraOffset = glm::vec3(0.0f, 1.7f, 0.0f);
 	m_Camera->position = m_Position + m_CameraOffset;
 	m_Camera->UpdateView();
@@ -40,7 +42,6 @@ Player::Player(const glm::vec3& position, const Ref<Camera>& camera, const Ref<W
 	m_JumpForce = 0.125f;
 	m_Reach = 7.0f;
 
-	InitUI();
 	InitSelector();
 }
 
@@ -92,6 +93,13 @@ void Player::ShowImGui() {
 	ImGui::DragFloat("Jump Force", &m_JumpForce);
 	ImGui::DragFloat("Mouse Sensitivity", &m_MouseSensitivity);
 	ImGui::DragFloat("Reach", &m_Reach);
+
+	int block_id = m_HoldingBlockID;
+	if (ImGui::InputInt("Holding Block ID", &block_id)) {
+		if (block_id < 1) m_HoldingBlockID = 19;
+		else if (block_id > 19) m_HoldingBlockID = 1;
+		else m_HoldingBlockID = block_id;
+	}
 }
 
 void Player::Update(float delta_time, glm::vec2& last_mouse_pos, const Ref<Window>& window) {
@@ -137,10 +145,17 @@ void Player::OnRightClick() {
 	if (!m_ShowSelector) return;
 	CollisionResultData ray_data = m_World->CastRay({ m_Camera->position, m_Camera->direction });
 
-	// Place dirt block
+	// Place block in players hand
 	glm::vec3 voxel = ray_data.voxel_position + ray_data.normal;
 	if (m_World->WillIntersect(m_Collider, voxel)) return;
-	m_World->SetVoxel(voxel, 3);
+	m_World->SetVoxel(voxel, m_HoldingBlockID);
+}
+void Player::OnScroll(float delta) {
+	if (delta > 0.0f) m_HoldingBlockID += 1;
+	else m_HoldingBlockID -= 1;
+
+	if (m_HoldingBlockID < 1) m_HoldingBlockID = 19;
+	else if (m_HoldingBlockID > 19) m_HoldingBlockID = 1;
 }
 
 void Player::Input(float delta_time, const Ref<Window>& window) {
@@ -211,18 +226,11 @@ void Player::CameraInput(glm::vec2& last_mouse_pos, const Ref<Window>& window) {
 	m_Camera->UpdateView();
 }
 
-void Player::InitUI() {
+void Player::RenderUI() {
+	Game::UITexturedQuad(glm::vec3(0.0f), glm::vec2(0.25f), Game::GetTexture(TextureType::CrossHair));
 
-	m_CrossHair = CreateRef<Texture>("assets/textures/CrossHair.png");
-
-}
-void Player::RenderUI(Ref<Shader>& ui_shader)
-{
-	glm::mat4 cross_hair_model = glm::mat4(1.0f);
-	ui_shader->SetUniform("u_Model", cross_hair_model);
-	ui_shader->SetUniform("u_Tint", glm::vec3(1.0f));
-	
-	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+	uint32_t holding_texture_id = Block::BlockTextureIDs[m_HoldingBlockID - 1].front;
+	Game::UIAtlasQuad(glm::vec3(1.0f, 0.0f, 0.0f), glm::vec2(0.4f), holding_texture_id);
 }
 
 void Player::InitSelector() {
@@ -240,20 +248,19 @@ void Player::InitSelector() {
 	m_SelectorMesh->GetIndexBuffer() = index_buffer;
 
 	m_SelectorMesh->Unbind();
-
-	m_SelectorShader = CreateRef<Shader>("assets/shaders/Selector.vert", "assets/shaders/Selector.frag");
 }
 void Player::RenderSelector() {
 	if (!m_ShowSelector) return;
-	m_SelectorShader->Bind();
-	m_SelectorShader->SetUniform("u_ViewProjection", m_Camera->view_projection);
+	Ref<Shader>& selector_shader = Game::GetShader(ShaderType::Selector);
+	selector_shader->Bind();
+	selector_shader->SetUniform("u_ViewProjection", m_Camera->view_projection);
 
 	glm::mat4 model = glm::translate(glm::mat4(1.0f), m_SelectorPosition + glm::vec3(0.5f));
-	m_SelectorShader->SetUniform("u_Model", model);
+	selector_shader->SetUniform("u_Model", model);
 
 	m_SelectorMesh->Bind();
 	glDrawElements(GL_LINES, 24, GL_UNSIGNED_INT, nullptr);
 	m_SelectorMesh->Unbind();
 
-	m_SelectorShader->Unbind();
+	selector_shader->Unbind();
 }

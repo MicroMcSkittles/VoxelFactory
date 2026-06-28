@@ -32,6 +32,7 @@ struct ViewBox {
 	float height;
 	float near;
 	float far;
+	float scale;
 };
 struct OrthographicCamera {
 

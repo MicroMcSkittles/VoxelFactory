@@ -8,6 +8,8 @@
 #include "Game/World.h"
 #include "Game/Player.h"
 
+#include <array>
+
 struct DebugVertex {
 	glm::vec3 position;
 	glm::vec3 color;
@@ -20,28 +22,57 @@ struct DebugLine {
 		vertex1(point1, color), vertex2(point2, color) { }
 };
 
+enum class ShaderType {
+	PostProc,
+	World,
+	Selector,
+	UIColored,
+	UITextured,
+	UIAtlas,
+	Count
+};
+enum class TextureType {
+	BlockAtlas,
+	CrossHair,
+	Count
+};
+
 class Game {
 public:
 	Game();
 	~Game();
 
+	static Game* Get() { return s_Instance; }
+	static Ref<Shader>& GetShader(ShaderType type) { return s_Instance->m_Shaders[(size_t)type]; }
+	static Ref<Texture>& GetTexture(TextureType type) { return s_Instance->m_Textures[(size_t)type]; }
+
+	static void UIColoredQuad(const glm::vec3& position, const glm::vec2& size, const glm::vec3& color);
+	static void UITexturedQuad(const glm::vec3& position, const glm::vec2& size, const Ref<Texture>& texture);
+	static void UIAtlasQuad(const glm::vec3& position, const glm::vec2& size, const glm::vec2& texture_coord);
+	static void UIAtlasQuad(const glm::vec3& position, const glm::vec2& size, uint32_t texture_id);
+
 	void Run();
 
 	void OnResize(int width, int height);
 	void OnMouseClick(int button, int action, int mods);
+	void OnScroll(float delta);
 
 	void StartUp();
 	void Update(float delta_time);
 	void ShowImGui();
 	void ShutDown();
 
-	void NewWorld();
+	void NewWorld(uint32_t seed);
 
 	void ClearDebugLines();
 	static void PushDebugLine(const DebugLine& line);
 	void ShowDebugLines();
 
 private:
+	void ShowGameImGui();
+	void LoadShaders();
+	void LoadTextures();
+
 	void OnLeftClick();
 	void OnRightClick();
 
@@ -49,34 +80,31 @@ private:
 	// Misc
 	Ref<Window> m_Window;
 	Ref<Player> m_Player;
+	Ref<World> m_World;
 	bool m_Running;
 
 	// Rendering
+	std::array<Ref<Shader>, (size_t)ShaderType::Count> m_Shaders;
+	std::array<Ref<Texture>, (size_t)TextureType::Count> m_Textures;
 	Ref<Camera> m_Camera;
-	Ref<World> m_World;
+	Ref<OrthographicCamera> m_UICamera;
+
 	Ref<FrameBuffer> m_MainFrameBuffer;
-	Ref<Shader> m_PostProcShader;
+	Ref<FrameBuffer> m_UIFrameBuffer;
 
 	Ref<VertexArray> m_UIQuad;
-	Ref<OrthographicCamera> m_UICamera;
-	Ref<Shader> m_UIShader;
 
+	// Debuging
 	Ref<Shader> m_DebugShader;
 	Ref<VertexArray> m_DebugLineMesh;
 	inline static std::vector<DebugLine> m_DebugLines;
-
-	// Noise Test
-	Ref<Texture> m_Noise;
-	int m_NoiseWidth = 100;
-	int m_NoiseHeight = 100;
-	int m_NoiseFrequency = 2;
-	glm::vec2 m_NoiseOffset = { 0.0f, 0.0f };
-	int m_NoiseSeed = 6942067;
-
+	
 	// Input
 	bool m_Focused;
 	bool m_MouseAvalible;
 	glm::vec2 m_LastMousePos;
+
+	inline static Game* s_Instance = nullptr;
 
 private:
 	const inline static float c_UIQuadVertices[] = {

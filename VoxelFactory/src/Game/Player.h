@@ -14,18 +14,18 @@ public:
 	void ShowImGui();
 	void Update(float delta_time, glm::vec2& last_mouse_pos, const Ref<Window>& window);
 	void Render();
-	void RenderUI(Ref<Shader>& ui_shader);
+	void RenderUI();
 
 	void OnLeftClick();
 	void OnRightClick();
+	void OnScroll(float delta);
+
 private:
 
 	// Update velocity based on input
 	void Input(float delta_time, const Ref<Window>& window);
 	// Update camera rotation based on mouse movement
 	void CameraInput(glm::vec2& last_mouse_pos, const Ref<Window>& window);
-
-	void InitUI();
 
 	void InitSelector();
 	void RenderSelector();
@@ -35,8 +35,8 @@ private:
 	// General
 	Ref<World> m_World;
 	Ref<Camera> m_Camera;
-	
-	Ref<Texture> m_CrossHair;
+
+	uint8_t m_HoldingBlockID;
 
 	glm::vec3 m_Position;
 	glm::vec3 m_CameraOffset;
@@ -52,7 +52,6 @@ private:
 	bool m_OnGround;
 
 	// Selector
-	Ref<Shader> m_SelectorShader;
 	Ref<VertexArray> m_SelectorMesh;
 	glm::vec3 m_SelectorPosition;
 	bool m_ShowSelector;

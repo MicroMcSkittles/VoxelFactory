@@ -61,6 +61,7 @@ void Texture::Bind() {
 	ASSERT_MSG(s_BoundCount != c_MaxBound, "A OpenGL error occured: To many bound textures");
 	glActiveTexture(GL_TEXTURE0 + s_BoundCount);
 	glBindTexture(GL_TEXTURE_2D, m_Handle);
+	m_Slot = s_BoundCount;
 	s_BoundCount += 1;
 }
 void Texture::Unbind() {

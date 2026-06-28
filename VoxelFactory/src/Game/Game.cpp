@@ -16,6 +16,8 @@
 #include "Player.h"
 
 Game::Game() {
+	ASSERT(s_Instance == nullptr);
+	s_Instance = this;
 
 	m_Running = true;
 
@@ -26,6 +28,82 @@ Game::Game() {
 	m_DebugLineMesh = nullptr;
 }
 Game::~Game() { }
+
+void Game::UIColoredQuad(const glm::vec3& position, const glm::vec2& size, const glm::vec3& color) {
+	glm::mat4 model = glm::mat4(1.0f);
+	model = glm::translate(model, position);
+	model = glm::scale(model, glm::vec3(size, 1.0f));
+
+	Ref<Shader>& ui_shader = GetShader(ShaderType::UIColored);
+	ui_shader->Bind();
+	ui_shader->SetUniform("u_Model", model);
+	ui_shader->SetUniform("u_Color", color);
+	ui_shader->SetUniform("u_ViewProjection", s_Instance->m_UICamera->view_projection);
+
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+
+	ui_shader->Unbind();
+}
+void Game::UITexturedQuad(const glm::vec3& position, const glm::vec2& size, const Ref<Texture>& texture) {
+	glm::mat4 model = glm::mat4(1.0f);
+	model = glm::translate(model, position);
+	model = glm::scale(model, glm::vec3(size, 1.0f));
+
+	texture->Bind();
+
+	Ref<Shader>& ui_shader = GetShader(ShaderType::UITextured);
+	ui_shader->Bind();
+	ui_shader->SetUniform("u_Model", model);
+	ui_shader->SetUniform("u_Texture", texture);
+	ui_shader->SetUniform("u_ViewProjection", s_Instance->m_UICamera->view_projection);
+
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+
+	ui_shader->Unbind();
+	texture->Unbind();
+}
+void Game::UIAtlasQuad(const glm::vec3& position, const glm::vec2& size, const glm::vec2& texture_coord) {
+	glm::mat4 model = glm::mat4(1.0f);
+	model = glm::translate(model, position);
+	model = glm::scale(model, glm::vec3(size, 1.0f));
+
+	Ref<Texture>& block_atlas = GetTexture(TextureType::BlockAtlas);
+	block_atlas->Bind();
+
+	Ref<Shader>& ui_shader = GetShader(ShaderType::UITextured);
+	ui_shader->Bind();
+	ui_shader->SetUniform("u_Model", model);
+	ui_shader->SetUniform("u_ViewProjection", s_Instance->m_UICamera->view_projection);
+
+	uint32_t texture_id = (uint32_t)texture_coord.y * 16 + (uint32_t)texture_coord.x;
+	ui_shader->SetUniform("u_TextureID", texture_id);
+	ui_shader->SetUniform("u_Texture", block_atlas);
+
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+
+	ui_shader->Unbind();
+	block_atlas->Unbind();
+}
+void Game::UIAtlasQuad(const glm::vec3& position, const glm::vec2& size, uint32_t texture_id) {
+	glm::mat4 model = glm::mat4(1.0f);
+	model = glm::translate(model, position);
+	model = glm::scale(model, glm::vec3(size, 1.0f));
+
+	Ref<Texture>& block_atlas = GetTexture(TextureType::BlockAtlas);
+	block_atlas->Bind();
+
+	Ref<Shader>& ui_shader = GetShader(ShaderType::UIAtlas);
+	ui_shader->Bind();
+	ui_shader->SetUniform("u_Model", model);
+	ui_shader->SetUniform("u_ViewProjection", s_Instance->m_UICamera->view_projection);
+	ui_shader->SetUniform("u_TextureID", texture_id);
+	ui_shader->SetUniform("u_Texture", block_atlas);
+
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+
+	ui_shader->Unbind();
+	block_atlas->Unbind();
+}
 
 void Game::Run() {
 	float last_ms = glfwGetTime();
@@ -53,6 +131,7 @@ void Game::OnResize(int width, int height) {
 	m_UICamera->UpdateProjection();
 	glViewport(0, 0, width, height);
 	m_MainFrameBuffer->Resize(width, height);
+	m_UIFrameBuffer->Resize(width, height);
 }
 void Game::OnMouseClick(int button, int action, int mods) {
 	if (action != GLFW_PRESS) return;
@@ -78,7 +157,10 @@ void Game::OnLeftClick() {
 	m_Player->OnLeftClick();
 }
 void Game::OnRightClick() {
-	m_Player->OnRightClick();
+	if (m_Focused) m_Player->OnRightClick();
+}
+void Game::OnScroll(float delta) {
+	if (m_Focused) m_Player->OnScroll(delta);
 }
 
 void Game::StartUp() {
@@ -93,6 +175,10 @@ void Game::StartUp() {
 	glfwSetMouseButtonCallback(window_handle, [](GLFWwindow* window, int button, int action, int mods) {
 		Game* game = reinterpret_cast<Game*>(glfwGetWindowUserPointer(window));
 		game->OnMouseClick(button, action, mods);
+	});
+	glfwSetScrollCallback(window_handle, [](GLFWwindow* window, double delta_x, double delta_y) {
+		Game* game = reinterpret_cast<Game*>(glfwGetWindowUserPointer(window));
+		game->OnScroll(delta_y);
 	});
 
 	// Create Main Camera
@@ -110,15 +196,12 @@ void Game::StartUp() {
 	view_box.height = m_Window->GetHeight();
 	view_box.near = 0.1f;
 	view_box.far = 1000.0f;
+	view_box.scale = 8.0f;
 	m_UICamera = CreateRef<OrthographicCamera>(view_box, glm::vec3(0.0f));
 
-	// Create Shaders
-	m_PostProcShader = CreateRef<Shader>("assets/shaders/PostProc.vert", "assets/shaders/PostProc.frag");
-	m_DebugShader = CreateRef<Shader>("assets/shaders/DebugLine.vert", "assets/shaders/DebugLine.frag");
-	m_UIShader = CreateRef<Shader>("assets/shaders/UI.vert", "assets/shaders/UI.frag");
-
-	// Create Main Frame Buffer
-	m_MainFrameBuffer = CreateRef<FrameBuffer>(m_Window->GetWidth(), m_Window->GetHeight());
+	// Create Frame Buffers
+	m_MainFrameBuffer = CreateRef<FrameBuffer>(m_Window->GetWidth(), m_Window->GetHeight(), GL_RGB, GL_RGB);
+	m_UIFrameBuffer = CreateRef<FrameBuffer>(m_Window->GetWidth(), m_Window->GetHeight(), GL_RGBA8, GL_RGBA);
 
 	// Create UI Quad
 	m_UIQuad = CreateRef<VertexArray>();
@@ -144,12 +227,13 @@ void Game::StartUp() {
 	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	glLineWidth(3.0f);
 	glViewport(0, 0, m_Window->GetWidth(), m_Window->GetHeight());
-	glClearColor(0.125, 0.13, 0.2, 1);
+	glClearColor(0.125f, 0.13f, 0.2f, 0.0f);
 
-	NewWorld();
+	LoadShaders();
+	LoadTextures();
+	NewWorld(643706557);
 }
 void Game::Update(float delta_time) {
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	ImGuiHandler::StartFrame();
 
 	GLFWwindow* window_handle = (GLFWwindow*)m_Window->GetHandle();
@@ -175,16 +259,44 @@ void Game::Update(float delta_time) {
 
 	m_MainFrameBuffer->Unbind();
 
-	m_PostProcShader->Bind();
-	m_MainFrameBuffer->GetColorBuffer()->Bind();
-	m_PostProcShader->SetUniform("u_FrameTexture", m_MainFrameBuffer->GetColorBuffer());
+	// Render UI
+	m_UIFrameBuffer->Bind();
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	
+	
 	m_UIQuad->Bind();
-	glDrawElements(GL_TRIANGLES, m_UIQuad->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
-	m_UIQuad->Unbind();
-	m_MainFrameBuffer->GetColorBuffer()->Unbind();
-	m_PostProcShader->Unbind();
+	
+	//Ref<Shader>& ui_shader = m_Shaders[(size_t)ShaderType::UI];
+	//ui_shader->Bind();
+	//ui_shader->SetUniform("u_ViewProjection", m_UICamera->view_projection);
+	//ui_shader->Unbind();
 
-	ShowDebugLines();
+	m_Player->RenderUI();
+	
+	m_UIQuad->Unbind();
+	m_UIFrameBuffer->Unbind();
+
+	Ref<Shader>& post_proc_shader = m_Shaders[(size_t)ShaderType::PostProc];
+	post_proc_shader->Bind();
+	m_UIQuad->Bind();
+	
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glDisable(GL_DEPTH_TEST);
+	// Render Scene Frame
+	m_MainFrameBuffer->GetColorBuffer()->Bind();
+	post_proc_shader->SetUniform("u_FrameTexture", m_MainFrameBuffer->GetColorBuffer());
+	glDrawElements(GL_TRIANGLES, m_UIQuad->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
+	m_MainFrameBuffer->GetColorBuffer()->Unbind();
+	// Render UI Frame
+	m_UIFrameBuffer->GetColorBuffer()->Bind();
+	post_proc_shader->SetUniform("u_FrameTexture", m_UIFrameBuffer->GetColorBuffer());
+	glDrawElements(GL_TRIANGLES, m_UIQuad->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
+	m_UIFrameBuffer->GetColorBuffer()->Unbind();
+
+	glEnable(GL_DEPTH_TEST);
+
+	m_UIQuad->Unbind();
+	post_proc_shader->Unbind();
 
 	ShowImGui();
 	ImGuiHandler::EndFrame();
@@ -194,33 +306,14 @@ void Game::ShowImGui() {
 	ImGui::Begin("Debug Menu");
 	ImVec2 window_pos = ImGui::GetWindowPos();
 	
-	if (ImGui::Button("Clear Debug Lines")) {
-		ClearDebugLines();
+	if (ImGui::CollapsingHeader("Game")) {
+		ShowGameImGui();
 	}
-	
 	if (ImGui::CollapsingHeader("Player")) {
 		m_Player->ShowImGui();
 	}
 	if (ImGui::CollapsingHeader("World")) {
 		m_World->ShowImGui();
-	}
-	if (ImGui::CollapsingHeader("Noise")) {
-		
-		ImGui::InputInt("Seed", &m_NoiseSeed);
-		ImGui::InputInt("Width", &m_NoiseWidth);
-		ImGui::InputInt("Height", &m_NoiseHeight);
-		ImGui::InputInt("Frequency", &m_NoiseFrequency);
-		ImGui::InputFloat2("Offset", &m_NoiseOffset.x);
-		if (ImGui::Button("White Noise")) {
-			m_Noise = NoiseGenerator::GenerateWhiteNoise(m_NoiseWidth, m_NoiseHeight, (uint32_t)glfwGetTime());
-		}
-		if (ImGui::Button("Perlin Noise")) {
-			m_Noise = NoiseGenerator::GeneratePerlinNoise(m_NoiseWidth, m_NoiseHeight, m_NoiseFrequency, m_NoiseOffset, m_NoiseSeed);
-		}
-
-		if (m_Noise != nullptr) {
-			ImGuiImage("Noise", m_Noise, { 0.0f, 300.0f });
-		}
 	}
 
 	ImVec2 window_size = ImGui::GetWindowSize();
@@ -232,12 +325,40 @@ void Game::ShowImGui() {
 	m_MouseAvalible = (window_pos.x > cursor_pos.x || window_size.x < cursor_pos.x) || (window_pos.y > cursor_pos.y || window_size.y < cursor_pos.y);
 	m_MouseAvalible &= !m_Focused;
 }
+void Game::ShowGameImGui() {
+	if (ImGui::Button("Clear Debug Lines")) {
+		ClearDebugLines();
+	}
+	if (ImGui::Button("Reload Shaders")) {
+		LoadShaders();
+	}
+	static int s_NewWorldSeed = 643706557;
+	ImGui::InputInt("Seed", &s_NewWorldSeed);
+	if (ImGui::Button("New World")) {
+		NewWorld(s_NewWorldSeed);
+	}
+}
 void Game::ShutDown() {
 
 }
 
-void Game::NewWorld() {
-	m_World = CreateRef<World>(6437065572);
+void Game::LoadShaders() {
+
+	m_Shaders[(size_t)ShaderType::PostProc] = CreateRef<Shader>("assets/shaders/PostProc.vert", "assets/shaders/PostProc.frag");
+	m_Shaders[(size_t)ShaderType::World] = CreateRef<Shader>("assets/shaders/Main.vert", "assets/shaders/Main.frag");
+	m_Shaders[(size_t)ShaderType::Selector] = CreateRef<Shader>("assets/shaders/Selector.vert", "assets/shaders/Selector.frag");
+	m_Shaders[(size_t)ShaderType::UIColored] = CreateRef<Shader>("assets/shaders/UI.vert", "assets/shaders/UIColored.frag");
+	m_Shaders[(size_t)ShaderType::UITextured] = CreateRef<Shader>("assets/shaders/UI.vert", "assets/shaders/UITextured.frag");
+	m_Shaders[(size_t)ShaderType::UIAtlas] = CreateRef<Shader>("assets/shaders/UI.vert", "assets/shaders/UIAtlas.frag");
+
+	m_DebugShader = CreateRef<Shader>("assets/shaders/DebugLine.vert", "assets/shaders/DebugLine.frag");
+}
+void Game::LoadTextures() {
+	m_Textures[(size_t)TextureType::BlockAtlas] = CreateRef<Texture>("assets/textures/atlas.png");
+	m_Textures[(size_t)TextureType::CrossHair] = CreateRef<Texture>("assets/textures/CrossHair.png");
+}
+void Game::NewWorld(uint32_t seed) {
+	m_World = CreateRef<World>(seed);
 	// Spawn player on the ground
 	glm::vec3 player_position = glm::vec3(0.0f, Chunk::ChunkHeight - 1.0f, 0.0f);
 	player_position = m_World->CastRay(Ray(player_position, glm::vec3(0.0f, -1.0f, 0.0f))).voxel_position;

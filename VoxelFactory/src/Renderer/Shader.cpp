@@ -70,6 +70,16 @@ Shader::~Shader() {
 	glDeleteProgram(m_Handle);
 }
 
+void Shader::SetUniform(const std::string& name, uint32_t value) {
+	ASSERT_MSG(m_Bound, "A OpenGL error occured: failed to set uniform unsigned int, shader not bound");
+	uint32_t location = glGetUniformLocation(m_Handle, name.c_str());
+	glUniform1ui(location, value);
+}
+void Shader::SetUniform(const std::string& name, float value) {
+	ASSERT_MSG(m_Bound, "A OpenGL error occured: failed to set uniform float, shader not bound");
+	uint32_t location = glGetUniformLocation(m_Handle, name.c_str());
+	glUniform1f(location, value);
+}
 void Shader::SetUniform(const std::string& name, const glm::vec3& value) {
 	ASSERT_MSG(m_Bound, "A OpenGL error occured: failed to set uniform vec3, shader not bound");
 	uint32_t location = glGetUniformLocation(m_Handle, name.c_str());

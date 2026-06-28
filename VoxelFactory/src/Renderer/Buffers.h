@@ -66,7 +66,7 @@ private:
 
 class FrameBuffer {
 public:
-	FrameBuffer(int width, int height);
+	FrameBuffer(int width, int height, int internal, int format);
 	~FrameBuffer();
 
 	void Resize(int width, int height);

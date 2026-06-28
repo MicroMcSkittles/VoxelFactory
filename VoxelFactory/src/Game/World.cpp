@@ -2,6 +2,7 @@
 #include "Core/Utils.h"
 #include "Core/ImGuiUtils.h"
 #include "Game/Noise.h"
+#include "Game/Game.h"
 
 #include <algorithm>
 #include <iostream>
@@ -133,9 +134,6 @@ World::World(uint32_t seed) : m_Seed(seed), m_LoadedCenter({ 0,0,0 }), m_LoadedR
 		m_ChunkMeshes[i] = ChunkMesher(&m_Chunks[i], this).CreateMesh();
 		m_ChunkMeshes[i]->CreateVertexArray();
 	}
-
-	m_MainShader = CreateRef<Shader>("assets/shaders/Main.vert", "assets/shaders/Main.frag");
-	m_Atlas = CreateRef<Texture>("assets/textures/atlas.png");
 }
 World::~World() { }
 
@@ -440,11 +438,14 @@ bool World::IsVoid(const glm::vec3& position) {
 }
 
 void World::Render(const Ref<Camera>& camera) {
-	m_Atlas->Bind();
-	m_MainShader->Bind();
+	Ref<Texture>& block_atlas = Game::GetTexture(TextureType::BlockAtlas);
+	block_atlas->Bind();
 
-	m_MainShader->SetUniform("u_ViewProjection", camera->view_projection);
-	m_MainShader->SetUniform("u_Texture", m_Atlas);
+	Ref<Shader>& world_shader = Game::GetShader(ShaderType::World);
+	world_shader->Bind();
+
+	world_shader->SetUniform("u_ViewProjection", camera->view_projection);
+	world_shader->SetUniform("u_Texture", block_atlas);
 
 	glm::vec3 world_position = glm::vec3(0.5f) + m_LoadedCenter * (float)Chunk::ChunkLength;
 	glm::mat4 world = glm::translate(glm::mat4(1.0f), world_position); 
@@ -453,7 +454,7 @@ void World::Render(const Ref<Camera>& camera) {
 		for (int x = 0; x < m_LoadedRadius * 2 + 1; x++) {
 			glm::vec3 position = { (x - m_LoadedRadius) * Chunk::ChunkLength, 0, (z - m_LoadedRadius) * Chunk::ChunkLength };
 			glm::mat4 model = glm::translate(world, position);
-			m_MainShader->SetUniform("u_Model", model);
+			world_shader->SetUniform("u_Model", model);
 
 			Ref<VertexArray>& vao = m_ChunkMeshes[x + z * m_LoadedWidth]->GetVertexArray();
 			if (vao == nullptr) continue;
@@ -463,14 +464,13 @@ void World::Render(const Ref<Camera>& camera) {
 		}
 	}
 
-	m_MainShader->Unbind();
-	m_Atlas->Unbind();
+	world_shader->Unbind();
+	block_atlas->Unbind();
 }
 void World::ShowImGui() {
 	ImGui::Text("Chunk Count: %d", m_Chunks.size());
 	ImGui::Text("Loaded Radius: %d", m_LoadedRadius);
 	ImGui::Text("Loaded Center: %s", VEC3_STR(m_LoadedCenter).c_str());
-	ImGuiImage("Atlas", m_Atlas, { 0.0f, 150.0f });
 }
 
 void World::Update(const glm::vec3& position) {
@@ -649,7 +649,7 @@ void ChunkMesher::MeshFace(const glm::vec3& position, const glm::vec3& face_dir,
 		uint32_t corner_voxel = !IsVoid(position + step);
 
 		if (left_voxel && right_voxel) vertex.ambient_occlusion = 0;
-		else vertex.ambient_occlusion = 3 - (left_voxel + right_voxel + corner_voxel);
+		else vertex.ambient_occlusion = (3 - (left_voxel + right_voxel + corner_voxel)) / 2.0f;
 
 		vertex.position += position;
 		vertex.id = id;

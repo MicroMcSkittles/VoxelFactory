@@ -48,6 +48,9 @@ public:
 	static glm::vec3 GetBlockPosition(const glm::vec3& position); // Returns the position of the voxel a point is in
 
 private:
+	// TODO: store blocks in a better way
+	// https://www.reddit.com/r/technicalminecraft/comments/gjioyz/how_does_minecraft_handle_chunks_from_a_memory/
+	// is a good explenation of a way to do that
 	std::vector<Block> m_Blocks;
 	glm::vec3 m_Position;
 
@@ -138,9 +141,6 @@ private:
 
 	std::vector<Chunk> m_Chunks;
 	std::vector<Ref<Mesh<ChunkVertex>>> m_ChunkMeshes;
-
-	Ref<Shader> m_MainShader;
-	Ref<Texture> m_Atlas;
 };
 
 class ChunkMesher {

@@ -9,6 +9,8 @@ public:
 	Shader(const std::string& vertex_path, const std::string& fragment_path);
 	~Shader();
 
+	void SetUniform(const std::string& name, uint32_t value);
+	void SetUniform(const std::string& name, float value);
 	void SetUniform(const std::string& name, const glm::vec3& value);
 	void SetUniform(const std::string& name, const glm::mat4& value);
 	void SetUniform(const std::string& name, const Ref<Texture>& value);
