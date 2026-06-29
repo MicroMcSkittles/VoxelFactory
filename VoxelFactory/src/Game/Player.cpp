@@ -1,5 +1,6 @@
 #include "Game/Player.h"
 #include "Game/Game.h"
+#include "Game/UI.h"
 #include "Core/Utils.h"
 
 #include <GLFW/glfw3.h>
@@ -51,55 +52,55 @@ void Player::ShowImGui() {
 	glm::vec3 chunk_pos = Chunk::GetBlockChunkPosition(m_Position);
 	glm::vec3 chunk_block_pos = Chunk::GetBlockLocalPosition(block_pos);
 
-	ImGui::SeparatorText("General");
-	if (ImGui::InputFloat3("Position", glm::value_ptr(m_Position))) {
-		m_Collider.SetPosition(m_Position);
-		m_Camera->position = m_Position + m_CameraOffset;
-		m_Camera->UpdateView();
-	}
-	if (ImGui::DragFloat3("Camera Offset", glm::value_ptr(m_CameraOffset), 0.1f)) {
-		m_Camera->position = m_Position + m_CameraOffset;
-		m_Camera->UpdateView();
-	}
-	ImGui::Text("Block Position: ( %d, %d, %d )", (int)block_pos.x, (int)block_pos.y, (int)block_pos.z);
-	ImGui::Text("Chunk Block Position: ( %d, %d, %d )", (int)chunk_block_pos.x, (int)chunk_block_pos.y, (int)chunk_block_pos.z);
-	ImGui::Text("Chunk Position: ( %d, %d )", (int)chunk_pos.x, (int)chunk_pos.z);
+ImGui::SeparatorText("General");
+if (ImGui::InputFloat3("Position", glm::value_ptr(m_Position))) {
+	m_Collider.SetPosition(m_Position);
+	m_Camera->position = m_Position + m_CameraOffset;
+	m_Camera->UpdateView();
+}
+if (ImGui::DragFloat3("Camera Offset", glm::value_ptr(m_CameraOffset), 0.1f)) {
+	m_Camera->position = m_Position + m_CameraOffset;
+	m_Camera->UpdateView();
+}
+ImGui::Text("Block Position: ( %d, %d, %d )", (int)block_pos.x, (int)block_pos.y, (int)block_pos.z);
+ImGui::Text("Chunk Block Position: ( %d, %d, %d )", (int)chunk_block_pos.x, (int)chunk_block_pos.y, (int)chunk_block_pos.z);
+ImGui::Text("Chunk Position: ( %d, %d )", (int)chunk_pos.x, (int)chunk_pos.z);
 
-	// Physics
-	ImGui::SeparatorText("Physics");
-	ImGui::Text("Velocity: %s", VEC3_STR(m_Velocity).c_str());
-	if (ImGui::DragFloat3("Collider Size", glm::value_ptr(m_Collider.size), 0.1f)) {
-		m_Collider.CalculateMinMax();
-	}
-	ImGui::Text("Collider Position: %s", VEC3_STR(m_Collider.position).c_str());
-	ImGui::Text("Collider Min: %s", VEC3_STR(m_Collider.min).c_str());
-	ImGui::Text("Collider Max: %s", VEC3_STR(m_Collider.max).c_str());
-	ImGui::Text("On Ground: %s", (m_OnGround ? "true" : "false"));
-	ImGui::DragFloat("Ground Check Distance", &m_GroundCheckDist);
-	ImGui::DragFloat("Gravity", &m_GravitationalConstant, 0.1f);
-	ImGui::DragFloat("Drag", &m_Drag, 0.1f);
+// Physics
+ImGui::SeparatorText("Physics");
+ImGui::Text("Velocity: %s", VEC3_STR(m_Velocity).c_str());
+if (ImGui::DragFloat3("Collider Size", glm::value_ptr(m_Collider.size), 0.1f)) {
+	m_Collider.CalculateMinMax();
+}
+ImGui::Text("Collider Position: %s", VEC3_STR(m_Collider.position).c_str());
+ImGui::Text("Collider Min: %s", VEC3_STR(m_Collider.min).c_str());
+ImGui::Text("Collider Max: %s", VEC3_STR(m_Collider.max).c_str());
+ImGui::Text("On Ground: %s", (m_OnGround ? "true" : "false"));
+ImGui::DragFloat("Ground Check Distance", &m_GroundCheckDist);
+ImGui::DragFloat("Gravity", &m_GravitationalConstant, 0.1f);
+ImGui::DragFloat("Drag", &m_Drag, 0.1f);
 
-	// Selector
-	ImGui::SeparatorText("Selector");
-	ImGui::Text("Visible: %s", (m_ShowSelector ? "true" : "false"));
-	ImGui::Text("Position: ( %d, %d, %d )", (int)m_SelectorPosition.x, (int)m_SelectorPosition.y, (int)m_SelectorPosition.z);
+// Selector
+ImGui::SeparatorText("Selector");
+ImGui::Text("Visible: %s", (m_ShowSelector ? "true" : "false"));
+ImGui::Text("Position: ( %d, %d, %d )", (int)m_SelectorPosition.x, (int)m_SelectorPosition.y, (int)m_SelectorPosition.z);
 
-	// Input
-	ImGui::SeparatorText("Input");
-	ImGui::Checkbox("Flight", &m_Flight);
-	ImGui::DragFloat("Walk Speed", &m_WalkSpeed, 0.1f);
-	ImGui::DragFloat("Sprint Multiplier", &m_SprintMultiplier, 0.1f);
-	ImGui::Text("Speed: %f", m_Speed);
-	ImGui::DragFloat("Jump Force", &m_JumpForce);
-	ImGui::DragFloat("Mouse Sensitivity", &m_MouseSensitivity);
-	ImGui::DragFloat("Reach", &m_Reach);
+// Input
+ImGui::SeparatorText("Input");
+ImGui::Checkbox("Flight", &m_Flight);
+ImGui::DragFloat("Walk Speed", &m_WalkSpeed, 0.1f);
+ImGui::DragFloat("Sprint Multiplier", &m_SprintMultiplier, 0.1f);
+ImGui::Text("Speed: %f", m_Speed);
+ImGui::DragFloat("Jump Force", &m_JumpForce);
+ImGui::DragFloat("Mouse Sensitivity", &m_MouseSensitivity);
+ImGui::DragFloat("Reach", &m_Reach);
 
-	int block_id = m_HoldingBlockID;
-	if (ImGui::InputInt("Holding Block ID", &block_id)) {
-		if (block_id < 1) m_HoldingBlockID = 19;
-		else if (block_id > 19) m_HoldingBlockID = 1;
-		else m_HoldingBlockID = block_id;
-	}
+int block_id = m_HoldingBlockID;
+if (ImGui::InputInt("Holding Block ID", &block_id)) {
+	if (block_id < 1) m_HoldingBlockID = 19;
+	else if (block_id > 19) m_HoldingBlockID = 1;
+	else m_HoldingBlockID = block_id;
+}
 }
 
 void Player::Update(float delta_time, glm::vec2& last_mouse_pos, const Ref<Window>& window) {
@@ -145,10 +146,14 @@ void Player::OnRightClick() {
 	if (!m_ShowSelector) return;
 	CollisionResultData ray_data = m_World->CastRay({ m_Camera->position, m_Camera->direction });
 
-	// Place block in players hand
+	// Find block oriantation
+	glm::vec3 direction = -(m_Camera->direction * ray_data.dist);
+	uint8_t block_id = m_HoldingBlockID | Block::CalculateOrientation(direction, m_HoldingBlockID);
+
+	// Place block from players hand
 	glm::vec3 voxel = ray_data.voxel_position + ray_data.normal;
 	if (m_World->WillIntersect(m_Collider, voxel)) return;
-	m_World->SetVoxel(voxel, m_HoldingBlockID);
+	m_World->SetVoxel(voxel, block_id);
 }
 void Player::OnScroll(float delta) {
 	if (delta > 0.0f) m_HoldingBlockID += 1;
@@ -185,9 +190,8 @@ void Player::Input(float delta_time, const Ref<Window>& window) {
 	if (!m_Flight) m_Velocity.y += m_GravitationalConstant * delta_time;
 
 	// Apply drag
-	float drag_force = m_Velocity.y * m_Drag * delta_time;
-	if (m_OnGround) m_Velocity.y -= drag_force;
-	else m_Velocity -= drag_force;
+	if (m_OnGround) m_Velocity.y -= m_Velocity.y * m_Drag * delta_time;
+	else m_Velocity -= m_Velocity * m_Drag * delta_time;
 
 	// Handle Jump
 	if (glfwGetKey(window_handle, GLFW_KEY_SPACE) && m_OnGround) {
@@ -227,10 +231,10 @@ void Player::CameraInput(glm::vec2& last_mouse_pos, const Ref<Window>& window) {
 }
 
 void Player::RenderUI() {
-	Game::UITexturedQuad(glm::vec3(0.0f), glm::vec2(0.25f), Game::GetTexture(TextureType::CrossHair));
+	UI::TexturedQuad(glm::vec3(0.0f), glm::vec2(0.25f), Game::GetTexture(TextureType::CrossHair));
 
 	uint32_t holding_texture_id = Block::BlockTextureIDs[m_HoldingBlockID - 1].front;
-	Game::UIAtlasQuad(glm::vec3(1.0f, 0.0f, 0.0f), glm::vec2(0.4f), holding_texture_id);
+	UI::AtlasQuad(glm::vec3(1.0f, 0.0f, 0.0f), glm::vec2(0.4f), holding_texture_id);
 }
 
 void Player::InitSelector() {

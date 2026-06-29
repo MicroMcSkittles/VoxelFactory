@@ -29,82 +29,6 @@ Game::Game() {
 }
 Game::~Game() { }
 
-void Game::UIColoredQuad(const glm::vec3& position, const glm::vec2& size, const glm::vec3& color) {
-	glm::mat4 model = glm::mat4(1.0f);
-	model = glm::translate(model, position);
-	model = glm::scale(model, glm::vec3(size, 1.0f));
-
-	Ref<Shader>& ui_shader = GetShader(ShaderType::UIColored);
-	ui_shader->Bind();
-	ui_shader->SetUniform("u_Model", model);
-	ui_shader->SetUniform("u_Color", color);
-	ui_shader->SetUniform("u_ViewProjection", s_Instance->m_UICamera->view_projection);
-
-	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
-
-	ui_shader->Unbind();
-}
-void Game::UITexturedQuad(const glm::vec3& position, const glm::vec2& size, const Ref<Texture>& texture) {
-	glm::mat4 model = glm::mat4(1.0f);
-	model = glm::translate(model, position);
-	model = glm::scale(model, glm::vec3(size, 1.0f));
-
-	texture->Bind();
-
-	Ref<Shader>& ui_shader = GetShader(ShaderType::UITextured);
-	ui_shader->Bind();
-	ui_shader->SetUniform("u_Model", model);
-	ui_shader->SetUniform("u_Texture", texture);
-	ui_shader->SetUniform("u_ViewProjection", s_Instance->m_UICamera->view_projection);
-
-	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
-
-	ui_shader->Unbind();
-	texture->Unbind();
-}
-void Game::UIAtlasQuad(const glm::vec3& position, const glm::vec2& size, const glm::vec2& texture_coord) {
-	glm::mat4 model = glm::mat4(1.0f);
-	model = glm::translate(model, position);
-	model = glm::scale(model, glm::vec3(size, 1.0f));
-
-	Ref<Texture>& block_atlas = GetTexture(TextureType::BlockAtlas);
-	block_atlas->Bind();
-
-	Ref<Shader>& ui_shader = GetShader(ShaderType::UITextured);
-	ui_shader->Bind();
-	ui_shader->SetUniform("u_Model", model);
-	ui_shader->SetUniform("u_ViewProjection", s_Instance->m_UICamera->view_projection);
-
-	uint32_t texture_id = (uint32_t)texture_coord.y * 16 + (uint32_t)texture_coord.x;
-	ui_shader->SetUniform("u_TextureID", texture_id);
-	ui_shader->SetUniform("u_Texture", block_atlas);
-
-	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
-
-	ui_shader->Unbind();
-	block_atlas->Unbind();
-}
-void Game::UIAtlasQuad(const glm::vec3& position, const glm::vec2& size, uint32_t texture_id) {
-	glm::mat4 model = glm::mat4(1.0f);
-	model = glm::translate(model, position);
-	model = glm::scale(model, glm::vec3(size, 1.0f));
-
-	Ref<Texture>& block_atlas = GetTexture(TextureType::BlockAtlas);
-	block_atlas->Bind();
-
-	Ref<Shader>& ui_shader = GetShader(ShaderType::UIAtlas);
-	ui_shader->Bind();
-	ui_shader->SetUniform("u_Model", model);
-	ui_shader->SetUniform("u_ViewProjection", s_Instance->m_UICamera->view_projection);
-	ui_shader->SetUniform("u_TextureID", texture_id);
-	ui_shader->SetUniform("u_Texture", block_atlas);
-
-	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
-
-	ui_shader->Unbind();
-	block_atlas->Unbind();
-}
-
 void Game::Run() {
 	float last_ms = glfwGetTime();
 	StartUp();
@@ -126,12 +50,11 @@ void Game::Run() {
 void Game::OnResize(int width, int height) {
 	m_Camera->frustum.aspect_ratio = static_cast<float>(width) / static_cast<float>(height);
 	m_Camera->UpdateProjection();
-	m_UICamera->view_box.width = width;
-	m_UICamera->view_box.height = height;
-	m_UICamera->UpdateProjection();
+
 	glViewport(0, 0, width, height);
 	m_MainFrameBuffer->Resize(width, height);
-	m_UIFrameBuffer->Resize(width, height);
+	
+	m_UI->Resize(width, height);
 }
 void Game::OnMouseClick(int button, int action, int mods) {
 	if (action != GLFW_PRESS) return;
@@ -190,34 +113,8 @@ void Game::StartUp() {
 	m_Camera = CreateRef<Camera>(frustum, glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 	m_Camera->eular.y = PIHalf;
 
-	// Create UI Camera
-	ViewBox view_box;
-	view_box.width = m_Window->GetWidth();
-	view_box.height = m_Window->GetHeight();
-	view_box.near = 0.1f;
-	view_box.far = 1000.0f;
-	view_box.scale = 8.0f;
-	m_UICamera = CreateRef<OrthographicCamera>(view_box, glm::vec3(0.0f));
-
-	// Create Frame Buffers
+	// Create Frame Buffer
 	m_MainFrameBuffer = CreateRef<FrameBuffer>(m_Window->GetWidth(), m_Window->GetHeight(), GL_RGB, GL_RGB);
-	m_UIFrameBuffer = CreateRef<FrameBuffer>(m_Window->GetWidth(), m_Window->GetHeight(), GL_RGBA8, GL_RGBA);
-
-	// Create UI Quad
-	m_UIQuad = CreateRef<VertexArray>();
-	m_UIQuad->Bind();
-
-	VertexLayout vertex_layout = { {
-		{ GL_FLOAT, 2 },
-		{ GL_FLOAT, 2 }
-	} };
-	Ref<VertexBuffer> vertex_buffer = CreateRef<VertexBuffer>(c_UIQuadVertices, 16 * sizeof(float), vertex_layout);
-	m_UIQuad->GetVertexBuffer() = vertex_buffer;
-
-	Ref<IndexBuffer> index_buffer = CreateRef<IndexBuffer>(c_UIQuadIndices, 6 * sizeof(uint32_t));
-	m_UIQuad->GetIndexBuffer() = index_buffer;
-
-	m_UIQuad->Unbind();
 
 	ImGuiHandler::Init(m_Window);
 
@@ -228,6 +125,8 @@ void Game::StartUp() {
 	glLineWidth(3.0f);
 	glViewport(0, 0, m_Window->GetWidth(), m_Window->GetHeight());
 	glClearColor(0.125f, 0.13f, 0.2f, 0.0f);
+
+	m_UI = CreateRef<UI>(m_Window->GetWidth(), m_Window->GetHeight());
 
 	LoadShaders();
 	LoadTextures();
@@ -260,42 +159,33 @@ void Game::Update(float delta_time) {
 	m_MainFrameBuffer->Unbind();
 
 	// Render UI
-	m_UIFrameBuffer->Bind();
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	
-	
-	m_UIQuad->Bind();
-	
-	//Ref<Shader>& ui_shader = m_Shaders[(size_t)ShaderType::UI];
-	//ui_shader->Bind();
-	//ui_shader->SetUniform("u_ViewProjection", m_UICamera->view_projection);
-	//ui_shader->Unbind();
-
+	m_UI->StartFrame();
 	m_Player->RenderUI();
-	
-	m_UIQuad->Unbind();
-	m_UIFrameBuffer->Unbind();
+	m_UI->EndFrame();
 
 	Ref<Shader>& post_proc_shader = m_Shaders[(size_t)ShaderType::PostProc];
 	post_proc_shader->Bind();
-	m_UIQuad->Bind();
-	
+
+	Ref<VertexArray>& quad = m_UI->GetQuad();
+	quad->Bind();
+
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glDisable(GL_DEPTH_TEST);
 	// Render Scene Frame
 	m_MainFrameBuffer->GetColorBuffer()->Bind();
 	post_proc_shader->SetUniform("u_FrameTexture", m_MainFrameBuffer->GetColorBuffer());
-	glDrawElements(GL_TRIANGLES, m_UIQuad->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
+	glDrawElements(GL_TRIANGLES, quad->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
 	m_MainFrameBuffer->GetColorBuffer()->Unbind();
 	// Render UI Frame
-	m_UIFrameBuffer->GetColorBuffer()->Bind();
-	post_proc_shader->SetUniform("u_FrameTexture", m_UIFrameBuffer->GetColorBuffer());
-	glDrawElements(GL_TRIANGLES, m_UIQuad->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
-	m_UIFrameBuffer->GetColorBuffer()->Unbind();
+	Ref<Texture>& ui_frame = m_UI->GetFrame();
+	ui_frame->Bind();
+	post_proc_shader->SetUniform("u_FrameTexture", ui_frame);
+	glDrawElements(GL_TRIANGLES, quad->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
+	ui_frame->Unbind();
 
 	glEnable(GL_DEPTH_TEST);
 
-	m_UIQuad->Unbind();
+	quad->Unbind();
 	post_proc_shader->Unbind();
 
 	ShowImGui();

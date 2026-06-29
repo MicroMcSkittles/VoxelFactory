@@ -31,6 +31,11 @@ struct Block {
 
 	const inline static uint8_t InvalidID = std::numeric_limits<uint8_t>::max();
 	static Block Invalid;
+
+	static bool HasOrientation(uint8_t id);
+	static int GetAxisCount(uint8_t id);
+	static uint8_t CalculateOrientation(const glm::vec3& direction, uint8_t id);
+	static glm::vec3 OrientVector(const glm::vec3& direction, int axis_count, uint8_t orientation);
 };
 class Chunk {
 public:
@@ -152,7 +157,7 @@ public:
 
 private:
 	bool IsVoid(const glm::vec3& position);
-	void MeshFace(const glm::vec3& position, const glm::vec3& face_dir, uint32_t id, const ChunkVertex* data);
+	void MeshFace(const glm::vec3& position, const glm::vec3& face_dir, uint32_t id, uint8_t block_id, const ChunkVertex* data);
 
 private:
 	Chunk* m_Chunk;

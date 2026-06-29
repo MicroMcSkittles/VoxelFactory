@@ -38,6 +38,57 @@ std::vector<Block::TextureIDs> Block::BlockTextureIDs = {
 	{ TEX_COORD(11,3), TEX_COORD(11,3), TEX_COORD(12,3), TEX_COORD(11,3), TEX_COORD(11,2), TEX_COORD(10,4) }, // Work bench
 };
 
+
+bool Block::HasOrientation(uint8_t id) {
+	uint8_t actual_id = id & 0b00111111;
+	if (actual_id == 5 || actual_id == 18 || actual_id == 19) return true;
+	return false;
+}
+int Block::GetAxisCount(uint8_t id) {
+	if (id == 5) return 3; // 3 possable orentations
+	if (id == 18 || id == 19) return 4; // 4 possable orentations
+	return 0;
+}
+uint8_t Block::CalculateOrientation(const glm::vec3& direction, uint8_t id) {
+	glm::vec3 orientation = glm::vec3(0.0f);
+	if (abs(direction.x) > abs(direction.y) && abs(direction.x) > abs(direction.z)) orientation = glm::vec3(direction.x, 0.0f, 0.0f);
+	else if (abs(direction.z) > abs(direction.y)) orientation = glm::vec3(0.0f, 0.0f, direction.z);
+	else orientation = glm::vec3(0.0f, direction.y, 0.0f);
+	orientation = glm::normalize(orientation);
+
+	int axis_count = GetAxisCount(id);
+
+	if (axis_count == 3) {
+		if (orientation.x != 0) return 0b00000000;
+		if (orientation.y != 0) return 0b01000000;
+		if (orientation.z != 0) return 0b10000000;
+	}
+	if (axis_count == 4) {
+		if (orientation.x > 0) return 0b00000000;
+		if (orientation.z > 0) return 0b01000000;
+		if (orientation.x < 0) return 0b10000000;
+		if (orientation.z < 0) return 0b11000000;
+	}
+
+	return 0;
+}
+
+glm::vec3 Block::OrientVector(const glm::vec3& direction, int axis_count, uint8_t orientation) {
+	if (axis_count == 3) {
+		if (orientation == 0) return glm::vec3(-direction.y, direction.x, direction.z);
+		if (orientation == 1) return direction;
+		if (orientation == 2) return glm::vec3(direction.x, -direction.z, direction.y);
+	}
+	if (axis_count == 4) {
+		if (orientation == 0) return glm::vec3(direction.z, direction.y, -direction.x);
+		if (orientation == 1) return direction;
+		if (orientation == 3) return glm::vec3(-direction.x, direction.y, -direction.z);
+		if (orientation == 2) return glm::vec3(-direction.z, direction.y, direction.x);
+	}
+
+	return direction;
+}
+
 AABB::AABB() : min(0.0f), max(0.0f), position(0.0f), size(0.0f) { }
 AABB::AABB(const glm::vec3& min, const glm::vec3& max, const glm::vec3& position, const glm::vec3& size)
 	: min(min), max(max), position(position), size(size) { }
@@ -558,13 +609,14 @@ Ref<Mesh<ChunkVertex>> ChunkMesher::CreateMesh()
 				glm::vec3 position = { x,y,z };
 				if (m_Chunk->IsVoid(position)) continue;
 
-				Block::TextureIDs& textures = Block::BlockTextureIDs[m_Chunk->At({ x,y,z }).id - 1];
-				MeshFace(position, { 0,  0,  1 }, textures.front, c_FrontVertices);
-				MeshFace(position, { 0,  0, -1 }, textures.back, c_BackVertices);
-				MeshFace(position, { 1,  0,  0 }, textures.left, c_LeftVertices);
-				MeshFace(position, { -1,  0,  0 }, textures.right, c_RightVertices);
-				MeshFace(position, { 0,  1,  0 }, textures.top, c_TopVertices);
-				MeshFace(position, { 0, -1,  0 }, textures.bottom, c_BottomVertices);
+				uint8_t block_id = m_Chunk->At({ x,y,z }).id;
+				Block::TextureIDs& textures = Block::BlockTextureIDs[(block_id & 0b00111111) - 1];
+				MeshFace(position, { 0,  0,  1 }, textures.front, block_id, c_FrontVertices);
+				MeshFace(position, { 0,  0, -1 }, textures.back, block_id, c_BackVertices);
+				MeshFace(position, { 1,  0,  0 }, textures.left, block_id, c_LeftVertices);
+				MeshFace(position, { -1,  0,  0 }, textures.right, block_id, c_RightVertices);
+				MeshFace(position, { 0,  1,  0 }, textures.top, block_id, c_TopVertices);
+				MeshFace(position, { 0, -1,  0 }, textures.bottom, block_id, c_BottomVertices);
 			}
 		}
 	}
@@ -593,9 +645,13 @@ bool ChunkMesher::IsVoid(const glm::vec3& position) {
 	if (!other_chunk) return true;
 	return other_chunk->IsVoid(Chunk::GetBlockLocalPosition(position));
 }
-void ChunkMesher::MeshFace(const glm::vec3& position, const glm::vec3& face_dir, uint32_t id, const ChunkVertex* data) {
-	
-	glm::vec3 other_pos = position + face_dir;
+void ChunkMesher::MeshFace(const glm::vec3& position, const glm::vec3& face_dir, uint32_t id, uint8_t block_id, const ChunkVertex* data) {
+
+	uint8_t orientation = (block_id & 0b11000000) >> 6;
+	int axis_count = Block::GetAxisCount(block_id & 0b00111111);
+
+	glm::vec3 adj_face_dir = Block::OrientVector(face_dir, axis_count, orientation);
+	glm::vec3 other_pos = position + adj_face_dir;
 
 	// Check if adjacent block is in the curent chunk
 	if (!m_Chunk->IsValid(other_pos) && other_pos.y >= 0 && other_pos.y < Chunk::ChunkHeight) {
@@ -613,10 +669,10 @@ void ChunkMesher::MeshFace(const glm::vec3& position, const glm::vec3& face_dir,
 		if (!other_chunk) return;
 
 		// Find adjacent block position in the other chunk
-		if      (face_dir.x > 0) other_pos.x = 0;
-		else if (face_dir.x < 0) other_pos.x = Chunk::ChunkLength - 1;
-		else if (face_dir.z > 0) other_pos.z = 0;
-		else if (face_dir.z < 0) other_pos.z = Chunk::ChunkLength - 1;
+		if      (adj_face_dir.x > 0) other_pos.x = 0;
+		else if (adj_face_dir.x < 0) other_pos.x = Chunk::ChunkLength - 1;
+		else if (adj_face_dir.z > 0) other_pos.z = 0;
+		else if (adj_face_dir.z < 0) other_pos.z = Chunk::ChunkLength - 1;
 		
 		// Mesh face if adjacent block is not void
 		if (!other_chunk->IsVoid(other_pos)) return;
@@ -627,20 +683,22 @@ void ChunkMesher::MeshFace(const glm::vec3& position, const glm::vec3& face_dir,
 	// Add face data to mesh
 	for (int i = 0; i < c_FaceVertexCount; i++) {
 		ChunkVertex vertex = data[i];
+		vertex.position = Block::OrientVector(vertex.position, axis_count, orientation);
+		vertex.normal = Block::OrientVector(vertex.normal, axis_count, orientation);
 		// Calculate ambient occlusion
 		glm::vec3 step = vertex.position * 2.0f;
 
 		glm::vec3 left_voxel_offset = glm::vec3(0.0f);
 		glm::vec3 right_voxel_offset = glm::vec3(0.0f);
-		if (face_dir.x != 0) {
+		if (adj_face_dir.x != 0) {
 			left_voxel_offset = glm::vec3(step.x, step.y, 0.0f);
 			right_voxel_offset = glm::vec3(step.x, 0.0f, step.z);
 		}
-		else if (face_dir.y != 0) {
+		else if (adj_face_dir.y != 0) {
 			left_voxel_offset = glm::vec3(step.x, step.y, 0.0f);
 			right_voxel_offset = glm::vec3(0.0f, step.y, step.z);
 		}
-		else if (face_dir.z != 0) {
+		else if (adj_face_dir.z != 0) {
 			left_voxel_offset = glm::vec3(step.x, 0.0f, step.z);
 			right_voxel_offset = glm::vec3(0.0f, step.y, step.z);
 		}
@@ -660,4 +718,3 @@ void ChunkMesher::MeshFace(const glm::vec3& position, const glm::vec3& face_dir,
 	}
 	m_VertexOffset += c_FaceVertexCount;
 }
-

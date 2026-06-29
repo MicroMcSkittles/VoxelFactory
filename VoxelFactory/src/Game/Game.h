@@ -7,6 +7,7 @@
 #include "Renderer/Texture.h"
 #include "Game/World.h"
 #include "Game/Player.h"
+#include "Game/UI.h"
 
 #include <array>
 
@@ -46,11 +47,6 @@ public:
 	static Ref<Shader>& GetShader(ShaderType type) { return s_Instance->m_Shaders[(size_t)type]; }
 	static Ref<Texture>& GetTexture(TextureType type) { return s_Instance->m_Textures[(size_t)type]; }
 
-	static void UIColoredQuad(const glm::vec3& position, const glm::vec2& size, const glm::vec3& color);
-	static void UITexturedQuad(const glm::vec3& position, const glm::vec2& size, const Ref<Texture>& texture);
-	static void UIAtlasQuad(const glm::vec3& position, const glm::vec2& size, const glm::vec2& texture_coord);
-	static void UIAtlasQuad(const glm::vec3& position, const glm::vec2& size, uint32_t texture_id);
-
 	void Run();
 
 	void OnResize(int width, int height);
@@ -81,18 +77,14 @@ private:
 	Ref<Window> m_Window;
 	Ref<Player> m_Player;
 	Ref<World> m_World;
+	Ref<UI> m_UI;
 	bool m_Running;
 
 	// Rendering
 	std::array<Ref<Shader>, (size_t)ShaderType::Count> m_Shaders;
 	std::array<Ref<Texture>, (size_t)TextureType::Count> m_Textures;
 	Ref<Camera> m_Camera;
-	Ref<OrthographicCamera> m_UICamera;
-
 	Ref<FrameBuffer> m_MainFrameBuffer;
-	Ref<FrameBuffer> m_UIFrameBuffer;
-
-	Ref<VertexArray> m_UIQuad;
 
 	// Debuging
 	Ref<Shader> m_DebugShader;
@@ -105,16 +97,4 @@ private:
 	glm::vec2 m_LastMousePos;
 
 	inline static Game* s_Instance = nullptr;
-
-private:
-	const inline static float c_UIQuadVertices[] = {
-		-1.0f, -1.0f, 0.0f, 0.0f,
-		-1.0f,  1.0f, 0.0f, 1.0f,
-		 1.0f,  1.0f, 1.0f, 1.0f,
-		 1.0f, -1.0f, 1.0f, 0.0f
-	};
-	const inline static uint32_t c_UIQuadIndices[] = {
-		2, 1, 0,
-		0, 3, 2
-	};
 };
