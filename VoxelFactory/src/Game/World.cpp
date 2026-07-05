@@ -38,7 +38,6 @@ std::vector<Block::TextureIDs> Block::BlockTextureIDs = {
 	{ TEX_COORD(11,3), TEX_COORD(11,3), TEX_COORD(12,3), TEX_COORD(11,3), TEX_COORD(11,2), TEX_COORD(10,4) }, // Work bench
 };
 
-
 bool Block::HasOrientation(uint8_t id) {
 	uint8_t actual_id = id & 0b00111111;
 	if (actual_id == 5 || actual_id == 18 || actual_id == 19) return true;

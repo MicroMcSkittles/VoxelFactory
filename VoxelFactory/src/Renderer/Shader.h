@@ -12,8 +12,12 @@ public:
 	void SetUniform(const std::string& name, uint32_t value);
 	void SetUniform(const std::string& name, float value);
 	void SetUniform(const std::string& name, const glm::vec3& value);
+	void SetUniform(const std::string& name, const glm::vec4& value);
 	void SetUniform(const std::string& name, const glm::mat4& value);
 	void SetUniform(const std::string& name, const Ref<Texture>& value);
+
+	void SetUniform(const std::string& name, const std::vector<glm::vec2>& value_list);
+	void SetUniformElement(const std::string& name, int index, const glm::vec2& value);
 
 	void Bind();
 	void Unbind();

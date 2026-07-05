@@ -85,6 +85,11 @@ void Shader::SetUniform(const std::string& name, const glm::vec3& value) {
 	uint32_t location = glGetUniformLocation(m_Handle, name.c_str());
 	glUniform3f(location, value.x, value.y, value.z);
 }
+void Shader::SetUniform(const std::string& name, const glm::vec4& value) {
+	ASSERT_MSG(m_Bound, "A OpenGL error occured: failed to set uniform vec3, shader not bound");
+	uint32_t location = glGetUniformLocation(m_Handle, name.c_str());
+	glUniform4f(location, value.x, value.y, value.z, value.w);
+}
 void Shader::SetUniform(const std::string& name, const glm::mat4& value) {
 	ASSERT_MSG(m_Bound, "A OpenGL error occured: failed to set uniform mat4, shader not bound");
 	uint32_t location = glGetUniformLocation(m_Handle, name.c_str());
@@ -94,6 +99,20 @@ void Shader::SetUniform(const std::string& name, const Ref<Texture>& value) {
 	ASSERT_MSG(m_Bound, "A OpenGL error occured: failed to set uniform texture, shader not bound");
 	uint32_t location = glGetUniformLocation(m_Handle, name.c_str());
 	glUniform1i(location, value->GetSlot());
+}
+
+void Shader::SetUniform(const std::string& name, const std::vector<glm::vec2>& value_list) {
+	//ASSERT_MSG(m_Bound, "A OpenGL error occured: failed to set uniform vec2 list, shader not bound");
+	//uint32_t location = glGetUniformLocation(m_Handle, name.c_str());
+	//glUniform2fv(location, value_list.size(), &value_list[0].x);
+	for (int i = 0; i < value_list.size(); i++) {
+		SetUniformElement(name, i, value_list[i]);
+	}
+}
+void Shader::SetUniformElement(const std::string& name, int index, const glm::vec2& value) {
+	ASSERT_MSG(m_Bound, "A OpenGL error occured: failed to set uniform vec2 element, shader not bound");
+	uint32_t location = glGetUniformLocation(m_Handle, (name + "[" + std::to_string(index) + "]").c_str());
+	glUniform2f(location, value.x, value.y);
 }
 
 void Shader::Bind() {

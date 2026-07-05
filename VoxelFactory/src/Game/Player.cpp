@@ -12,6 +12,8 @@
 #include <imgui.h>
 
 #include <iostream>
+#include <sstream>
+#include <iomanip>
 
 Player::Player(const glm::vec3& position, const Ref<Camera>& camera, const Ref<World>& world)
 	: m_Position(position), m_Camera(camera), m_World(world) {
@@ -234,7 +236,26 @@ void Player::RenderUI() {
 	UI::TexturedQuad(glm::vec3(0.0f), glm::vec2(0.25f), Game::GetTexture(TextureType::CrossHair));
 
 	uint32_t holding_texture_id = Block::BlockTextureIDs[m_HoldingBlockID - 1].front;
-	UI::AtlasQuad(glm::vec3(1.0f, 0.0f, 0.0f), glm::vec2(0.4f), holding_texture_id);
+	UI::AtlasQuad(glm::vec3(1.0f, 0.0f, 0.0f), glm::vec2(0.4f), Game::GetTexture(TextureType::BlockAtlas), glm::vec2(16), holding_texture_id);
+}
+
+std::string Player::StatsText() {
+
+	std::stringstream ss;
+	
+	glm::vec3 local_position = Chunk::GetBlockLocalPosition(m_Position);
+	glm::vec3 chunk_position = Chunk::GetBlockChunkPosition(m_Position);
+	ss << "Pos " << VEC3_STR(m_Position) << "\n";
+	ss << "Local " << VEC3_STR(local_position) << "\n";
+	ss << "Chunk " << VEC3_STR(chunk_position) << "\n";
+	ss << "Speed " << m_Speed << "\n";
+	ss << "Velocity " << VEC3_STR(m_Velocity) << "\n";
+
+	if (m_ShowSelector) {
+		ss << "Looking at " << VEC3_STR(m_SelectorPosition) << "\n";
+	}
+
+	return ss.str();
 }
 
 void Player::InitSelector() {

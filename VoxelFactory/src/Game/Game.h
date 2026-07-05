@@ -30,10 +30,12 @@ enum class ShaderType {
 	UIColored,
 	UITextured,
 	UIAtlas,
+	UIText,
 	Count
 };
 enum class TextureType {
 	BlockAtlas,
+	FontAtlas,
 	CrossHair,
 	Count
 };
@@ -44,6 +46,7 @@ public:
 	~Game();
 
 	static Game* Get() { return s_Instance; }
+	static Ref<Font>& GetFont() { return s_Instance->m_Font; }
 	static Ref<Shader>& GetShader(ShaderType type) { return s_Instance->m_Shaders[(size_t)type]; }
 	static Ref<Texture>& GetTexture(TextureType type) { return s_Instance->m_Textures[(size_t)type]; }
 
@@ -52,6 +55,7 @@ public:
 	void OnResize(int width, int height);
 	void OnMouseClick(int button, int action, int mods);
 	void OnScroll(float delta);
+	void OnKey(int key, int action, int mods);
 
 	void StartUp();
 	void Update(float delta_time);
@@ -72,6 +76,8 @@ private:
 	void OnLeftClick();
 	void OnRightClick();
 
+	void ShowStatsOverlay();
+
 private:
 	// Misc
 	Ref<Window> m_Window;
@@ -80,13 +86,18 @@ private:
 	Ref<UI> m_UI;
 	bool m_Running;
 
+	// Stats menu
+	bool m_ShowStats;
+
 	// Rendering
+	Ref<Font> m_Font;
 	std::array<Ref<Shader>, (size_t)ShaderType::Count> m_Shaders;
 	std::array<Ref<Texture>, (size_t)TextureType::Count> m_Textures;
 	Ref<Camera> m_Camera;
 	Ref<FrameBuffer> m_MainFrameBuffer;
 
 	// Debuging
+	float m_FPS;
 	Ref<Shader> m_DebugShader;
 	Ref<VertexArray> m_DebugLineMesh;
 	inline static std::vector<DebugLine> m_DebugLines;

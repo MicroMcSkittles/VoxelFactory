@@ -16,9 +16,13 @@ public:
 	void Render();
 	void RenderUI();
 
+	std::string StatsText();
+
 	void OnLeftClick();
 	void OnRightClick();
 	void OnScroll(float delta);
+
+	glm::vec3 GetPosition() { return m_Position; }
 
 private:
 

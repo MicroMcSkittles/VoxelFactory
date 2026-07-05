@@ -20,6 +20,7 @@ Game::Game() {
 	s_Instance = this;
 
 	m_Running = true;
+	m_ShowStats = true;
 
 	m_Focused = false;
 	m_MouseAvalible = true;
@@ -40,6 +41,8 @@ void Game::Run() {
 		float current_ms = glfwGetTime();
 		float delta_time = current_ms - last_ms;
 		last_ms = current_ms;
+
+		m_FPS = 1.0f / delta_time;
 
 		Update(delta_time);
 		m_Window->Update();
@@ -85,6 +88,9 @@ void Game::OnRightClick() {
 void Game::OnScroll(float delta) {
 	if (m_Focused) m_Player->OnScroll(delta);
 }
+void Game::OnKey(int key, int action, int mods) {
+	if (key == GLFW_KEY_F3 && action == GLFW_PRESS) m_ShowStats = !m_ShowStats;
+}
 
 void Game::StartUp() {
 	// Create window and set window events
@@ -102,6 +108,10 @@ void Game::StartUp() {
 	glfwSetScrollCallback(window_handle, [](GLFWwindow* window, double delta_x, double delta_y) {
 		Game* game = reinterpret_cast<Game*>(glfwGetWindowUserPointer(window));
 		game->OnScroll(delta_y);
+	});
+	glfwSetKeyCallback(window_handle, [](GLFWwindow* window, int key, int scancode, int action, int mods) {
+		Game* game = reinterpret_cast<Game*>(glfwGetWindowUserPointer(window));
+		game->OnKey(key, action, mods);
 	});
 
 	// Create Main Camera
@@ -121,12 +131,16 @@ void Game::StartUp() {
 	// Other open gl configs
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	glLineWidth(3.0f);
 	glViewport(0, 0, m_Window->GetWidth(), m_Window->GetHeight());
 	glClearColor(0.125f, 0.13f, 0.2f, 0.0f);
 
 	m_UI = CreateRef<UI>(m_Window->GetWidth(), m_Window->GetHeight());
+
+	m_Font = CreateRef<Font>("assets/font/Font.fnt");
 
 	LoadShaders();
 	LoadTextures();
@@ -161,6 +175,7 @@ void Game::Update(float delta_time) {
 	// Render UI
 	m_UI->StartFrame();
 	m_Player->RenderUI();
+	if (m_ShowStats) ShowStatsOverlay();
 	m_UI->EndFrame();
 
 	Ref<Shader>& post_proc_shader = m_Shaders[(size_t)ShaderType::PostProc];
@@ -228,6 +243,19 @@ void Game::ShowGameImGui() {
 		NewWorld(s_NewWorldSeed);
 	}
 }
+void Game::ShowStatsOverlay() {
+	glm::vec2 screen_min = UI::GetScreenMin();
+	glm::vec2 screen_max = UI::GetScreenMax();
+
+	std::string left_text;
+	left_text += m_Player->StatsText();
+
+	std::string right_text;
+	right_text += "FPS " + std::to_string(m_FPS) + "\n";
+
+	UI::MultilineText(left_text, glm::vec3(screen_max.x, screen_max.y, 0.5f), glm::vec2(0.5f), TextAlignment_Right);
+	UI::MultilineText(right_text, glm::vec3(screen_min.x, screen_max.y, 0.5f), glm::vec2(0.5f), TextAlignment_Left);
+}
 void Game::ShutDown() {
 
 }
@@ -240,11 +268,13 @@ void Game::LoadShaders() {
 	m_Shaders[(size_t)ShaderType::UIColored] = CreateRef<Shader>("assets/shaders/UI.vert", "assets/shaders/UIColored.frag");
 	m_Shaders[(size_t)ShaderType::UITextured] = CreateRef<Shader>("assets/shaders/UI.vert", "assets/shaders/UITextured.frag");
 	m_Shaders[(size_t)ShaderType::UIAtlas] = CreateRef<Shader>("assets/shaders/UI.vert", "assets/shaders/UIAtlas.frag");
+	m_Shaders[(size_t)ShaderType::UIText] = CreateRef<Shader>("assets/shaders/UIText.vert", "assets/shaders/UIText.frag");
 
 	m_DebugShader = CreateRef<Shader>("assets/shaders/DebugLine.vert", "assets/shaders/DebugLine.frag");
 }
 void Game::LoadTextures() {
 	m_Textures[(size_t)TextureType::BlockAtlas] = CreateRef<Texture>("assets/textures/atlas.png");
+	m_Textures[(size_t)TextureType::FontAtlas] = CreateRef<Texture>("assets/font/Font.png");
 	m_Textures[(size_t)TextureType::CrossHair] = CreateRef<Texture>("assets/textures/CrossHair.png");
 }
 void Game::NewWorld(uint32_t seed) {

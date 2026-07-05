@@ -16,6 +16,7 @@ Texture::Texture(const std::string& filename) {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
 	int nrChannels;
+	stbi_set_flip_vertically_on_load(true);
 	uint8_t* data = stbi_load(filename.c_str(), &m_Width, &m_Height, &nrChannels, STBI_rgb_alpha);
 	ASSERT_MSG(data, "A OpenGL error occured: Failed to create texture \"{}\"", filename);
 
