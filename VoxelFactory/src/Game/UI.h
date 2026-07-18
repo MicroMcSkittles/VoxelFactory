@@ -8,11 +8,6 @@
 #include <glm/glm.hpp>
 #include <map>
 
-struct TextVertex {
-	glm::vec2 position;
-	glm::vec2 texture_coord;
-	uint32_t id;
-};
 class Font {
 public:
 	struct CharData {
@@ -51,6 +46,22 @@ enum TextAlignment {
 	TextAlignment_Right  = 2
 };
 
+struct Button {
+	std::string text;
+
+	glm::vec3 position;
+	glm::vec2 size;
+
+	bool pressed;
+	bool hovered;
+
+	Button(const std::string& text, const glm::vec3& position, const glm::vec2& size) :
+		text(text), position(position), size(size), pressed(false), hovered(false) { }
+	
+	void Update();
+	void Render();
+};
+
 class UI {
 public:
 	UI(int width, int height);
@@ -72,6 +83,7 @@ public:
 	static Ref<Texture>& GetFrame() { return s_Instance->m_FrameBuffer->GetColorBuffer(); }
 	static Ref<VertexArray>& GetQuad() { return s_Instance->m_Quad; }
 
+	static glm::vec2 GetWorldPosition(const glm::vec2& position);
 	static glm::vec2 GetScreenMin();
 	static glm::vec2 GetScreenMax();
 

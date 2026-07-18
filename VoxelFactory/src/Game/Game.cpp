@@ -19,17 +19,34 @@ Game::Game() {
 	ASSERT(s_Instance == nullptr);
 	s_Instance = this;
 
+	m_State = GameState::InGame;
 	m_Running = true;
-	m_ShowStats = true;
+	m_ShowStats = false;
 
-	m_Focused = false;
+	m_MouseCaptured = false;
+	//m_Focused = false;
 	m_MouseAvalible = true;
 	m_LastMousePos = glm::vec2(0.0f);
 
+	m_FPS = 0.0f;
 	m_DebugLineMesh = nullptr;
 }
 Game::~Game() { }
 
+void Game::Pause() {
+	if (m_State != GameState::InGame) return;
+	m_State = GameState::Paused;
+	ReleaseMouse();
+}
+void Game::Resume() {
+	if (m_State != GameState::Paused) return;
+	m_State = GameState::InGame;
+	CaptureMouse();
+}
+void Game::Quit() {
+	m_Running = false;
+	glfwSetWindowShouldClose((GLFWwindow*)m_Window->GetHandle(), true);
+}
 void Game::Run() {
 	float last_ms = glfwGetTime();
 	StartUp();
@@ -51,6 +68,7 @@ void Game::Run() {
 }
 
 void Game::OnResize(int width, int height) {
+	if (width == 0 && height == 0) return;
 	m_Camera->frustum.aspect_ratio = static_cast<float>(width) / static_cast<float>(height);
 	m_Camera->UpdateProjection();
 
@@ -68,28 +86,44 @@ void Game::OnLeftClick() {
 	GLFWwindow* window_handle = (GLFWwindow*)m_Window->GetHandle();
 
 	// If window not focused and mouse isnt hovering gui than capture cursor
-	if (!m_Focused && m_MouseAvalible) {
-		m_Focused = true;
-
-		double mouse_x = 0.0, mouse_y = 0.0;
-		glfwGetCursorPos(window_handle, &mouse_x, &mouse_y);
-		m_LastMousePos = glm::vec2(static_cast<float>(mouse_x), static_cast<float>(mouse_y));
-		glfwSetInputMode(window_handle, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-	
+	if (!m_MouseCaptured && m_MouseAvalible && m_State == GameState::InGame) {
+		CaptureMouse();
 		return;
 	}
-	else if (!m_Focused) return;
+	else if (!m_MouseCaptured) return;
 
 	m_Player->OnLeftClick();
 }
 void Game::OnRightClick() {
-	if (m_Focused) m_Player->OnRightClick();
+	if (m_MouseCaptured && m_State == GameState::InGame) m_Player->OnRightClick();
 }
 void Game::OnScroll(float delta) {
-	if (m_Focused) m_Player->OnScroll(delta);
+	if (m_MouseCaptured && m_State == GameState::InGame) m_Player->OnScroll(delta);
 }
 void Game::OnKey(int key, int action, int mods) {
 	if (key == GLFW_KEY_F3 && action == GLFW_PRESS) m_ShowStats = !m_ShowStats;
+	else if (key == GLFW_KEY_F1 && action == GLFW_PRESS && m_MouseCaptured) ReleaseMouse();
+	// Handle Escape Key
+	else if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
+		if (m_State == GameState::Paused) Resume();
+		else if (m_State == GameState::InGame) Pause();
+	}
+}
+
+void Game::CaptureMouse() {
+	m_MouseCaptured = true;
+
+	GLFWwindow* window_handle = (GLFWwindow*)m_Window->GetHandle();
+
+	double mouse_x = 0.0, mouse_y = 0.0;
+	glfwGetCursorPos(window_handle, &mouse_x, &mouse_y);
+	m_LastMousePos = glm::vec2(static_cast<float>(mouse_x), static_cast<float>(mouse_y));
+	glfwSetInputMode(window_handle, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+}
+void Game::ReleaseMouse() {
+	m_MouseCaptured = false;
+	GLFWwindow* window_handle = (GLFWwindow*)m_Window->GetHandle();
+	glfwSetInputMode(window_handle, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 }
 
 void Game::StartUp() {
@@ -136,7 +170,9 @@ void Game::StartUp() {
 	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	glLineWidth(3.0f);
 	glViewport(0, 0, m_Window->GetWidth(), m_Window->GetHeight());
-	glClearColor(0.125f, 0.13f, 0.2f, 0.0f);
+	//glClearColor(0.125f, 0.13f, 0.2f, 0.0f);
+	//glClearColor(0.301f, 0.733f, 1.0f, 0.0f);
+	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 
 	m_UI = CreateRef<UI>(m_Window->GetWidth(), m_Window->GetHeight());
 
@@ -145,37 +181,43 @@ void Game::StartUp() {
 	LoadShaders();
 	LoadTextures();
 	NewWorld(643706557);
+
+	m_PauseMenu = CreateRef<PauseMenu>();
 }
 void Game::Update(float delta_time) {
 	ImGuiHandler::StartFrame();
 
 	GLFWwindow* window_handle = (GLFWwindow*)m_Window->GetHandle();
 	
-	// Release mouse on escape
-	if (glfwGetKey(window_handle, GLFW_KEY_ESCAPE)) {
-		m_Focused = false;
-		glfwSetInputMode(window_handle, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+	if (m_State == GameState::InGame) {
+		if (m_MouseCaptured) m_Player->Update(delta_time, m_LastMousePos, m_Window);
+		m_World->Update(m_Camera->position);
 	}
-
-	if (m_Focused) {
-		m_Player->Update(delta_time, m_LastMousePos, m_Window);
+	else if (m_State == GameState::Paused) {
+		m_PauseMenu->Update(delta_time);
 	}
-
-	m_World->Update(m_Camera->position);
 
 	// Render Scene
 	m_MainFrameBuffer->Bind();
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	m_Player->Render();
-	m_World->Render(m_Camera);
+	if (m_State == GameState::InGame || m_State == GameState::Paused) {
+		m_World->RenderSkyBox(m_Camera);
+		m_Player->Render();
+		m_World->RenderWorld(m_Camera);
+	}
 
 	m_MainFrameBuffer->Unbind();
 
 	// Render UI
 	m_UI->StartFrame();
-	m_Player->RenderUI();
-	if (m_ShowStats) ShowStatsOverlay();
+	if (m_State == GameState::InGame) {
+		m_Player->RenderUI();
+		if (m_ShowStats) ShowStatsOverlay();
+	}
+	else if (m_State == GameState::Paused) {
+		m_PauseMenu->RenderUI();
+	}
 	m_UI->EndFrame();
 
 	Ref<Shader>& post_proc_shader = m_Shaders[(size_t)ShaderType::PostProc];
@@ -187,10 +229,11 @@ void Game::Update(float delta_time) {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glDisable(GL_DEPTH_TEST);
 	// Render Scene Frame
-	m_MainFrameBuffer->GetColorBuffer()->Bind();
-	post_proc_shader->SetUniform("u_FrameTexture", m_MainFrameBuffer->GetColorBuffer());
+	Ref<Texture>& scene_frame = m_MainFrameBuffer->GetColorBuffer();
+	scene_frame->Bind();
+	post_proc_shader->SetUniform("u_FrameTexture", scene_frame);
 	glDrawElements(GL_TRIANGLES, quad->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
-	m_MainFrameBuffer->GetColorBuffer()->Unbind();
+	scene_frame->Unbind();
 	// Render UI Frame
 	Ref<Texture>& ui_frame = m_UI->GetFrame();
 	ui_frame->Bind();
@@ -228,7 +271,7 @@ void Game::ShowImGui() {
 	ImVec2 cursor_pos = ImGui::GetMousePos();
 	
 	m_MouseAvalible = (window_pos.x > cursor_pos.x || window_size.x < cursor_pos.x) || (window_pos.y > cursor_pos.y || window_size.y < cursor_pos.y);
-	m_MouseAvalible &= !m_Focused;
+	m_MouseAvalible &= !m_MouseCaptured;
 }
 void Game::ShowGameImGui() {
 	if (ImGui::Button("Clear Debug Lines")) {
@@ -265,6 +308,7 @@ void Game::LoadShaders() {
 	m_Shaders[(size_t)ShaderType::PostProc] = CreateRef<Shader>("assets/shaders/PostProc.vert", "assets/shaders/PostProc.frag");
 	m_Shaders[(size_t)ShaderType::World] = CreateRef<Shader>("assets/shaders/Main.vert", "assets/shaders/Main.frag");
 	m_Shaders[(size_t)ShaderType::Selector] = CreateRef<Shader>("assets/shaders/Selector.vert", "assets/shaders/Selector.frag");
+	m_Shaders[(size_t)ShaderType::SkyBox] = CreateRef<Shader>("assets/shaders/SkyBox.vert", "assets/shaders/SkyBox.frag");
 	m_Shaders[(size_t)ShaderType::UIColored] = CreateRef<Shader>("assets/shaders/UI.vert", "assets/shaders/UIColored.frag");
 	m_Shaders[(size_t)ShaderType::UITextured] = CreateRef<Shader>("assets/shaders/UI.vert", "assets/shaders/UITextured.frag");
 	m_Shaders[(size_t)ShaderType::UIAtlas] = CreateRef<Shader>("assets/shaders/UI.vert", "assets/shaders/UIAtlas.frag");

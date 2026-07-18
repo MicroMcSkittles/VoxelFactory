@@ -2,6 +2,7 @@
 #include "Game/Game.h"
 #include "Core/Utils.h"
 
+#include <GLFW/glfw3.h>
 #include <glad/glad.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <fstream>
@@ -104,6 +105,25 @@ void Font::ReadCharData(std::ifstream& file) {
 	m_CharData.insert({ id, CharData{ offset, size, atlas_position, atlas_size, x_advance } });
 }
 
+void Button::Update() {
+	GLFWwindow* window_handle = (GLFWwindow*)Game::GetWindow()->GetHandle();
+	double mouse_x = 0.0, mouse_y = 0.0;
+	glfwGetCursorPos(window_handle, &mouse_x, &mouse_y);
+
+	glm::vec2 mouse_position = UI::GetWorldPosition(glm::vec2(mouse_x, mouse_y));
+
+	hovered = (mouse_position.x >= position.x - size.x && mouse_position.x <= position.x + size.x &&
+		       mouse_position.y >= position.y - size.y && mouse_position.y <= position.y + size.y);
+	pressed = (hovered && glfwGetMouseButton(window_handle, GLFW_MOUSE_BUTTON_LEFT));
+}
+void Button::Render() {
+	glm::vec4 background_color = glm::vec4(0.55f, 0.55f, 0.55f, 1.0f);
+	if (pressed) background_color = glm::vec4(0.35f, 0.35f, 0.35f, 1.0f);
+	else if (hovered) background_color = glm::vec4(0.45f, 0.45f, 0.45f, 1.0f);
+	UI::ColoredQuad(glm::vec3(position.x, position.y, position.z - 0.1f), size, background_color);
+	UI::Text(text, glm::vec3(position.x, position.y + size.y * 0.5f, position.z), glm::vec2(0.4f), TextAlignment_Middle, glm::vec3(1.0f), glm::vec4(0.0f));
+}
+
 UI::UI(int width, int height)
 	: m_Width(width), m_Height(height)
 {
@@ -161,6 +181,8 @@ void UI::EndFrame() {
 }
 
 void UI::ColoredQuad(const glm::vec3& position, const glm::vec2& size, const glm::vec4& color) {
+	if (color.a == 0.0f) return;
+
 	glm::mat4 model = glm::mat4(1.0f);
 	model = glm::translate(model, position);
 	model = glm::scale(model, glm::vec3(size, 1.0f));
@@ -331,6 +353,12 @@ void UI::MultilineText(const std::string& text, const glm::vec3& position, const
 	}
 }
 
+glm::vec2 UI::GetWorldPosition(const glm::vec2& position) {
+	glm::vec2 world_position;
+	world_position.x = (position.x * 2.0f) / (float)s_Instance->m_Width - 1.0f;
+	world_position.y = (((float)s_Instance->m_Height - position.y) * 2.0f) / (float)s_Instance->m_Height - 1.0f;
+	return glm::inverse(s_Instance->m_Camera->view_projection) * glm::vec4(world_position, 0.0f, 1.0f);
+}
 glm::vec2 UI::GetScreenMin() {
 	return {
 		-((float)s_Instance->m_Camera->view_box.width / (float)s_Instance->m_Camera->view_box.height) * s_Instance->m_Camera->view_box.scale,

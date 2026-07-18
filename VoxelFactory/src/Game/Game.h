@@ -8,6 +8,7 @@
 #include "Game/World.h"
 #include "Game/Player.h"
 #include "Game/UI.h"
+#include "Game/PauseMenu.h"
 
 #include <array>
 
@@ -23,10 +24,17 @@ struct DebugLine {
 		vertex1(point1, color), vertex2(point2, color) { }
 };
 
+enum class GameState {
+	InGame,
+	Paused,
+	MainMenu
+};
+
 enum class ShaderType {
 	PostProc,
 	World,
 	Selector,
+	SkyBox,
 	UIColored,
 	UITextured,
 	UIAtlas,
@@ -46,9 +54,15 @@ public:
 	~Game();
 
 	static Game* Get() { return s_Instance; }
+	static Ref<Window>& GetWindow() { return s_Instance->m_Window; }
 	static Ref<Font>& GetFont() { return s_Instance->m_Font; }
 	static Ref<Shader>& GetShader(ShaderType type) { return s_Instance->m_Shaders[(size_t)type]; }
 	static Ref<Texture>& GetTexture(TextureType type) { return s_Instance->m_Textures[(size_t)type]; }
+
+	static GameState& GetState() { return s_Instance->m_State; }
+	void Pause();
+	void Resume();
+	void Quit();
 
 	void Run();
 
@@ -76,6 +90,9 @@ private:
 	void OnLeftClick();
 	void OnRightClick();
 
+	void CaptureMouse();
+	void ReleaseMouse();
+
 	void ShowStatsOverlay();
 
 private:
@@ -85,6 +102,8 @@ private:
 	Ref<World> m_World;
 	Ref<UI> m_UI;
 	bool m_Running;
+	GameState m_State;
+	Ref<PauseMenu> m_PauseMenu;
 
 	// Stats menu
 	bool m_ShowStats;
@@ -103,7 +122,7 @@ private:
 	inline static std::vector<DebugLine> m_DebugLines;
 	
 	// Input
-	bool m_Focused;
+	bool m_MouseCaptured;
 	bool m_MouseAvalible;
 	glm::vec2 m_LastMousePos;
 

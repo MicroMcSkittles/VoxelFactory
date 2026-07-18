@@ -114,7 +114,8 @@ public:
 	void ShowImGui();
 
 	void Update(const glm::vec3& position);
-	void Render(const Ref<Camera>& camera);
+	void RenderSkyBox(const Ref<Camera>& camera);
+	void RenderWorld(const Ref<Camera>& camera);
 
 	void SetVoxel(const glm::vec3& position, uint8_t new_id);
 	Chunk* GetChunk(const glm::vec3& position);
@@ -136,6 +137,8 @@ private:
 	void MoveLoadedCenter(const glm::vec2& delta);
 	void CreateChunk(const glm::vec2& position);
 
+	void InitSkyBox();
+
 private:
 	uint32_t m_Seed;
 
@@ -146,6 +149,38 @@ private:
 
 	std::vector<Chunk> m_Chunks;
 	std::vector<Ref<Mesh<ChunkVertex>>> m_ChunkMeshes;
+
+	// Sky box vars
+	Ref<VertexArray> m_SkyBox;
+	glm::vec3 m_SkyColor;
+	glm::vec3 m_SkyHorizonColor;
+	float m_Brightness;
+
+private:
+	const inline static float c_SkyBoxVertices[] = {
+		 1.0f,  1.0f,  1.0f,
+		 1.0f, -1.0f,  1.0f,
+		-1.0f, -1.0f,  1.0f,
+		-1.0f,  1.0f,  1.0f,
+		 1.0f,  1.0f, -1.0f,
+		 1.0f, -1.0f, -1.0f,
+		-1.0f, -1.0f, -1.0f,
+		-1.0f,  1.0f, -1.0f
+	};
+	const inline static uint32_t c_SkyBoxIndices[] = {
+		0, 1, 3,
+		1, 2, 3,
+		4, 5, 7,
+		5, 6, 7,
+		0, 1, 4,
+		1, 4, 5,
+		2, 3, 7,
+		2, 6, 7,
+		0, 3, 4,
+		3, 4, 7,
+		1, 2, 5,
+		2, 5, 6
+	};
 };
 
 class ChunkMesher {

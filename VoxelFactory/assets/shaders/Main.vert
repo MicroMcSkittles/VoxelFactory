@@ -13,9 +13,11 @@ flat out uint TextureID;
 
 out float AmbientOcclusion;
 out vec3 Normal;
+out vec3 WorldPos;
 
 void main() {
-    gl_Position = u_ViewProjection * u_Model * vec4(a_Pos, 1.0);
+    WorldPos = (u_Model * vec4(a_Pos, 1.0)).xyz;
+    gl_Position = u_ViewProjection * vec4(WorldPos, 1.0);
     TexCoord = a_TexCoord;
     TextureID = a_TextureID;
 

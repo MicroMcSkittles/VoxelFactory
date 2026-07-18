@@ -168,7 +168,7 @@ glm::vec3 Chunk::GetBlockPosition(const glm::vec3& position) {
 	return { floor(position.x), floor(position.y), floor(position.z) };
 }
 
-World::World(uint32_t seed) : m_Seed(seed), m_LoadedCenter({ 0,0,0 }), m_LoadedRadius(6) {
+World::World(uint32_t seed) : m_Seed(seed), m_LoadedCenter({ 0,0,0 }), m_LoadedRadius(7) {
 	m_LoadedWidth = m_LoadedRadius * 2 + 1;
 	m_LoadedArea = m_LoadedWidth * m_LoadedWidth;
 
@@ -184,8 +184,29 @@ World::World(uint32_t seed) : m_Seed(seed), m_LoadedCenter({ 0,0,0 }), m_LoadedR
 		m_ChunkMeshes[i] = ChunkMesher(&m_Chunks[i], this).CreateMesh();
 		m_ChunkMeshes[i]->CreateVertexArray();
 	}
+
+	InitSkyBox();
 }
 World::~World() { }
+
+void World::InitSkyBox() {
+	m_SkyColor = glm::vec3(0.301f, 0.733f, 1.0f);
+	m_SkyHorizonColor = glm::vec3(0.251f, 0.683f, 1.0f);
+	m_Brightness = 1.0f;
+
+	m_SkyBox = CreateRef<VertexArray>();
+	m_SkyBox->Bind();
+
+	VertexLayout layout = { { { GL_FLOAT, 3 } } };
+
+	Ref<VertexBuffer> vertex_buffer = CreateRef<VertexBuffer>(c_SkyBoxVertices, 24 * sizeof(float), layout);
+	m_SkyBox->GetVertexBuffer() = vertex_buffer;
+
+	Ref<IndexBuffer> index_buffer = CreateRef<IndexBuffer>(c_SkyBoxIndices, 36 * sizeof(uint32_t));
+	m_SkyBox->GetIndexBuffer() = index_buffer;
+
+	m_SkyBox->Unbind();
+}
 
 void World::SetVoxel(const glm::vec3& position, uint8_t new_id) {
 	glm::vec3 local_position = Chunk::GetBlockLocalPosition(position);
@@ -487,7 +508,28 @@ bool World::IsVoid(const glm::vec3& position) {
 	return chunk->IsVoid(local_voxel_position);
 }
 
-void World::Render(const Ref<Camera>& camera) {
+void World::RenderSkyBox(const Ref<Camera>& camera) {
+	Ref<Shader>& sky_box_shader = Game::GetShader(ShaderType::SkyBox);
+	sky_box_shader->Bind();
+	glDepthMask(GL_FALSE);
+	glDisable(GL_CULL_FACE);
+
+	sky_box_shader->SetUniform("u_SkyColor", m_SkyColor);
+	sky_box_shader->SetUniform("u_SkyHorizonColor", m_SkyHorizonColor);
+	sky_box_shader->SetUniform("u_ViewProjection", camera->view_projection);
+	sky_box_shader->SetUniform("u_CameraPosition", camera->position);
+
+	m_SkyBox->Bind();
+	glDrawElements(GL_TRIANGLES, m_SkyBox->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
+	m_SkyBox->Unbind();
+
+	glEnable(GL_CULL_FACE);
+	glDepthMask(GL_TRUE);
+	sky_box_shader->Unbind();
+}
+void World::RenderWorld(const Ref<Camera>& camera) {
+
+	// Render World
 	Ref<Texture>& block_atlas = Game::GetTexture(TextureType::BlockAtlas);
 	block_atlas->Bind();
 
@@ -496,6 +538,9 @@ void World::Render(const Ref<Camera>& camera) {
 
 	world_shader->SetUniform("u_ViewProjection", camera->view_projection);
 	world_shader->SetUniform("u_Texture", block_atlas);
+	world_shader->SetUniform("u_CameraPos", camera->position);
+	world_shader->SetUniform("u_SkyHorizonColor", m_SkyHorizonColor);
+	world_shader->SetUniform("u_Brightness", m_Brightness);
 
 	glm::vec3 world_position = glm::vec3(0.5f) + m_LoadedCenter * (float)Chunk::ChunkLength;
 	glm::mat4 world = glm::translate(glm::mat4(1.0f), world_position); 
@@ -521,6 +566,9 @@ void World::ShowImGui() {
 	ImGui::Text("Chunk Count: %d", m_Chunks.size());
 	ImGui::Text("Loaded Radius: %d", m_LoadedRadius);
 	ImGui::Text("Loaded Center: %s", VEC3_STR(m_LoadedCenter).c_str());
+	ImGui::InputFloat3("Sky Color", &m_SkyColor.r);
+	ImGui::InputFloat3("Sky Horizon Color", &m_SkyHorizonColor.r);
+	ImGui::DragFloat("Brightness", &m_Brightness, 0.01f, 0.0f, 1.0f);
 }
 
 void World::Update(const glm::vec3& position) {

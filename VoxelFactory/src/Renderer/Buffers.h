@@ -75,9 +75,10 @@ public:
 	void Unbind();
 
 	Ref<Texture>& GetColorBuffer() { return m_ColorBuffer; }
+	Ref<Texture>& GetDepthBuffer() { return m_DepthBuffer; }
 
 private:
 	uint32_t m_Handle;
-	uint32_t m_RenderBufferHandle;
 	Ref<Texture> m_ColorBuffer;
+	Ref<Texture> m_DepthBuffer;
 };

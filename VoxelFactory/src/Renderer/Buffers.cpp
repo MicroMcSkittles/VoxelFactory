@@ -88,10 +88,8 @@ FrameBuffer::FrameBuffer(int width, int height, int internal, int format) {
 	m_ColorBuffer = CreateRef<Texture>(nullptr, width, height, internal, format);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_ColorBuffer->GetHandle(), 0);
 
-	glGenRenderbuffers(1, &m_RenderBufferHandle);
-	glBindRenderbuffer(GL_RENDERBUFFER, m_RenderBufferHandle);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, m_RenderBufferHandle);
+	m_DepthBuffer = CreateRef<Texture>(nullptr, width, height, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_DepthBuffer->GetHandle(), 0);
 
 	ASSERT_MSG(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE, "A OpenGL error occured: Failed to create framebuffer");
 	glViewport(0, 0, width, height);
@@ -104,8 +102,7 @@ FrameBuffer::~FrameBuffer() {
 void FrameBuffer::Resize(int width, int height) {
 	glBindFramebuffer(GL_FRAMEBUFFER, m_Handle);
 	m_ColorBuffer->Resize(width, height);
-	glBindRenderbuffer(GL_RENDERBUFFER, m_RenderBufferHandle);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+	m_DepthBuffer->Resize(width, height);
 	glViewport(0, 0, width, height);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
