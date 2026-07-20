@@ -5,38 +5,11 @@
 #include "Renderer/Texture.h"
 #include "Renderer/Camera.h"
 #include "Renderer/Mesh.h"
+#include "Game/Voxel.h"
 #include <vector>
 #include <glm/glm.hpp>
 
 class ChunkMesher;
-
-struct Block {
-	uint8_t id;
-
-	struct TextureIDs {
-		uint32_t front;
-		uint32_t back;
-
-		uint32_t left;
-		uint32_t right;
-
-		uint32_t top;
-		uint32_t bottom;
-
-		TextureIDs(uint32_t id): front(id), back(id), left(id), right(id), top(id), bottom(id) { }
-		TextureIDs(uint32_t sides, uint32_t top, uint32_t bottom): front(sides), back(sides), left(sides), right(sides), top(top), bottom(bottom) {}
-		TextureIDs(uint32_t front, uint32_t back, uint32_t left, uint32_t right, uint32_t top, uint32_t bottom): front(front), back(back), left(left), right(right), top(top), bottom(bottom) { }
-	};
-	static std::vector<TextureIDs> BlockTextureIDs;
-
-	const inline static uint8_t InvalidID = std::numeric_limits<uint8_t>::max();
-	static Block Invalid;
-
-	static bool HasOrientation(uint8_t id);
-	static int GetAxisCount(uint8_t id);
-	static uint8_t CalculateOrientation(const glm::vec3& direction, uint8_t id);
-	static glm::vec3 OrientVector(const glm::vec3& direction, int axis_count, uint8_t orientation);
-};
 class Chunk {
 public:
 	Chunk(const glm::vec3& position, uint32_t seed);
@@ -66,13 +39,6 @@ public:
 	const static int ChunkArea = ChunkLength * ChunkLength; // The number of blocks in a horizontal slice of the chunk
 	const static int ChunkHeight = 256;
 	const static int ChunkDataSize = ChunkArea * ChunkHeight; // Total number of blocks
-};
-struct ChunkVertex {
-	glm::vec3 position;
-	glm::vec3 normal;
-	glm::vec2 tex_coord;
-	float ambient_occlusion;
-	uint32_t id;
 };
 
 struct AABB {
@@ -129,6 +95,8 @@ public:
 
 	bool IsVoid(const glm::vec3& position);
 
+	float& GetBrightness() { return m_Brightness; }
+
 private:
 	CollisionResultData LineAABBIntersection(const glm::vec3& start_position, const glm::vec3& end_position, const AABB& aabb);
 	CollisionResultData DynamicAABBIntersection(const AABB& aabb, const glm::vec3& velocity, const AABB& target);
@@ -148,7 +116,7 @@ private:
 	int m_LoadedArea;
 
 	std::vector<Chunk> m_Chunks;
-	std::vector<Ref<Mesh<ChunkVertex>>> m_ChunkMeshes;
+	std::vector<Ref<Mesh<BlockVertex>>> m_ChunkMeshes;
 
 	// Sky box vars
 	Ref<VertexArray> m_SkyBox;
@@ -188,75 +156,17 @@ public:
 	ChunkMesher(Chunk* chunk, World* world);
 	~ChunkMesher();
 
-	Ref<Mesh<ChunkVertex>> CreateMesh();
+	Ref<Mesh<BlockVertex>> CreateMesh();
 
 private:
 	bool IsVoid(const glm::vec3& position);
-	void MeshFace(const glm::vec3& position, const glm::vec3& face_dir, uint32_t id, uint8_t block_id, const ChunkVertex* data);
+	void MeshFace(const glm::vec3& position, const glm::vec3& face_dir, uint32_t id, uint8_t block_id, const BlockVertex* data);
 
 private:
 	Chunk* m_Chunk;
 	World* m_World;
 
-	std::vector<ChunkVertex> m_Vertices;
+	std::vector<BlockVertex> m_Vertices;
 	std::vector<uint32_t> m_Indices;
 	uint32_t m_VertexOffset;
-
-private:
-	const inline static size_t c_FaceVertexCount = 6;
-	const inline static size_t c_FaceIndexCount = 6;
-
-	const inline static ChunkVertex c_FrontVertices[] = {
-		{ { -0.5f, -0.5f,  0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f } },
-		{ {  0.5f, -0.5f,  0.5f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f } },
-		{ {  0.5f,  0.5f,  0.5f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 1.0f } },
-		{ {  0.5f,  0.5f,  0.5f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 1.0f } },
-		{ { -0.5f,  0.5f,  0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } },
-		{ { -0.5f, -0.5f,  0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f } }
-	};
-	const inline static ChunkVertex c_BackVertices[] = {
-		{ {  0.5f,  0.5f, -0.5f }, { 0.0f, 0.0f, -1.0f }, { 1.0f, 1.0f } },
-		{ {  0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f, -1.0f }, { 1.0f, 0.0f } },
-		{ { -0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f, -1.0f }, { 0.0f, 0.0f } },
-		{ { -0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f, -1.0f }, { 0.0f, 0.0f } },
-		{ { -0.5f,  0.5f, -0.5f }, { 0.0f, 0.0f, -1.0f }, { 0.0f, 1.0f } },
-		{ {  0.5f,  0.5f, -0.5f }, { 0.0f, 0.0f, -1.0f }, { 1.0f, 1.0f } }
-	};
-	const inline static ChunkVertex c_LeftVertices[] = {
-		{ {  0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } },
-		{ {  0.5f,  0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f } },
-		{ {  0.5f,  0.5f,  0.5f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f } },
-		{ {  0.5f,  0.5f,  0.5f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f } },
-		{ {  0.5f, -0.5f,  0.5f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },
-		{ {  0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } }
-	};
-	const inline static ChunkVertex c_RightVertices[] = {
-		{ { -0.5f,  0.5f,  0.5f }, { -1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f } },
-		{ { -0.5f,  0.5f, -0.5f }, { -1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f } },
-		{ { -0.5f, -0.5f, -0.5f }, { -1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },
-		{ { -0.5f, -0.5f, -0.5f }, { -1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },
-		{ { -0.5f, -0.5f,  0.5f }, { -1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } },
-		{ { -0.5f,  0.5f,  0.5f }, { -1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f } }
-	};
-	const inline static ChunkVertex c_TopVertices[] = {
-		{ {  0.5f,  0.5f,  0.5f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f } },
-		{ {  0.5f,  0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 1.0f } },
-		{ { -0.5f,  0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 1.0f } },
-		{ { -0.5f,  0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 1.0f } },
-		{ { -0.5f,  0.5f,  0.5f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
-		{ {  0.5f,  0.5f,  0.5f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f } }
-	};
-	const inline static ChunkVertex c_BottomVertices[] = {
-		{ { -0.5f, -0.5f, -0.5f }, { 0.0f, -1.0f, 0.0f }, { 1.0f, 1.0f } },
-		{ {  0.5f, -0.5f, -0.5f }, { 0.0f, -1.0f, 0.0f }, { 0.0f, 1.0f } },
-		{ {  0.5f, -0.5f,  0.5f }, { 0.0f, -1.0f, 0.0f }, { 0.0f, 0.0f } },
-		{ {  0.5f, -0.5f,  0.5f }, { 0.0f, -1.0f, 0.0f }, { 0.0f, 0.0f } },
-		{ { -0.5f, -0.5f,  0.5f }, { 0.0f, -1.0f, 0.0f }, { 1.0f, 0.0f } },
-		{ { -0.5f, -0.5f, -0.5f }, { 0.0f, -1.0f, 0.0f }, { 1.0f, 1.0f } }
-	};
-
-	const inline static uint32_t c_Indices[] = {
-		0,  1,  2,
-		3,  4,  5
-	};
 };

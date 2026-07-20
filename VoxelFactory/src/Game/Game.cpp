@@ -167,11 +167,8 @@ void Game::StartUp() {
 	glEnable(GL_CULL_FACE);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	glLineWidth(3.0f);
 	glViewport(0, 0, m_Window->GetWidth(), m_Window->GetHeight());
-	//glClearColor(0.125f, 0.13f, 0.2f, 0.0f);
-	//glClearColor(0.301f, 0.733f, 1.0f, 0.0f);
 	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 
 	m_UI = CreateRef<UI>(m_Window->GetWidth(), m_Window->GetHeight());
@@ -307,6 +304,7 @@ void Game::LoadShaders() {
 
 	m_Shaders[(size_t)ShaderType::PostProc] = CreateRef<Shader>("assets/shaders/PostProc.vert", "assets/shaders/PostProc.frag");
 	m_Shaders[(size_t)ShaderType::World] = CreateRef<Shader>("assets/shaders/Main.vert", "assets/shaders/Main.frag");
+	m_Shaders[(size_t)ShaderType::BlockPreview] = CreateRef<Shader>("assets/shaders/BlockPreview.vert", "assets/shaders/BlockPreview.frag");
 	m_Shaders[(size_t)ShaderType::Selector] = CreateRef<Shader>("assets/shaders/Selector.vert", "assets/shaders/Selector.frag");
 	m_Shaders[(size_t)ShaderType::SkyBox] = CreateRef<Shader>("assets/shaders/SkyBox.vert", "assets/shaders/SkyBox.frag");
 	m_Shaders[(size_t)ShaderType::UIColored] = CreateRef<Shader>("assets/shaders/UI.vert", "assets/shaders/UIColored.frag");

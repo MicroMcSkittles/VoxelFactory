@@ -19,6 +19,11 @@ Player::Player(const glm::vec3& position, const Ref<Camera>& camera, const Ref<W
 	: m_Position(position), m_Camera(camera), m_World(world) {
 
 	m_HoldingBlockID = 3;
+	Block::SetMeshType(3);
+
+	m_Hand.direction = m_Camera->direction;
+	m_Hand.offset = m_Hand.default_offset;
+	m_Hand.rotation = m_Hand.default_rotation;
 
 	m_CameraOffset = glm::vec3(0.0f, 1.7f, 0.0f);
 	m_Camera->position = m_Position + m_CameraOffset;
@@ -44,6 +49,7 @@ Player::Player(const glm::vec3& position, const Ref<Camera>& camera, const Ref<W
 	m_SprintMultiplier = 1.5f;
 	m_JumpForce = 0.125f;
 	m_Reach = 7.0f;
+	m_MovementTime = 0.0f;
 
 	InitSelector();
 }
@@ -54,55 +60,60 @@ void Player::ShowImGui() {
 	glm::vec3 chunk_pos = Chunk::GetBlockChunkPosition(m_Position);
 	glm::vec3 chunk_block_pos = Chunk::GetBlockLocalPosition(block_pos);
 
-ImGui::SeparatorText("General");
-if (ImGui::InputFloat3("Position", glm::value_ptr(m_Position))) {
-	m_Collider.SetPosition(m_Position);
-	m_Camera->position = m_Position + m_CameraOffset;
-	m_Camera->UpdateView();
-}
-if (ImGui::DragFloat3("Camera Offset", glm::value_ptr(m_CameraOffset), 0.1f)) {
-	m_Camera->position = m_Position + m_CameraOffset;
-	m_Camera->UpdateView();
-}
-ImGui::Text("Block Position: ( %d, %d, %d )", (int)block_pos.x, (int)block_pos.y, (int)block_pos.z);
-ImGui::Text("Chunk Block Position: ( %d, %d, %d )", (int)chunk_block_pos.x, (int)chunk_block_pos.y, (int)chunk_block_pos.z);
-ImGui::Text("Chunk Position: ( %d, %d )", (int)chunk_pos.x, (int)chunk_pos.z);
+	ImGui::SeparatorText("General");
+	if (ImGui::InputFloat3("Position", glm::value_ptr(m_Position))) {
+		m_Collider.SetPosition(m_Position);
+		m_Camera->position = m_Position + m_CameraOffset;
+		m_Camera->UpdateView();
+	}
+	if (ImGui::DragFloat3("Camera Offset", glm::value_ptr(m_CameraOffset), 0.1f)) {
+		m_Camera->position = m_Position + m_CameraOffset;
+		m_Camera->UpdateView();
+	}
+	ImGui::Text("Block Position: ( %d, %d, %d )", (int)block_pos.x, (int)block_pos.y, (int)block_pos.z);
+	ImGui::Text("Chunk Block Position: ( %d, %d, %d )", (int)chunk_block_pos.x, (int)chunk_block_pos.y, (int)chunk_block_pos.z);
+	ImGui::Text("Chunk Position: ( %d, %d )", (int)chunk_pos.x, (int)chunk_pos.z);
 
-// Physics
-ImGui::SeparatorText("Physics");
-ImGui::Text("Velocity: %s", VEC3_STR(m_Velocity).c_str());
-if (ImGui::DragFloat3("Collider Size", glm::value_ptr(m_Collider.size), 0.1f)) {
-	m_Collider.CalculateMinMax();
-}
-ImGui::Text("Collider Position: %s", VEC3_STR(m_Collider.position).c_str());
-ImGui::Text("Collider Min: %s", VEC3_STR(m_Collider.min).c_str());
-ImGui::Text("Collider Max: %s", VEC3_STR(m_Collider.max).c_str());
-ImGui::Text("On Ground: %s", (m_OnGround ? "true" : "false"));
-ImGui::DragFloat("Ground Check Distance", &m_GroundCheckDist);
-ImGui::DragFloat("Gravity", &m_GravitationalConstant, 0.1f);
-ImGui::DragFloat("Drag", &m_Drag, 0.1f);
+	// Physics
+	ImGui::SeparatorText("Physics");
+	ImGui::Text("Velocity: %s", VEC3_STR(m_Velocity).c_str());
+	if (ImGui::DragFloat3("Collider Size", glm::value_ptr(m_Collider.size), 0.1f)) {
+		m_Collider.CalculateMinMax();
+	}
+	ImGui::Text("Collider Position: %s", VEC3_STR(m_Collider.position).c_str());
+	ImGui::Text("Collider Min: %s", VEC3_STR(m_Collider.min).c_str());
+	ImGui::Text("Collider Max: %s", VEC3_STR(m_Collider.max).c_str());
+	ImGui::Text("On Ground: %s", (m_OnGround ? "true" : "false"));
+	ImGui::DragFloat("Ground Check Distance", &m_GroundCheckDist);
+	ImGui::DragFloat("Gravity", &m_GravitationalConstant, 0.1f);
+	ImGui::DragFloat("Drag", &m_Drag, 0.1f);
 
-// Selector
-ImGui::SeparatorText("Selector");
-ImGui::Text("Visible: %s", (m_ShowSelector ? "true" : "false"));
-ImGui::Text("Position: ( %d, %d, %d )", (int)m_SelectorPosition.x, (int)m_SelectorPosition.y, (int)m_SelectorPosition.z);
+	// Selector
+	ImGui::SeparatorText("Selector");
+	ImGui::Text("Visible: %s", (m_ShowSelector ? "true" : "false"));
+	ImGui::Text("Position: ( %d, %d, %d )", (int)m_SelectorPosition.x, (int)m_SelectorPosition.y, (int)m_SelectorPosition.z);
 
-// Input
-ImGui::SeparatorText("Input");
-ImGui::Checkbox("Flight", &m_Flight);
-ImGui::DragFloat("Walk Speed", &m_WalkSpeed, 0.1f);
-ImGui::DragFloat("Sprint Multiplier", &m_SprintMultiplier, 0.1f);
-ImGui::Text("Speed: %f", m_Speed);
-ImGui::DragFloat("Jump Force", &m_JumpForce);
-ImGui::DragFloat("Mouse Sensitivity", &m_MouseSensitivity);
-ImGui::DragFloat("Reach", &m_Reach);
+	// Input
+	ImGui::SeparatorText("Input");
+	ImGui::Checkbox("Flight", &m_Flight);
+	ImGui::DragFloat("Walk Speed", &m_WalkSpeed, 0.1f);
+	ImGui::DragFloat("Sprint Multiplier", &m_SprintMultiplier, 0.1f);
+	ImGui::Text("Speed: %f", m_Speed);
+	ImGui::DragFloat("Jump Force", &m_JumpForce);
+	ImGui::DragFloat("Mouse Sensitivity", &m_MouseSensitivity);
+	ImGui::DragFloat("Reach", &m_Reach);
+	ImGui::Text("Movement Time: %f", m_MovementTime);
 
-int block_id = m_HoldingBlockID;
-if (ImGui::InputInt("Holding Block ID", &block_id)) {
-	if (block_id < 1) m_HoldingBlockID = 19;
-	else if (block_id > 19) m_HoldingBlockID = 1;
-	else m_HoldingBlockID = block_id;
-}
+	// Hand
+	ImGui::SeparatorText("Hand");
+	ImGui::DragFloat3("Hand Offset", &m_Hand.offset.x, 0.01f);
+	ImGui::DragFloat3("Hand Rotation", &m_Hand.rotation.x, 0.1f);
+	int block_id = m_HoldingBlockID;
+	if (ImGui::InputInt("Holding Block ID", &block_id)) {
+		if (block_id < 1) m_HoldingBlockID = 19;
+		else if (block_id > 19) m_HoldingBlockID = 1;
+		else m_HoldingBlockID = block_id;
+	}
 }
 
 void Player::Update(float delta_time, glm::vec2& last_mouse_pos, const Ref<Window>& window) {
@@ -133,16 +144,24 @@ void Player::Update(float delta_time, glm::vec2& last_mouse_pos, const Ref<Windo
 	CollisionResultData ray_result = m_World->CastRay({ m_Camera->position, m_Camera->direction });
 	m_ShowSelector = (ray_result.hit && ray_result.dist <= m_Reach);
 	m_SelectorPosition = ray_result.voxel_position;
+
+	// Update hand
+	UpdateHand(delta_time);
 }
 void Player::Render() {
+	RenderHand();
 	RenderSelector();
 }
 
 void Player::OnLeftClick() {
-	if (!m_ShowSelector) return;
+	if (!m_ShowSelector) {
+		m_Hand.Swing();
+		return;
+	}
 
 	// Delete voxel
 	m_World->SetVoxel(m_SelectorPosition, 0);
+	m_Hand.Hit();
 }
 void Player::OnRightClick() {
 	if (!m_ShowSelector) return;
@@ -156,6 +175,8 @@ void Player::OnRightClick() {
 	glm::vec3 voxel = ray_data.voxel_position + ray_data.normal;
 	if (m_World->WillIntersect(m_Collider, voxel)) return;
 	m_World->SetVoxel(voxel, block_id);
+
+	m_Hand.Hit();
 }
 void Player::OnScroll(float delta) {
 	if (delta > 0.0f) m_HoldingBlockID += 1;
@@ -163,6 +184,8 @@ void Player::OnScroll(float delta) {
 
 	if (m_HoldingBlockID < 1) m_HoldingBlockID = 19;
 	else if (m_HoldingBlockID > 19) m_HoldingBlockID = 1;
+
+	Block::SetMeshType(m_HoldingBlockID);
 }
 
 void Player::Input(float delta_time, const Ref<Window>& window) {
@@ -184,6 +207,13 @@ void Player::Input(float delta_time, const Ref<Window>& window) {
 	if (glfwGetKey(window_handle, GLFW_KEY_S)) m_Velocity -= forward_dir * m_Speed * delta_time;
 	if (glfwGetKey(window_handle, GLFW_KEY_A)) m_Velocity -= right_dir * m_Speed * delta_time;
 	if (glfwGetKey(window_handle, GLFW_KEY_D)) m_Velocity += right_dir * m_Speed * delta_time;
+
+	if ((m_Velocity.x != 0.0f || m_Velocity.z != 0.0f) && m_OnGround) {
+		m_MovementTime += delta_time;
+	}
+	else {
+		m_MovementTime = 0.0f;
+	}
 
 	if (glfwGetKey(window_handle, GLFW_KEY_SPACE) && m_Flight) m_Velocity += up_dir * m_Speed * delta_time;
 	if (glfwGetKey(window_handle, GLFW_KEY_LEFT_CONTROL) && m_Flight) m_Velocity -= up_dir * m_Speed * delta_time;
@@ -234,9 +264,6 @@ void Player::CameraInput(glm::vec2& last_mouse_pos, const Ref<Window>& window) {
 
 void Player::RenderUI() {
 	UI::TexturedQuad(glm::vec3(0.0f), glm::vec2(0.25f), Game::GetTexture(TextureType::CrossHair));
-
-	uint32_t holding_texture_id = Block::BlockTextureIDs[m_HoldingBlockID - 1].front;
-	UI::AtlasQuad(glm::vec3(1.0f, 0.0f, 0.0f), glm::vec2(0.4f), Game::GetTexture(TextureType::BlockAtlas), glm::vec2(16), holding_texture_id);
 }
 
 std::string Player::StatsText() {
@@ -250,6 +277,8 @@ std::string Player::StatsText() {
 	ss << "Chunk " << VEC3_STR(chunk_position) << "\n";
 	ss << "Speed " << m_Speed << "\n";
 	ss << "Velocity " << VEC3_STR(m_Velocity) << "\n";
+	ss << "Hand Direction " << VEC3_STR(m_Hand.direction) << "\n";
+	ss << "Camera Direction " << VEC3_STR(m_Camera->direction) << "\n";
 
 	if (m_ShowSelector) {
 		ss << "Looking at " << VEC3_STR(m_SelectorPosition) << "\n";
@@ -288,4 +317,63 @@ void Player::RenderSelector() {
 	m_SelectorMesh->Unbind();
 
 	selector_shader->Unbind();
+}
+
+void Player::UpdateHand(float delta_time) {
+	// Follow camera
+	m_Hand.direction += (m_Camera->direction - m_Hand.direction) * 24.0f * delta_time;
+
+	glm::vec3 target_offset = m_Hand.default_offset;
+
+	if (m_MovementTime != 0.0f) {
+		target_offset.x = m_Hand.default_offset.x + cos(m_MovementTime * m_Speed) * 0.025f;
+		target_offset.y = m_Hand.default_offset.y - abs(sin(m_MovementTime * m_Speed) * 0.025f);
+	}
+
+	m_Hand.offset += (target_offset - m_Hand.offset) * 10.0f * delta_time;
+	m_Hand.rotation += (m_Hand.default_rotation - m_Hand.rotation) * 10.0f * delta_time;
+}
+void Player::RenderHand() {
+
+	Ref<Shader>& block_preview_shader = Game::GetShader(ShaderType::BlockPreview);
+	block_preview_shader->Bind();
+
+	Ref<Texture>& atlas = Game::GetTexture(TextureType::BlockAtlas);
+	atlas->Bind();
+
+	// Set uniforms
+	block_preview_shader->SetUniform("u_ViewProjection", m_Camera->view_projection);
+	block_preview_shader->SetUniform("u_Brightness", m_World->GetBrightness());
+	block_preview_shader->SetUniform("u_Atlas", atlas);
+
+	// Calculate model
+	glm::mat4 hand_model = glm::mat4(1.0f);
+	hand_model = glm::translate(hand_model, m_Camera->position);
+	hand_model *= glm::inverse(glm::lookAt(glm::vec3(0.0f), -m_Hand.direction, glm::vec3(0, 1, 0)));
+	hand_model = glm::translate(hand_model, m_Hand.offset);
+	hand_model = glm::rotate(hand_model, m_Hand.rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
+	hand_model = glm::rotate(hand_model, m_Hand.rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
+	hand_model = glm::rotate(hand_model, m_Hand.rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
+	hand_model = glm::scale(hand_model, m_Hand.default_size);
+	block_preview_shader->SetUniform("u_Model", hand_model);
+
+	// Draw
+	Block::Mesh->Bind();
+	glDisable(GL_CULL_FACE);
+	glDrawElements(GL_TRIANGLES, Block::Mesh->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
+	glEnable(GL_CULL_FACE);
+	Block::Mesh->Unbind();
+
+	atlas->Unbind();
+	block_preview_shader->Unbind();
+}
+
+// Animations
+void Hand::Swing() {
+	offset = glm::vec3(0.0f, -0.4f, 0.49f);
+	rotation = glm::vec3(1.0f, 0.2f, 0.0f);
+}
+void Hand::Hit() {
+	offset = glm::vec3(-0.2f, -0.5f, 0.49f);
+	rotation = glm::vec3(1.0f, 0.2f, 0.0f);
 }

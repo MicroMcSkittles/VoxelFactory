@@ -13,81 +13,6 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-#define TEX_COORD(x,y) y * 16 + x
-
-Block Block::Invalid = Block{ Block::InvalidID };
-std::vector<Block::TextureIDs> Block::BlockTextureIDs = {
-	{ TEX_COORD(3,0), TEX_COORD(0,0), TEX_COORD(2,0) }, // Grass
-	{ TEX_COORD(4,4), TEX_COORD(2,4), TEX_COORD(2,0) }, // Snowy Grass
-	{ TEX_COORD(2,0) }, // Dirt
-	{ TEX_COORD(1,0) }, // Stone
-	{ TEX_COORD(4,1), TEX_COORD(5, 1), TEX_COORD(5,1) }, // Log
-	{ TEX_COORD(4,0) }, // Planks
-	{ TEX_COORD(3,2), TEX_COORD(4, 0), TEX_COORD(4,0) }, // Bookshelf
-	{ TEX_COORD(7,0) }, // Bricks
-	{ TEX_COORD(6,3) }, // Stone bricks
-	{ TEX_COORD(6,0) }, // Polished stone
-	{ TEX_COORD(0,1) }, // Cobble stone
-	{ TEX_COORD(1,1) }, // Gravel
-	{ TEX_COORD(2,1) }, // Sand
-	{ TEX_COORD(0,2) }, // Iron ore
-	{ TEX_COORD(2,2) }, // Coal ore
-	{ TEX_COORD(3,3) }, // Copper ore
-	{ TEX_COORD(1,3) }, // Glass
-	{ TEX_COORD(12,2), TEX_COORD(14,2), TEX_COORD(13,2), TEX_COORD(13,2), TEX_COORD(14,3), TEX_COORD(14,3) }, // Furnace
-	{ TEX_COORD(11,3), TEX_COORD(11,3), TEX_COORD(12,3), TEX_COORD(11,3), TEX_COORD(11,2), TEX_COORD(10,4) }, // Work bench
-};
-
-bool Block::HasOrientation(uint8_t id) {
-	uint8_t actual_id = id & 0b00111111;
-	if (actual_id == 5 || actual_id == 18 || actual_id == 19) return true;
-	return false;
-}
-int Block::GetAxisCount(uint8_t id) {
-	if (id == 5) return 3; // 3 possable orentations
-	if (id == 18 || id == 19) return 4; // 4 possable orentations
-	return 0;
-}
-uint8_t Block::CalculateOrientation(const glm::vec3& direction, uint8_t id) {
-	glm::vec3 orientation = glm::vec3(0.0f);
-	if (abs(direction.x) > abs(direction.y) && abs(direction.x) > abs(direction.z)) orientation = glm::vec3(direction.x, 0.0f, 0.0f);
-	else if (abs(direction.z) > abs(direction.y)) orientation = glm::vec3(0.0f, 0.0f, direction.z);
-	else orientation = glm::vec3(0.0f, direction.y, 0.0f);
-	orientation = glm::normalize(orientation);
-
-	int axis_count = GetAxisCount(id);
-
-	if (axis_count == 3) {
-		if (orientation.x != 0) return 0b00000000;
-		if (orientation.y != 0) return 0b01000000;
-		if (orientation.z != 0) return 0b10000000;
-	}
-	if (axis_count == 4) {
-		if (orientation.x > 0) return 0b00000000;
-		if (orientation.z > 0) return 0b01000000;
-		if (orientation.x < 0) return 0b10000000;
-		if (orientation.z < 0) return 0b11000000;
-	}
-
-	return 0;
-}
-
-glm::vec3 Block::OrientVector(const glm::vec3& direction, int axis_count, uint8_t orientation) {
-	if (axis_count == 3) {
-		if (orientation == 0) return glm::vec3(-direction.y, direction.x, direction.z);
-		if (orientation == 1) return direction;
-		if (orientation == 2) return glm::vec3(direction.x, -direction.z, direction.y);
-	}
-	if (axis_count == 4) {
-		if (orientation == 0) return glm::vec3(direction.z, direction.y, -direction.x);
-		if (orientation == 1) return direction;
-		if (orientation == 3) return glm::vec3(-direction.x, direction.y, -direction.z);
-		if (orientation == 2) return glm::vec3(-direction.z, direction.y, direction.x);
-	}
-
-	return direction;
-}
-
 AABB::AABB() : min(0.0f), max(0.0f), position(0.0f), size(0.0f) { }
 AABB::AABB(const glm::vec3& min, const glm::vec3& max, const glm::vec3& position, const glm::vec3& size)
 	: min(min), max(max), position(position), size(size) { }
@@ -190,8 +115,8 @@ World::World(uint32_t seed) : m_Seed(seed), m_LoadedCenter({ 0,0,0 }), m_LoadedR
 World::~World() { }
 
 void World::InitSkyBox() {
-	m_SkyColor = glm::vec3(0.301f, 0.733f, 1.0f);
-	m_SkyHorizonColor = glm::vec3(0.251f, 0.683f, 1.0f);
+	m_SkyColor = glm::vec3(0.470f, 0.655f, 1.0f);
+	m_SkyHorizonColor = glm::vec3(0.753f, 0.847f, 1.0f);
 	m_Brightness = 1.0f;
 
 	m_SkyBox = CreateRef<VertexArray>();
@@ -642,7 +567,7 @@ void World::CreateChunk(const glm::vec2& position) {
 ChunkMesher::ChunkMesher(Chunk* chunk, World* world): m_Chunk(chunk), m_World(world), m_VertexOffset(0) {}
 ChunkMesher::~ChunkMesher() { }
 
-Ref<Mesh<ChunkVertex>> ChunkMesher::CreateMesh()
+Ref<Mesh<BlockVertex>> ChunkMesher::CreateMesh()
 {
 	m_Vertices.reserve(Chunk::ChunkDataSize);
 	m_Indices.reserve(Chunk::ChunkDataSize);
@@ -657,26 +582,19 @@ Ref<Mesh<ChunkVertex>> ChunkMesher::CreateMesh()
 				if (m_Chunk->IsVoid(position)) continue;
 
 				uint8_t block_id = m_Chunk->At({ x,y,z }).id;
-				Block::TextureIDs& textures = Block::BlockTextureIDs[(block_id & 0b00111111) - 1];
-				MeshFace(position, { 0,  0,  1 }, textures.front, block_id, c_FrontVertices);
-				MeshFace(position, { 0,  0, -1 }, textures.back, block_id, c_BackVertices);
-				MeshFace(position, { 1,  0,  0 }, textures.left, block_id, c_LeftVertices);
-				MeshFace(position, { -1,  0,  0 }, textures.right, block_id, c_RightVertices);
-				MeshFace(position, { 0,  1,  0 }, textures.top, block_id, c_TopVertices);
-				MeshFace(position, { 0, -1,  0 }, textures.bottom, block_id, c_BottomVertices);
+				TextureIDs& textures = Block::BlockTextureIDs[(block_id & 0b00111111) - 1];
+				MeshFace(position, { 0,  0,  1 }, textures.front, block_id, Block::FrontVertices);
+				MeshFace(position, { 0,  0, -1 }, textures.back, block_id, Block::BackVertices);
+				MeshFace(position, { 1,  0,  0 }, textures.left, block_id, Block::LeftVertices);
+				MeshFace(position, { -1,  0,  0 }, textures.right, block_id, Block::RightVertices);
+				MeshFace(position, { 0,  1,  0 }, textures.top, block_id, Block::TopVertices);
+				MeshFace(position, { 0, -1,  0 }, textures.bottom, block_id, Block::BottomVertices);
 			}
 		}
 	}
 
 	// Create mesh
-	VertexLayout vertex_layout = { {
-		{ GL_FLOAT, 3 }, // a_Pos
-		{ GL_FLOAT, 3 }, // a_Normal
-		{ GL_FLOAT, 2 }, // a_TexCoord
-		{ GL_FLOAT, 1 }, // a_AmbientOcclution
-		{ GL_UNSIGNED_INT, 1 }, // a_TextureID
-	} };
-	Ref<Mesh<ChunkVertex>> mesh = CreateRef<Mesh<ChunkVertex>>(m_Vertices, m_Indices, vertex_layout);
+	Ref<Mesh<BlockVertex>> mesh = CreateRef<Mesh<BlockVertex>>(m_Vertices, m_Indices, Block::Layout);
 	return mesh;
 }
 
@@ -692,7 +610,7 @@ bool ChunkMesher::IsVoid(const glm::vec3& position) {
 	if (!other_chunk) return true;
 	return other_chunk->IsVoid(Chunk::GetBlockLocalPosition(position));
 }
-void ChunkMesher::MeshFace(const glm::vec3& position, const glm::vec3& face_dir, uint32_t id, uint8_t block_id, const ChunkVertex* data) {
+void ChunkMesher::MeshFace(const glm::vec3& position, const glm::vec3& face_dir, uint32_t id, uint8_t block_id, const BlockVertex* data) {
 
 	uint8_t orientation = (block_id & 0b11000000) >> 6;
 	int axis_count = Block::GetAxisCount(block_id & 0b00111111);
@@ -728,8 +646,8 @@ void ChunkMesher::MeshFace(const glm::vec3& position, const glm::vec3& face_dir,
 	else if (!m_Chunk->IsVoid(other_pos)) return;
 
 	// Add face data to mesh
-	for (int i = 0; i < c_FaceVertexCount; i++) {
-		ChunkVertex vertex = data[i];
+	for (int i = 0; i < Block::FaceVertexCount; i++) {
+		BlockVertex vertex = data[i];
 		vertex.position = Block::OrientVector(vertex.position, axis_count, orientation);
 		vertex.normal = Block::OrientVector(vertex.normal, axis_count, orientation);
 		// Calculate ambient occlusion
@@ -760,8 +678,8 @@ void ChunkMesher::MeshFace(const glm::vec3& position, const glm::vec3& face_dir,
 		vertex.id = id;
 		m_Vertices.push_back(vertex);
 	}
-	for (int i = 0; i < c_FaceIndexCount; i++) {
-		m_Indices.push_back(c_Indices[i] + m_VertexOffset);
+	for (int i = 0; i < Block::FaceIndexCount; i++) {
+		m_Indices.push_back(Block::FaceIndices[i] + m_VertexOffset);
 	}
-	m_VertexOffset += c_FaceVertexCount;
+	m_VertexOffset += Block::FaceVertexCount;
 }

@@ -33,6 +33,7 @@ enum class GameState {
 enum class ShaderType {
 	PostProc,
 	World,
+	BlockPreview,
 	Selector,
 	SkyBox,
 	UIColored,

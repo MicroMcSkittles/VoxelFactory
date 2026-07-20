@@ -6,6 +6,20 @@
 #include "Renderer/Buffers.h"
 #include "Renderer/Shader.h"
 
+struct Hand {
+	const glm::vec3 default_offset = glm::vec3(-0.2f, -0.2f, 0.3f);
+	const glm::vec3 default_size = glm::vec3(0.18f);
+	const glm::vec3 default_rotation = glm::vec3(-0.1f, 0.7f, 0.0f);
+
+	glm::vec3 offset;
+	glm::vec3 rotation;
+	glm::vec3 direction;
+
+	// Animations
+	void Swing();
+	void Hit();
+};
+
 class Player {
 public:
 
@@ -34,12 +48,16 @@ private:
 	void InitSelector();
 	void RenderSelector();
 
+	void UpdateHand(float delta_time);
+	void RenderHand();
+
 private:
 	
 	// General
 	Ref<World> m_World;
 	Ref<Camera> m_Camera;
 
+	Hand m_Hand;
 	uint8_t m_HoldingBlockID;
 
 	glm::vec3 m_Position;
@@ -68,6 +86,7 @@ private:
 	float m_Speed;
 	float m_JumpForce;
 	float m_Reach;
+	float m_MovementTime;
 
 private:
 	const inline static float c_SelectorVertices[] = {
