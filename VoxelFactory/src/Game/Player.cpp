@@ -15,11 +15,26 @@
 #include <sstream>
 #include <iomanip>
 
+Hotbar::Hotbar() {
+	selected = 0;
+	inventory = CreateRef<Inventory>(Width, 1);
+	for (int i = 0; i < Width; i++) {
+		inventory->GetItem({ i, 0 }).id = i + 1;
+	}
+}
+Item& Hotbar::GetSelected() {
+	return inventory->GetItem({ selected, 0 });
+}
+Item& Hotbar::Get(int index) {
+	return inventory->GetItem({ index, 0 });
+}
+
 Player::Player(const glm::vec3& position, const Ref<Camera>& camera, const Ref<World>& world)
 	: m_Position(position), m_Camera(camera), m_World(world) {
 
-	m_HoldingBlockID = 3;
-	Block::SetMeshType(3);
+	//m_HoldingBlockID = 3;
+	//Block::SetMeshType(3);
+	HeldItemChanged();
 
 	m_Hand.direction = m_Camera->direction;
 	m_Hand.offset = m_Hand.default_offset;
@@ -108,11 +123,22 @@ void Player::ShowImGui() {
 	ImGui::SeparatorText("Hand");
 	ImGui::DragFloat3("Hand Offset", &m_Hand.offset.x, 0.01f);
 	ImGui::DragFloat3("Hand Rotation", &m_Hand.rotation.x, 0.1f);
-	int block_id = m_HoldingBlockID;
-	if (ImGui::InputInt("Holding Block ID", &block_id)) {
-		if (block_id < 1) m_HoldingBlockID = 19;
-		else if (block_id > 19) m_HoldingBlockID = 1;
-		else m_HoldingBlockID = block_id;
+	ImGui::Text("Hand Item ID: %u", m_Hotbar.GetSelected().id);
+
+	// Hotbar
+	ImGui::SeparatorText("Hotbar");
+	int hotbar_selected_index = m_Hotbar.selected;
+	if (ImGui::InputInt("Hotbar Selected Index", &hotbar_selected_index)) {
+		if (hotbar_selected_index < 0) hotbar_selected_index = Hotbar::Width - 1;
+		else if (hotbar_selected_index >= Hotbar::Width) hotbar_selected_index = 0;
+		else m_Hotbar.selected = hotbar_selected_index;
+	}
+	for (int i = 0; i < Hotbar::Width; i++) {
+		int id = m_Hotbar.Get(i).id;
+		if (ImGui::InputInt(std::to_string(i).c_str(), &id)) {
+			m_Hotbar.Get(i).id = id;
+			if (i == m_Hotbar.selected) HeldItemChanged();
+		}
 	}
 }
 
@@ -165,11 +191,14 @@ void Player::OnLeftClick() {
 }
 void Player::OnRightClick() {
 	if (!m_ShowSelector) return;
+	if (!m_Hotbar.GetSelected().IsBlock()) return;
+
 	CollisionResultData ray_data = m_World->CastRay({ m_Camera->position, m_Camera->direction });
 
 	// Find block oriantation
 	glm::vec3 direction = -(m_Camera->direction * ray_data.dist);
-	uint8_t block_id = m_HoldingBlockID | Block::CalculateOrientation(direction, m_HoldingBlockID);
+	uint8_t holding_id = (uint8_t)m_Hotbar.GetSelected().id;
+	uint8_t block_id = holding_id | Block::CalculateOrientation(direction, holding_id);
 
 	// Place block from players hand
 	glm::vec3 voxel = ray_data.voxel_position + ray_data.normal;
@@ -179,13 +208,15 @@ void Player::OnRightClick() {
 	m_Hand.Hit();
 }
 void Player::OnScroll(float delta) {
-	if (delta > 0.0f) m_HoldingBlockID += 1;
-	else m_HoldingBlockID -= 1;
+	Item last_item = m_Hotbar.GetSelected();
 
-	if (m_HoldingBlockID < 1) m_HoldingBlockID = 19;
-	else if (m_HoldingBlockID > 19) m_HoldingBlockID = 1;
+	if (delta < 0.0f) m_Hotbar.selected += 1;
+	else m_Hotbar.selected -= 1;
 
-	Block::SetMeshType(m_HoldingBlockID);
+	if (m_Hotbar.selected < 0) m_Hotbar.selected = Hotbar::Width - 1;
+	else if (m_Hotbar.selected >= Hotbar::Width) m_Hotbar.selected = 0;
+
+	if (last_item.id != m_Hotbar.GetSelected().id) HeldItemChanged();
 }
 
 void Player::Input(float delta_time, const Ref<Window>& window) {
@@ -263,7 +294,42 @@ void Player::CameraInput(glm::vec2& last_mouse_pos, const Ref<Window>& window) {
 }
 
 void Player::RenderUI() {
+	// Cross Hair
 	UI::TexturedQuad(glm::vec3(0.0f), glm::vec2(0.25f), Game::GetTexture(TextureType::CrossHair));
+
+	// Excuse this absolutely atrocious piece of code
+	glm::vec2 screen_min = UI::GetScreenMin();
+	Ref<Texture>& hotbar_texture = Game::GetTexture(TextureType::Hotbar);
+	float hotbar_aspect_ratio = (float)(hotbar_texture->GetWidth() - 4) / (float)hotbar_texture->GetHeight();
+	float hotbar_width = hotbar_texture->GetAspectRatio() * Hotbar::UIScale;
+	float slot_width = (hotbar_aspect_ratio * Hotbar::UIScale) / Hotbar::Width;
+	float slot_offset = (3.0f / (float)hotbar_texture->GetWidth()) * hotbar_width;
+	glm::vec2 slot_start = {
+		-hotbar_width + slot_offset + slot_width,
+		screen_min.y + Hotbar::UIScale
+	};
+
+	// Hotbar
+	UI::TexturedQuad(glm::vec3(0.0f, screen_min.y + Hotbar::UIScale, -0.5f), Hotbar::UIScale, hotbar_texture);
+
+	// Item previews
+	for (int i = 0; i < Hotbar::Width; i++) {
+		glm::vec3 preview_position = {
+			slot_start.x + (slot_width * 2.0f * i),
+			slot_start.y,
+			-0.25f
+		};
+		m_Hotbar.Get(i).ShowPreview(preview_position, Hotbar::UIScale * 0.5f);
+	}
+
+	// Hotbar selector
+	glm::vec3 selector_position = {
+		slot_start.x + (slot_width * 2.0f * m_Hotbar.selected),
+		slot_start.y,
+		0.0f
+	};
+	UI::TexturedQuad(selector_position, Hotbar::UIScale, Game::GetTexture(TextureType::HotbarSelector));
+
 }
 
 std::string Player::StatsText() {
@@ -320,6 +386,7 @@ void Player::RenderSelector() {
 }
 
 void Player::UpdateHand(float delta_time) {
+	if (m_Hotbar.GetSelected().id == 0 || m_Hotbar.GetSelected().id == Item::InvalidID) return;
 	// Follow camera
 	m_Hand.direction += (m_Camera->direction - m_Hand.direction) * 24.0f * delta_time;
 
@@ -334,6 +401,7 @@ void Player::UpdateHand(float delta_time) {
 	m_Hand.rotation += (m_Hand.default_rotation - m_Hand.rotation) * 10.0f * delta_time;
 }
 void Player::RenderHand() {
+	if (m_Hotbar.GetSelected().id == 0 || m_Hotbar.GetSelected().id == Item::InvalidID) return;
 
 	Ref<Shader>& block_preview_shader = Game::GetShader(ShaderType::BlockPreview);
 	block_preview_shader->Bind();
@@ -366,6 +434,11 @@ void Player::RenderHand() {
 
 	atlas->Unbind();
 	block_preview_shader->Unbind();
+}
+
+void Player::HeldItemChanged() {
+	Item& new_item = m_Hotbar.GetSelected();
+	if (new_item.IsBlock()) Block::SetMeshType((uint8_t)new_item.id);
 }
 
 // Animations

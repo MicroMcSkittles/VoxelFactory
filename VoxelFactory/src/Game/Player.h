@@ -2,22 +2,35 @@
 #include "Core/Core.h"
 #include "Core/Window.h"
 #include "Game/World.h"
+#include "Game/Inventory.h"
 #include "Renderer/Camera.h"
 #include "Renderer/Buffers.h"
 #include "Renderer/Shader.h"
 
 struct Hand {
-	const glm::vec3 default_offset = glm::vec3(-0.2f, -0.2f, 0.3f);
-	const glm::vec3 default_size = glm::vec3(0.18f);
+	const glm::vec3 default_offset   = glm::vec3(-0.2f, -0.2f, 0.3f);
+	const glm::vec3 default_size     = glm::vec3(0.18f);
 	const glm::vec3 default_rotation = glm::vec3(-0.1f, 0.7f, 0.0f);
 
-	glm::vec3 offset;
-	glm::vec3 rotation;
-	glm::vec3 direction;
+	glm::vec3 offset    = glm::vec3(0.0f);
+	glm::vec3 rotation  = glm::vec3(0.0f);
+	glm::vec3 direction = glm::vec3(0.0f);
 
 	// Animations
 	void Swing();
 	void Hit();
+};
+
+struct Hotbar {
+	int selected;
+	Ref<Inventory> inventory;
+
+	Hotbar();
+	Item& GetSelected();
+	Item& Get(int index);
+
+	const inline static int Width = 9;
+	const inline static float UIScale = 0.75f;
 };
 
 class Player {
@@ -36,8 +49,6 @@ public:
 	void OnRightClick();
 	void OnScroll(float delta);
 
-	glm::vec3 GetPosition() { return m_Position; }
-
 private:
 
 	// Update velocity based on input
@@ -51,6 +62,8 @@ private:
 	void UpdateHand(float delta_time);
 	void RenderHand();
 
+	void HeldItemChanged();
+
 private:
 	
 	// General
@@ -58,7 +71,7 @@ private:
 	Ref<Camera> m_Camera;
 
 	Hand m_Hand;
-	uint8_t m_HoldingBlockID;
+	Hotbar m_Hotbar;
 
 	glm::vec3 m_Position;
 	glm::vec3 m_CameraOffset;
@@ -67,13 +80,15 @@ private:
 	glm::vec3 m_ColliderOffset;
 	AABB m_Collider;
 	glm::vec3 m_Velocity;
-	float m_GravitationalConstant;
-	float m_Drag;
 
 	float m_GroundCheckDist;
 	bool m_OnGround;
 
-	// Selector
+	// *Move to Game class
+	float m_GravitationalConstant;
+	float m_Drag;
+
+	// Selector * Make seporate struct
 	Ref<VertexArray> m_SelectorMesh;
 	glm::vec3 m_SelectorPosition;
 	bool m_ShowSelector;

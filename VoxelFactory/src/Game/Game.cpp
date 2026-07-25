@@ -24,23 +24,25 @@ Game::Game() {
 	m_ShowStats = false;
 
 	m_MouseCaptured = false;
-	//m_Focused = false;
 	m_MouseAvalible = true;
 	m_LastMousePos = glm::vec2(0.0f);
 
 	m_FPS = 0.0f;
 	m_DebugLineMesh = nullptr;
+	m_ActiveMenu = MenuType::None;
 }
 Game::~Game() { }
 
 void Game::Pause() {
 	if (m_State != GameState::InGame) return;
 	m_State = GameState::Paused;
+	m_ActiveMenu = MenuType::Pause;
 	ReleaseMouse();
 }
 void Game::Resume() {
 	if (m_State != GameState::Paused) return;
 	m_State = GameState::InGame;
+	m_ActiveMenu = MenuType::None;
 	CaptureMouse();
 }
 void Game::Quit() {
@@ -177,9 +179,10 @@ void Game::StartUp() {
 
 	LoadShaders();
 	LoadTextures();
+	InitMenus();
 	NewWorld(643706557);
 
-	m_PauseMenu = CreateRef<PauseMenu>();
+	//m_PauseMenu = CreateRef<PauseMenu>();
 }
 void Game::Update(float delta_time) {
 	ImGuiHandler::StartFrame();
@@ -191,7 +194,8 @@ void Game::Update(float delta_time) {
 		m_World->Update(m_Camera->position);
 	}
 	else if (m_State == GameState::Paused) {
-		m_PauseMenu->Update(delta_time);
+		//m_PauseMenu->Update(delta_time);
+		m_Menus[(size_t)m_ActiveMenu]->Update();
 	}
 
 	// Render Scene
@@ -213,7 +217,8 @@ void Game::Update(float delta_time) {
 		if (m_ShowStats) ShowStatsOverlay();
 	}
 	else if (m_State == GameState::Paused) {
-		m_PauseMenu->RenderUI();
+		//m_PauseMenu->RenderUI();
+		m_Menus[(size_t)m_ActiveMenu]->Render();
 	}
 	m_UI->EndFrame();
 
@@ -317,7 +322,37 @@ void Game::LoadShaders() {
 void Game::LoadTextures() {
 	m_Textures[(size_t)TextureType::BlockAtlas] = CreateRef<Texture>("assets/textures/atlas.png");
 	m_Textures[(size_t)TextureType::FontAtlas] = CreateRef<Texture>("assets/font/Font.png");
-	m_Textures[(size_t)TextureType::CrossHair] = CreateRef<Texture>("assets/textures/CrossHair.png");
+	m_Textures[(size_t)TextureType::CrossHair] = CreateRef<Texture>("assets/textures/cross_hair.png");
+	m_Textures[(size_t)TextureType::Hotbar] = CreateRef<Texture>("assets/textures/hotbar.png");
+	m_Textures[(size_t)TextureType::HotbarSelector] = CreateRef<Texture>("assets/textures/hotbar_selector.png");
+}
+void Game::InitMenus() {
+	// Pause menu
+	Ref<Menu>& pause_menu = GetMenu(MenuType::Pause);
+	pause_menu = CreateRef<Menu>("Pause Menu");
+	pause_menu->AddButton({ "Return",  []() { Game::Get()->Resume(); } });
+	pause_menu->AddButton({ "Options", []() { Game::SetActiveMenu(MenuType::Options); } });
+	pause_menu->AddButton({ "Quit",    []() { Game::Get()->Quit(); } });
+	pause_menu->End();
+
+	// Options menu
+	Ref<Menu>& options_menu = GetMenu(MenuType::Options);
+	options_menu = CreateRef<Menu>("Options");
+	options_menu->AddButton({ "The",     []() {} });
+	options_menu->SameLine();
+	options_menu->AddButton({ "Options", []() {} });
+	options_menu->SameLine();
+	options_menu->AddButton({ "Menu",    []() {} });
+	options_menu->AddButton({ "Has",     []() {} });
+	options_menu->SameLine();
+	options_menu->AddButton({ "Not",     []() {} });
+	options_menu->AddButton({ "Been",    []() {} });
+	options_menu->SameLine();
+	options_menu->AddButton({ "Created", []() {} });
+	options_menu->SameLine();
+	options_menu->AddButton({ "Yet...",  []() {} });
+	options_menu->AddButton({ "Back",    []() { Game::SetActiveMenu(MenuType::Pause); } });
+	options_menu->End();
 }
 void Game::NewWorld(uint32_t seed) {
 	m_World = CreateRef<World>(seed);

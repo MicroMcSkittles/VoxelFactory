@@ -55,8 +55,13 @@ struct Button {
 	bool pressed;
 	bool hovered;
 
-	Button(const std::string& text, const glm::vec3& position, const glm::vec2& size) :
-		text(text), position(position), size(size), pressed(false), hovered(false) { }
+	std::function<void()> callback;
+
+	Button(const std::string& text, const std::function<void()>& callback) :
+		text(text), position({ 0,0,0 }), size({ 0,0 }), callback(callback), pressed(false), hovered(false) {
+	}
+	Button(const std::string& text, const glm::vec3& position, const glm::vec2& size, const std::function<void()>& callback) :
+		text(text), position(position), size(size), callback(callback), pressed(false), hovered(false) { }
 	
 	void Update();
 	void Render();
@@ -74,6 +79,7 @@ public:
 
 	static void ColoredQuad(const glm::vec3& position, const glm::vec2& size, const glm::vec4& color);
 	static void TexturedQuad(const glm::vec3& position, const glm::vec2& size, const Ref<Texture>& texture);
+	static void TexturedQuad(const glm::vec3& position, float scale, const Ref<Texture>& texture);
 	static void AtlasQuad(const glm::vec3& position, const glm::vec2& size, const Ref<Texture>& atlas, const glm::vec2& atlas_size, const glm::vec2& texture_coord);
 	static void AtlasQuad(const glm::vec3& position, const glm::vec2& size, const Ref<Texture>& atlas, const glm::vec2& atlas_size, uint32_t texture_id);
 
@@ -84,13 +90,16 @@ public:
 	static Ref<VertexArray>& GetQuad() { return s_Instance->m_Quad; }
 
 	static glm::vec2 GetWorldPosition(const glm::vec2& position);
-	static glm::vec2 GetScreenMin();
-	static glm::vec2 GetScreenMax();
+	static glm::vec2 GetScreenMin() { return s_Instance->m_ScreenMin; }
+	static glm::vec2 GetScreenMax() { return s_Instance->m_ScreenMax; }
 
 private:
 
 	int m_Width;
 	int m_Height;
+	glm::vec2 m_ScreenMin;
+	glm::vec2 m_ScreenMax;
+
 	Ref<OrthographicCamera> m_Camera;
 	Ref<FrameBuffer> m_FrameBuffer;
 	Ref<VertexArray> m_Quad;

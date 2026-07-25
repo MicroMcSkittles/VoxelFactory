@@ -112,16 +112,18 @@ void Button::Update() {
 
 	glm::vec2 mouse_position = UI::GetWorldPosition(glm::vec2(mouse_x, mouse_y));
 
-	hovered = (mouse_position.x >= position.x - size.x && mouse_position.x <= position.x + size.x &&
-		       mouse_position.y >= position.y - size.y && mouse_position.y <= position.y + size.y);
+	hovered = (mouse_position.x >= position.x && mouse_position.x <= position.x + size.x * 2.0f &&
+		       mouse_position.y >= position.y - size.y * 2.0f && mouse_position.y <= position.y);
 	pressed = (hovered && glfwGetMouseButton(window_handle, GLFW_MOUSE_BUTTON_LEFT));
+
+	if (pressed) callback();
 }
 void Button::Render() {
 	glm::vec4 background_color = glm::vec4(0.55f, 0.55f, 0.55f, 1.0f);
 	if (pressed) background_color = glm::vec4(0.35f, 0.35f, 0.35f, 1.0f);
 	else if (hovered) background_color = glm::vec4(0.45f, 0.45f, 0.45f, 1.0f);
-	UI::ColoredQuad(glm::vec3(position.x, position.y, position.z - 0.1f), size, background_color);
-	UI::Text(text, glm::vec3(position.x, position.y + size.y * 0.5f, position.z), glm::vec2(0.4f), TextAlignment_Middle, glm::vec3(1.0f), glm::vec4(0.0f));
+	UI::ColoredQuad(glm::vec3(position.x + size.x, position.y - size.y, position.z - 0.1f), size, background_color);
+	UI::Text(text, glm::vec3(position.x + size.x, position.y - size.y * 0.3f, position.z), glm::vec2(0.4f), TextAlignment_Middle, glm::vec3(1.0f), glm::vec4(0.0f));
 }
 
 UI::UI(int width, int height)
@@ -140,23 +142,32 @@ UI::UI(int width, int height)
 	m_Camera = CreateRef<OrthographicCamera>(view_box, glm::vec3(0.0f));
 
 	// Create Frame Buffer
-	s_Instance->m_FrameBuffer = CreateRef<FrameBuffer>(m_Width, m_Height, GL_RGBA8, GL_RGBA);
+	m_FrameBuffer = CreateRef<FrameBuffer>(m_Width, m_Height, GL_RGBA8, GL_RGBA);
 
 	// Create Quad
-	s_Instance->m_Quad = CreateRef<VertexArray>();
-	s_Instance->m_Quad->Bind();
+	m_Quad = CreateRef<VertexArray>();
+	m_Quad->Bind();
 
 	VertexLayout vertex_layout = { {
 		{ GL_FLOAT, 2 },
 		{ GL_FLOAT, 2 }
 	} };
 	Ref<VertexBuffer> vertex_buffer = CreateRef<VertexBuffer>(c_QuadVertices, 16 * sizeof(float), vertex_layout);
-	s_Instance->m_Quad->GetVertexBuffer() = vertex_buffer;
+	m_Quad->GetVertexBuffer() = vertex_buffer;
 
 	Ref<IndexBuffer> index_buffer = CreateRef<IndexBuffer>(c_QuadIndices, 6 * sizeof(uint32_t));
-	s_Instance->m_Quad->GetIndexBuffer() = index_buffer;
+	m_Quad->GetIndexBuffer() = index_buffer;
 
-	s_Instance->m_Quad->Unbind();
+	m_Quad->Unbind();
+
+	m_ScreenMin = {
+		-((float)m_Camera->view_box.width / (float)m_Camera->view_box.height) * m_Camera->view_box.scale,
+		-m_Camera->view_box.scale
+	};
+	m_ScreenMax = {
+		((float)m_Camera->view_box.width / (float)m_Camera->view_box.height) * m_Camera->view_box.scale,
+		m_Camera->view_box.scale
+	};
 }
 
 void UI::Resize(int width, int height) {
@@ -167,6 +178,15 @@ void UI::Resize(int width, int height) {
 	s_Instance->m_Camera->UpdateProjection();
 
 	s_Instance->m_FrameBuffer->Resize(width, height);
+
+	s_Instance->m_ScreenMin = {
+		-((float)s_Instance->m_Camera->view_box.width / (float)s_Instance->m_Camera->view_box.height) * s_Instance->m_Camera->view_box.scale,
+		-s_Instance->m_Camera->view_box.scale
+	};
+	s_Instance->m_ScreenMax = {
+		((float)s_Instance->m_Camera->view_box.width / (float)s_Instance->m_Camera->view_box.height) * s_Instance->m_Camera->view_box.scale,
+		s_Instance->m_Camera->view_box.scale
+	};
 }
 
 void UI::StartFrame() {
@@ -201,6 +221,30 @@ void UI::TexturedQuad(const glm::vec3& position, const glm::vec2& size, const Re
 	glm::mat4 model = glm::mat4(1.0f);
 	model = glm::translate(model, position);
 	model = glm::scale(model, glm::vec3(size, 1.0f));
+
+	texture->Bind();
+
+	Ref<Shader>& ui_shader = Game::GetShader(ShaderType::UITextured);
+	ui_shader->Bind();
+	ui_shader->SetUniform("u_Model", model);
+	ui_shader->SetUniform("u_Texture", texture);
+	ui_shader->SetUniform("u_ViewProjection", s_Instance->m_Camera->view_projection);
+
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+
+	ui_shader->Unbind();
+	texture->Unbind();
+}
+void UI::TexturedQuad(const glm::vec3& position, float scale, const Ref<Texture>& texture) {
+	glm::mat4 model = glm::mat4(1.0f);
+	model = glm::translate(model, position);
+
+	glm::vec3 size = {
+		texture->GetAspectRatio() * scale,
+		scale,
+		1.0f
+	};
+	model = glm::scale(model, size);
 
 	texture->Bind();
 
@@ -358,16 +402,4 @@ glm::vec2 UI::GetWorldPosition(const glm::vec2& position) {
 	world_position.x = (position.x * 2.0f) / (float)s_Instance->m_Width - 1.0f;
 	world_position.y = (((float)s_Instance->m_Height - position.y) * 2.0f) / (float)s_Instance->m_Height - 1.0f;
 	return glm::inverse(s_Instance->m_Camera->view_projection) * glm::vec4(world_position, 0.0f, 1.0f);
-}
-glm::vec2 UI::GetScreenMin() {
-	return {
-		-((float)s_Instance->m_Camera->view_box.width / (float)s_Instance->m_Camera->view_box.height) * s_Instance->m_Camera->view_box.scale,
-		-s_Instance->m_Camera->view_box.scale
-	};
-}
-glm::vec2 UI::GetScreenMax() {
-	return {
-		((float)s_Instance->m_Camera->view_box.width / (float)s_Instance->m_Camera->view_box.height) * s_Instance->m_Camera->view_box.scale,
-		s_Instance->m_Camera->view_box.scale
-	};
 }

@@ -8,7 +8,8 @@
 #include "Game/World.h"
 #include "Game/Player.h"
 #include "Game/UI.h"
-#include "Game/PauseMenu.h"
+//#include "Game/PauseMenu.h"
+#include "Game/Menu.h"
 
 #include <array>
 
@@ -46,7 +47,16 @@ enum class TextureType {
 	BlockAtlas,
 	FontAtlas,
 	CrossHair,
+	Hotbar,
+	HotbarSelector,
 	Count
+};
+enum class MenuType {
+	Pause,
+	Options,
+	Main,
+	Count,
+	None
 };
 
 class Game {
@@ -59,6 +69,8 @@ public:
 	static Ref<Font>& GetFont() { return s_Instance->m_Font; }
 	static Ref<Shader>& GetShader(ShaderType type) { return s_Instance->m_Shaders[(size_t)type]; }
 	static Ref<Texture>& GetTexture(TextureType type) { return s_Instance->m_Textures[(size_t)type]; }
+	static Ref<Menu>& GetMenu(MenuType type) { return s_Instance->m_Menus[(size_t)type]; }
+	static void SetActiveMenu(MenuType type) { s_Instance->m_ActiveMenu = type; }
 
 	static GameState& GetState() { return s_Instance->m_State; }
 	void Pause();
@@ -87,6 +99,7 @@ private:
 	void ShowGameImGui();
 	void LoadShaders();
 	void LoadTextures();
+	void InitMenus();
 
 	void OnLeftClick();
 	void OnRightClick();
@@ -104,9 +117,11 @@ private:
 	Ref<UI> m_UI;
 	bool m_Running;
 	GameState m_State;
-	Ref<PauseMenu> m_PauseMenu;
 
-	// Stats menu
+	// Menus
+	//Ref<PauseMenu> m_PauseMenu;
+	MenuType m_ActiveMenu;
+	std::array<Ref<Menu>, (size_t)MenuType::Count> m_Menus;
 	bool m_ShowStats;
 
 	// Rendering

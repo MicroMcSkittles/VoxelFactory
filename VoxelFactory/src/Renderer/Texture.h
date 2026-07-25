@@ -16,6 +16,7 @@ public:
 	uint32_t GetSlot() { return m_Slot; }
 	int GetWidth() { return m_Width; }
 	int GetHeight() { return m_Height; }
+	float GetAspectRatio() { return (float)m_Width / (float)m_Height; }
 
 private:
 	uint32_t m_Handle;
