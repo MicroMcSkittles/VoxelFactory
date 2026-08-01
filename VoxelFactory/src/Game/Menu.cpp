@@ -49,7 +49,7 @@ void Menu::Render() {
 
 	// Tint screen
 	glm::vec2 screen_tint_size = (screen_max - screen_min) * 0.5f;
-	UI::ColoredQuad(glm::vec3(0.0f, 0.0f, -1.0f), screen_tint_size, glm::vec4(0.0f, 0.0f, 0.0f, 0.65f));
+	UI::ColoredQuad(glm::vec3(0.0f, 0.0f, -1.0f), screen_tint_size, UI::GetColor(ColorType::ScreenTint));
 
 	// Title text
 	glm::vec3 title_text_position = {

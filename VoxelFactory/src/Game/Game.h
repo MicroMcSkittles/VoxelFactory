@@ -28,7 +28,7 @@ struct DebugLine {
 enum class GameState {
 	InGame,
 	Paused,
-	MainMenu
+	Menu
 };
 
 enum class ShaderType {
@@ -49,6 +49,7 @@ enum class TextureType {
 	CrossHair,
 	Hotbar,
 	HotbarSelector,
+	Inventory,
 	Count
 };
 enum class MenuType {
@@ -64,6 +65,7 @@ public:
 	Game();
 	~Game();
 
+	// TODO: fix this
 	static Game* Get() { return s_Instance; }
 	static Ref<Window>& GetWindow() { return s_Instance->m_Window; }
 	static Ref<Font>& GetFont() { return s_Instance->m_Font; }
@@ -71,6 +73,7 @@ public:
 	static Ref<Texture>& GetTexture(TextureType type) { return s_Instance->m_Textures[(size_t)type]; }
 	static Ref<Menu>& GetMenu(MenuType type) { return s_Instance->m_Menus[(size_t)type]; }
 	static void SetActiveMenu(MenuType type) { s_Instance->m_ActiveMenu = type; }
+	static bool IsMouseCaptured() { return s_Instance->m_MouseCaptured; }
 
 	static GameState& GetState() { return s_Instance->m_State; }
 	void Pause();
@@ -86,10 +89,14 @@ public:
 
 	void StartUp();
 	void Update(float delta_time);
+	void Render();
 	void ShowImGui();
 	void ShutDown();
 
 	void NewWorld(uint32_t seed);
+
+	void CaptureMouse();
+	void ReleaseMouse();
 
 	void ClearDebugLines();
 	static void PushDebugLine(const DebugLine& line);
@@ -104,9 +111,6 @@ private:
 	void OnLeftClick();
 	void OnRightClick();
 
-	void CaptureMouse();
-	void ReleaseMouse();
-
 	void ShowStatsOverlay();
 
 private:
@@ -119,7 +123,6 @@ private:
 	GameState m_State;
 
 	// Menus
-	//Ref<PauseMenu> m_PauseMenu;
 	MenuType m_ActiveMenu;
 	std::array<Ref<Menu>, (size_t)MenuType::Count> m_Menus;
 	bool m_ShowStats;

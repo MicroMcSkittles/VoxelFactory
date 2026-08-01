@@ -12,6 +12,7 @@ struct Hand {
 	const glm::vec3 default_size     = glm::vec3(0.18f);
 	const glm::vec3 default_rotation = glm::vec3(-0.1f, 0.7f, 0.0f);
 
+	Item held_item;
 	glm::vec3 offset    = glm::vec3(0.0f);
 	glm::vec3 rotation  = glm::vec3(0.0f);
 	glm::vec3 direction = glm::vec3(0.0f);
@@ -30,7 +31,6 @@ struct Hotbar {
 	Item& Get(int index);
 
 	const inline static int Width = 9;
-	const inline static float UIScale = 0.75f;
 };
 
 class Player {
@@ -45,9 +45,14 @@ public:
 
 	std::string StatsText();
 
+	bool OnKey(int key, int action, int mods);
 	void OnLeftClick();
 	void OnRightClick();
 	void OnScroll(float delta);
+
+	void OpenInventory(const Ref<Inventory>& other);
+	void OpenInventory();
+	void CloseInventory();
 
 private:
 
@@ -64,6 +69,8 @@ private:
 
 	void HeldItemChanged();
 
+	void RenderInventoryUI();
+
 private:
 	
 	// General
@@ -72,6 +79,8 @@ private:
 
 	Hand m_Hand;
 	Hotbar m_Hotbar;
+	Ref<Inventory> m_Inventory;
+	Ref<InventoryHandler> m_InventoryHandler;
 
 	glm::vec3 m_Position;
 	glm::vec3 m_CameraOffset;
@@ -95,6 +104,7 @@ private:
 
 	// Controls
 	bool m_Flight;
+	bool m_OpenInventory;
 	float m_MouseSensitivity;
 	float m_WalkSpeed;
 	float m_SprintMultiplier;

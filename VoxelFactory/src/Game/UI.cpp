@@ -7,6 +7,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <fstream>
 #include <sstream>
+#include <algorithm>
 
 Font::Font(const std::string& config_path) {
 	std::ifstream file;
@@ -119,15 +120,15 @@ void Button::Update() {
 	if (pressed) callback();
 }
 void Button::Render() {
-	glm::vec4 background_color = glm::vec4(0.55f, 0.55f, 0.55f, 1.0f);
-	if (pressed) background_color = glm::vec4(0.35f, 0.35f, 0.35f, 1.0f);
-	else if (hovered) background_color = glm::vec4(0.45f, 0.45f, 0.45f, 1.0f);
+	glm::vec4 background_color = UI::GetColor(ColorType::Button);
+	if (pressed) background_color = UI::GetColor(ColorType::ButtonPressed);
+	else if (hovered) background_color = UI::GetColor(ColorType::ButtonHovered);
 	UI::ColoredQuad(glm::vec3(position.x + size.x, position.y - size.y, position.z - 0.1f), size, background_color);
 	UI::Text(text, glm::vec3(position.x + size.x, position.y - size.y * 0.3f, position.z), glm::vec2(0.4f), TextAlignment_Middle, glm::vec3(1.0f), glm::vec4(0.0f));
 }
 
 UI::UI(int width, int height)
-	: m_Width(width), m_Height(height)
+	: m_Width(width), m_Height(height), m_InTransparentPass(false)
 {
 	ASSERT(s_Instance == nullptr);
 	s_Instance = this;
@@ -168,6 +169,8 @@ UI::UI(int width, int height)
 		((float)m_Camera->view_box.width / (float)m_Camera->view_box.height) * m_Camera->view_box.scale,
 		m_Camera->view_box.scale
 	};
+
+	InitColors();
 }
 
 void UI::Resize(int width, int height) {
@@ -194,14 +197,38 @@ void UI::StartFrame() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	s_Instance->m_Quad->Bind();
+	s_Instance->m_TransparentQuads.clear();
+	s_Instance->m_InTransparentPass = false;
 }
 void UI::EndFrame() {
+
+	// Sort transparent quads furthest to closest
+	std::sort(s_Instance->m_TransparentQuads.begin(), s_Instance->m_TransparentQuads.end(),
+		[](const TransparentQuad& first, const TransparentQuad& second) {
+			return first.position.z < second.position.z;
+		}
+	);
+
+	s_Instance->m_InTransparentPass = true;
+	for (TransparentQuad& quad : s_Instance->m_TransparentQuads) {
+		if (quad.texture != nullptr) {
+			TexturedQuad(quad.position, quad.size, quad.texture, true);
+		}
+		else {
+			ColoredQuad(quad.position, quad.size, quad.color);
+		}
+	}
+
 	s_Instance->m_Quad->Unbind();
 	s_Instance->m_FrameBuffer->Unbind();
 }
 
 void UI::ColoredQuad(const glm::vec3& position, const glm::vec2& size, const glm::vec4& color) {
 	if (color.a == 0.0f) return;
+	if (color.a != 1.0f && !s_Instance->m_InTransparentPass) {
+		s_Instance->m_TransparentQuads.push_back({ position, size, color, nullptr });
+		return;
+	}
 
 	glm::mat4 model = glm::mat4(1.0f);
 	model = glm::translate(model, position);
@@ -217,7 +244,11 @@ void UI::ColoredQuad(const glm::vec3& position, const glm::vec2& size, const glm
 
 	ui_shader->Unbind();
 }
-void UI::TexturedQuad(const glm::vec3& position, const glm::vec2& size, const Ref<Texture>& texture) {
+void UI::TexturedQuad(const glm::vec3& position, const glm::vec2& size, const Ref<Texture>& texture, bool transparent) {
+	if (transparent && !s_Instance->m_InTransparentPass) {
+		s_Instance->m_TransparentQuads.push_back({ position, size, glm::vec4(1.0f), texture });
+		return;
+	}
 	glm::mat4 model = glm::mat4(1.0f);
 	model = glm::translate(model, position);
 	model = glm::scale(model, glm::vec3(size, 1.0f));
@@ -235,15 +266,20 @@ void UI::TexturedQuad(const glm::vec3& position, const glm::vec2& size, const Re
 	ui_shader->Unbind();
 	texture->Unbind();
 }
-void UI::TexturedQuad(const glm::vec3& position, float scale, const Ref<Texture>& texture) {
-	glm::mat4 model = glm::mat4(1.0f);
-	model = glm::translate(model, position);
-
+void UI::TexturedQuad(const glm::vec3& position, float scale, const Ref<Texture>& texture, bool transparent) {
 	glm::vec3 size = {
 		texture->GetAspectRatio() * scale,
 		scale,
 		1.0f
 	};
+
+	if (transparent && !s_Instance->m_InTransparentPass) {
+		s_Instance->m_TransparentQuads.push_back({ position, size, glm::vec4(1.0f), texture });
+		return;
+	}
+
+	glm::mat4 model = glm::mat4(1.0f);
+	model = glm::translate(model, position);
 	model = glm::scale(model, size);
 
 	texture->Bind();
@@ -376,6 +412,16 @@ void UI::Text(const std::string& text, const glm::vec3& position, const glm::vec
 
 	glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr, text.size());
 
+	// Calculate shadow model matrix
+	glm::mat4 shadow_model = glm::mat4(1.0f);
+	glm::vec3 shadow_offset = glm::vec3(0.065f, -0.065f, 0.0f);
+	shadow_model = glm::translate(shadow_model, position + shadow_offset + text_offset + glm::vec3(alignment_offset, 0.0f, 0.0f));
+	shadow_model = glm::scale(shadow_model, glm::vec3(size, 1.0f));
+	ui_shader->SetUniform("u_Model", shadow_model);
+	ui_shader->SetUniform("u_ForgroundColor", glm::vec3(0.25f));
+
+	glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr, text.size());
+
 	atlas->Unbind();
 	ui_shader->Unbind();
 }
@@ -402,4 +448,14 @@ glm::vec2 UI::GetWorldPosition(const glm::vec2& position) {
 	world_position.x = (position.x * 2.0f) / (float)s_Instance->m_Width - 1.0f;
 	world_position.y = (((float)s_Instance->m_Height - position.y) * 2.0f) / (float)s_Instance->m_Height - 1.0f;
 	return glm::inverse(s_Instance->m_Camera->view_projection) * glm::vec4(world_position, 0.0f, 1.0f);
+}
+glm::vec2 UI::GetScreenPosition(const glm::vec2& position) {
+	return s_Instance->m_Camera->view_projection * glm::vec4(position, 0.0f, 1.0f);
+}
+
+void UI::InitColors() {
+	GetColor(ColorType::ScreenTint)    = glm::vec4(0.0f,  0.0f,  0.0f,  0.5f);
+	GetColor(ColorType::Button)        = glm::vec4(0.55f, 0.55f, 0.55f, 1.0f);
+	GetColor(ColorType::ButtonHovered) = glm::vec4(0.45f, 0.45f, 0.45f, 1.0f);
+	GetColor(ColorType::ButtonPressed) = glm::vec4(0.35f, 0.35f, 0.35f, 1.0f);
 }

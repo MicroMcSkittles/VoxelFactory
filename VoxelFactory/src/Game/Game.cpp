@@ -63,7 +63,12 @@ void Game::Run() {
 
 		m_FPS = 1.0f / delta_time;
 
+		ImGuiHandler::StartFrame();
 		Update(delta_time);
+		Render();
+		ShowImGui();
+		ImGuiHandler::EndFrame();
+
 		m_Window->Update();
 	}
 	ShutDown();
@@ -92,17 +97,16 @@ void Game::OnLeftClick() {
 		CaptureMouse();
 		return;
 	}
-	else if (!m_MouseCaptured) return;
-
 	m_Player->OnLeftClick();
 }
 void Game::OnRightClick() {
-	if (m_MouseCaptured && m_State == GameState::InGame) m_Player->OnRightClick();
+	m_Player->OnRightClick();
 }
 void Game::OnScroll(float delta) {
 	if (m_MouseCaptured && m_State == GameState::InGame) m_Player->OnScroll(delta);
 }
 void Game::OnKey(int key, int action, int mods) {
+	if (m_Player->OnKey(key, action, mods)) return;
 	if (key == GLFW_KEY_F3 && action == GLFW_PRESS) m_ShowStats = !m_ShowStats;
 	else if (key == GLFW_KEY_F1 && action == GLFW_PRESS && m_MouseCaptured) ReleaseMouse();
 	// Handle Escape Key
@@ -181,28 +185,24 @@ void Game::StartUp() {
 	LoadTextures();
 	InitMenus();
 	NewWorld(643706557);
-
-	//m_PauseMenu = CreateRef<PauseMenu>();
 }
 void Game::Update(float delta_time) {
-	ImGuiHandler::StartFrame();
-
 	GLFWwindow* window_handle = (GLFWwindow*)m_Window->GetHandle();
 	
-	if (m_State == GameState::InGame) {
-		if (m_MouseCaptured) m_Player->Update(delta_time, m_LastMousePos, m_Window);
+	if (m_State == GameState::InGame || m_State == GameState::Menu) {
+		m_Player->Update(delta_time, m_LastMousePos, m_Window);
 		m_World->Update(m_Camera->position);
 	}
 	else if (m_State == GameState::Paused) {
-		//m_PauseMenu->Update(delta_time);
 		m_Menus[(size_t)m_ActiveMenu]->Update();
 	}
-
+}
+void Game::Render() {
 	// Render Scene
 	m_MainFrameBuffer->Bind();
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	if (m_State == GameState::InGame || m_State == GameState::Paused) {
+	if (m_State == GameState::InGame || m_State == GameState::Paused || m_State == GameState::Menu) {
 		m_World->RenderSkyBox(m_Camera);
 		m_Player->Render();
 		m_World->RenderWorld(m_Camera);
@@ -210,32 +210,30 @@ void Game::Update(float delta_time) {
 
 	m_MainFrameBuffer->Unbind();
 
-	// Render UI
 	m_UI->StartFrame();
-	if (m_State == GameState::InGame) {
+	// Show scene frame
+	UI::TexturedQuad(glm::vec3(0.0f, 0.0f, -50.0f), UI::GetScreenMax(), m_MainFrameBuffer->GetColorBuffer());
+	
+	// Render UI
+	if (m_State == GameState::InGame || m_State == GameState::Menu) {
 		m_Player->RenderUI();
 		if (m_ShowStats) ShowStatsOverlay();
 	}
 	else if (m_State == GameState::Paused) {
-		//m_PauseMenu->RenderUI();
 		m_Menus[(size_t)m_ActiveMenu]->Render();
 	}
 	m_UI->EndFrame();
 
+	// Render Scene and UI layers
 	Ref<Shader>& post_proc_shader = m_Shaders[(size_t)ShaderType::PostProc];
 	post_proc_shader->Bind();
 
 	Ref<VertexArray>& quad = m_UI->GetQuad();
 	quad->Bind();
 
+	// TODO: a layer system?
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glDisable(GL_DEPTH_TEST);
-	// Render Scene Frame
-	Ref<Texture>& scene_frame = m_MainFrameBuffer->GetColorBuffer();
-	scene_frame->Bind();
-	post_proc_shader->SetUniform("u_FrameTexture", scene_frame);
-	glDrawElements(GL_TRIANGLES, quad->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
-	scene_frame->Unbind();
+
 	// Render UI Frame
 	Ref<Texture>& ui_frame = m_UI->GetFrame();
 	ui_frame->Bind();
@@ -243,13 +241,8 @@ void Game::Update(float delta_time) {
 	glDrawElements(GL_TRIANGLES, quad->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
 	ui_frame->Unbind();
 
-	glEnable(GL_DEPTH_TEST);
-
 	quad->Unbind();
 	post_proc_shader->Unbind();
-
-	ShowImGui();
-	ImGuiHandler::EndFrame();
 }
 void Game::ShowImGui() {
 
@@ -325,6 +318,7 @@ void Game::LoadTextures() {
 	m_Textures[(size_t)TextureType::CrossHair] = CreateRef<Texture>("assets/textures/cross_hair.png");
 	m_Textures[(size_t)TextureType::Hotbar] = CreateRef<Texture>("assets/textures/hotbar.png");
 	m_Textures[(size_t)TextureType::HotbarSelector] = CreateRef<Texture>("assets/textures/hotbar_selector.png");
+	m_Textures[(size_t)TextureType::Inventory] = CreateRef<Texture>("assets/textures/inventory.png");
 }
 void Game::InitMenus() {
 	// Pause menu

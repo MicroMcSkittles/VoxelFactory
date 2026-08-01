@@ -6,6 +6,7 @@
 #include "Renderer/Camera.h"
 #include "Renderer/Mesh.h"
 #include <glm/glm.hpp>
+#include <array>
 #include <map>
 
 class Font {
@@ -67,6 +68,14 @@ struct Button {
 	void Render();
 };
 
+enum class ColorType {
+	ScreenTint,
+	Button,
+	ButtonHovered,
+	ButtonPressed,
+	Count
+};
+
 class UI {
 public:
 	UI(int width, int height);
@@ -78,8 +87,8 @@ public:
 	static void EndFrame();
 
 	static void ColoredQuad(const glm::vec3& position, const glm::vec2& size, const glm::vec4& color);
-	static void TexturedQuad(const glm::vec3& position, const glm::vec2& size, const Ref<Texture>& texture);
-	static void TexturedQuad(const glm::vec3& position, float scale, const Ref<Texture>& texture);
+	static void TexturedQuad(const glm::vec3& position, const glm::vec2& size, const Ref<Texture>& texture, bool transparent = false);
+	static void TexturedQuad(const glm::vec3& position, float scale, const Ref<Texture>& texture, bool transparent = false);
 	static void AtlasQuad(const glm::vec3& position, const glm::vec2& size, const Ref<Texture>& atlas, const glm::vec2& atlas_size, const glm::vec2& texture_coord);
 	static void AtlasQuad(const glm::vec3& position, const glm::vec2& size, const Ref<Texture>& atlas, const glm::vec2& atlas_size, uint32_t texture_id);
 
@@ -90,8 +99,14 @@ public:
 	static Ref<VertexArray>& GetQuad() { return s_Instance->m_Quad; }
 
 	static glm::vec2 GetWorldPosition(const glm::vec2& position);
+	static glm::vec2 GetScreenPosition(const glm::vec2& position);
 	static glm::vec2 GetScreenMin() { return s_Instance->m_ScreenMin; }
 	static glm::vec2 GetScreenMax() { return s_Instance->m_ScreenMax; }
+
+	static glm::vec4& GetColor(ColorType type) { return s_Instance->m_Colors[(size_t)type]; }
+
+private:
+	void InitColors();
 
 private:
 
@@ -100,9 +115,20 @@ private:
 	glm::vec2 m_ScreenMin;
 	glm::vec2 m_ScreenMax;
 
+	std::array<glm::vec4, (size_t)ColorType::Count> m_Colors;
+
 	Ref<OrthographicCamera> m_Camera;
 	Ref<FrameBuffer> m_FrameBuffer;
 	Ref<VertexArray> m_Quad;
+
+	struct TransparentQuad {
+		glm::vec3 position;
+		glm::vec2 size;
+		glm::vec4 color;
+		Ref<Texture> texture;
+	};
+	std::vector<TransparentQuad> m_TransparentQuads;
+	bool m_InTransparentPass;
 
 	inline static UI* s_Instance;
 

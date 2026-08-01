@@ -17,9 +17,10 @@
 
 Hotbar::Hotbar() {
 	selected = 0;
-	inventory = CreateRef<Inventory>(Width, 1);
+	inventory = CreateRef<Inventory>(Width, 1, 6.0f, 16.0f, 2.0f, glm::vec2(8, 8), Game::GetTexture(TextureType::Inventory));
 	for (int i = 0; i < Width; i++) {
 		inventory->GetItem({ i, 0 }).id = i + 1;
+		inventory->GetItem({ i, 0 }).count = Item::StackSize;
 	}
 }
 Item& Hotbar::GetSelected() {
@@ -32,9 +33,9 @@ Item& Hotbar::Get(int index) {
 Player::Player(const glm::vec3& position, const Ref<Camera>& camera, const Ref<World>& world)
 	: m_Position(position), m_Camera(camera), m_World(world) {
 
-	//m_HoldingBlockID = 3;
-	//Block::SetMeshType(3);
 	HeldItemChanged();
+	m_Inventory = CreateRef<Inventory>(9, 3, 6.0f, 16.0f, 2.0f, glm::vec2(8, 30), Game::GetTexture(TextureType::Inventory));
+	m_InventoryHandler = nullptr;
 
 	m_Hand.direction = m_Camera->direction;
 	m_Hand.offset = m_Hand.default_offset;
@@ -58,6 +59,7 @@ Player::Player(const glm::vec3& position, const Ref<Camera>& camera, const Ref<W
 	m_ShowSelector = false;
 
 	m_Flight = false;
+	m_OpenInventory = false;
 	m_MouseSensitivity = 0.1f;
 	m_WalkSpeed = 5.612f;
 	m_Speed = m_WalkSpeed;
@@ -134,9 +136,10 @@ void Player::ShowImGui() {
 		else m_Hotbar.selected = hotbar_selected_index;
 	}
 	for (int i = 0; i < Hotbar::Width; i++) {
-		int id = m_Hotbar.Get(i).id;
-		if (ImGui::InputInt(std::to_string(i).c_str(), &id)) {
-			m_Hotbar.Get(i).id = id;
+		int item[2] = { m_Hotbar.Get(i).id, m_Hotbar.Get(i).count };
+		if (ImGui::InputInt2(std::to_string(i).c_str(), item)) {
+			m_Hotbar.Get(i).id = item[0];
+			m_Hotbar.Get(i).count = item[1];
 			if (i == m_Hotbar.selected) HeldItemChanged();
 		}
 	}
@@ -179,7 +182,22 @@ void Player::Render() {
 	RenderSelector();
 }
 
+bool Player::OnKey(int key, int action, int mods) {
+	if (key == GLFW_KEY_E && action == GLFW_PRESS) {
+		if (m_OpenInventory) CloseInventory();
+		else OpenInventory();
+		return true;
+	}
+	else if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS && m_OpenInventory) {
+		CloseInventory();
+		return true;
+	}
+
+	return false;
+}
 void Player::OnLeftClick() {
+	if (Game::GetState() == GameState::Menu && m_OpenInventory) m_InventoryHandler->OnLeftClick();
+	if (Game::GetState() != GameState::InGame) return;
 	if (!m_ShowSelector) {
 		m_Hand.Swing();
 		return;
@@ -190,6 +208,8 @@ void Player::OnLeftClick() {
 	m_Hand.Hit();
 }
 void Player::OnRightClick() {
+	if (Game::GetState() == GameState::Menu && m_OpenInventory) m_InventoryHandler->OnRightClick();
+	if (Game::GetState() != GameState::InGame) return;
 	if (!m_ShowSelector) return;
 	if (!m_Hotbar.GetSelected().IsBlock()) return;
 
@@ -204,6 +224,10 @@ void Player::OnRightClick() {
 	glm::vec3 voxel = ray_data.voxel_position + ray_data.normal;
 	if (m_World->WillIntersect(m_Collider, voxel)) return;
 	m_World->SetVoxel(voxel, block_id);
+	
+	// Item& selected = m_Hotbar.GetSelected();
+	// selected.count -= 1;
+	// if (selected.count == 0) selected = Item::Invalid;
 
 	m_Hand.Hit();
 }
@@ -217,6 +241,32 @@ void Player::OnScroll(float delta) {
 	else if (m_Hotbar.selected >= Hotbar::Width) m_Hotbar.selected = 0;
 
 	if (last_item.id != m_Hotbar.GetSelected().id) HeldItemChanged();
+}
+
+void Player::OpenInventory(const Ref<Inventory>& other) {
+	m_OpenInventory = true;
+	Game::Get()->ReleaseMouse();
+	Game::GetState() = GameState::Menu;
+
+	std::vector<Ref<Inventory>> inventories = {
+		m_Hotbar.inventory, m_Inventory, other
+	};
+	m_InventoryHandler = CreateRef<InventoryHandler>(inventories);
+}
+void Player::OpenInventory() {
+	m_OpenInventory = true;
+	Game::Get()->ReleaseMouse();
+	Game::GetState() = GameState::Menu;
+
+	std::vector<Ref<Inventory>> inventories = {
+		m_Hotbar.inventory, m_Inventory
+	};
+	m_InventoryHandler = CreateRef<InventoryHandler>(inventories);
+}
+void Player::CloseInventory() {
+	m_OpenInventory = false;
+	Game::Get()->CaptureMouse();
+	Game::GetState() = GameState::InGame;
 }
 
 void Player::Input(float delta_time, const Ref<Window>& window) {
@@ -249,6 +299,13 @@ void Player::Input(float delta_time, const Ref<Window>& window) {
 	if (glfwGetKey(window_handle, GLFW_KEY_SPACE) && m_Flight) m_Velocity += up_dir * m_Speed * delta_time;
 	if (glfwGetKey(window_handle, GLFW_KEY_LEFT_CONTROL) && m_Flight) m_Velocity -= up_dir * m_Speed * delta_time;
 
+	bool can_move = !m_OpenInventory && Game::IsMouseCaptured();
+	if (!can_move) {
+		m_Velocity.x = 0.0f;
+		m_Velocity.z = 0.0f;
+		m_MovementTime = 0.0f;
+	}
+
 	// Apply Gravity
 	if (!m_Flight) m_Velocity.y += m_GravitationalConstant * delta_time;
 
@@ -257,11 +314,17 @@ void Player::Input(float delta_time, const Ref<Window>& window) {
 	else m_Velocity -= m_Velocity * m_Drag * delta_time;
 
 	// Handle Jump
-	if (glfwGetKey(window_handle, GLFW_KEY_SPACE) && m_OnGround) {
+	if (glfwGetKey(window_handle, GLFW_KEY_SPACE) && m_OnGround && can_move) {
 		m_Velocity.y = m_JumpForce;
 	}
 }
 void Player::CameraInput(glm::vec2& last_mouse_pos, const Ref<Window>& window) {
+	if (m_OpenInventory || !Game::IsMouseCaptured()) {
+		m_Camera->position = m_Position + m_CameraOffset;
+		m_Camera->UpdateView();
+		return;
+	}
+	
 	GLFWwindow* window_handle = (GLFWwindow*)window->GetHandle();
 	
 	// Get mouse delta
@@ -294,42 +357,63 @@ void Player::CameraInput(glm::vec2& last_mouse_pos, const Ref<Window>& window) {
 }
 
 void Player::RenderUI() {
+	if (m_OpenInventory) {
+		RenderInventoryUI();
+		return;
+	}
+
 	// Cross Hair
 	UI::TexturedQuad(glm::vec3(0.0f), glm::vec2(0.25f), Game::GetTexture(TextureType::CrossHair));
 
-	// Excuse this absolutely atrocious piece of code
 	glm::vec2 screen_min = UI::GetScreenMin();
 	Ref<Texture>& hotbar_texture = Game::GetTexture(TextureType::Hotbar);
-	float hotbar_aspect_ratio = (float)(hotbar_texture->GetWidth() - 4) / (float)hotbar_texture->GetHeight();
-	float hotbar_width = hotbar_texture->GetAspectRatio() * Hotbar::UIScale;
-	float slot_width = (hotbar_aspect_ratio * Hotbar::UIScale) / Hotbar::Width;
-	float slot_offset = (3.0f / (float)hotbar_texture->GetWidth()) * hotbar_width;
-	glm::vec2 slot_start = {
-		-hotbar_width + slot_offset + slot_width,
-		screen_min.y + Hotbar::UIScale
+	
+	float hotbar_scale = 0.75f;
+	float hotbar_width = hotbar_texture->GetWidth();
+	float hotbar_height = hotbar_texture->GetHeight();
+
+	float slot_width = (32.0f / hotbar_height) * hotbar_scale;
+	float slot_padding = (8.0f / hotbar_height) * hotbar_scale * 2.0f;
+	float hotbar_padding = (6.0f / hotbar_height) * hotbar_scale * 2.0f;
+	glm::vec2 slot_offset = {
+		-(hotbar_width / hotbar_height) * hotbar_scale + slot_width + hotbar_padding,
+		screen_min.y + hotbar_scale
 	};
 
 	// Hotbar
-	UI::TexturedQuad(glm::vec3(0.0f, screen_min.y + Hotbar::UIScale, -0.5f), Hotbar::UIScale, hotbar_texture);
+	UI::TexturedQuad(glm::vec3(0.0f, screen_min.y + hotbar_scale, -0.5f), hotbar_scale, hotbar_texture, true);
 
 	// Item previews
 	for (int i = 0; i < Hotbar::Width; i++) {
 		glm::vec3 preview_position = {
-			slot_start.x + (slot_width * 2.0f * i),
-			slot_start.y,
+			slot_offset.x + ((slot_width * 2.0f + slot_padding) * i),
+			slot_offset.y,
 			-0.25f
 		};
-		m_Hotbar.Get(i).ShowPreview(preview_position, Hotbar::UIScale * 0.5f);
+		m_Hotbar.Get(i).ShowPreview(preview_position, hotbar_scale * 0.5f);
 	}
 
 	// Hotbar selector
+	Ref<Texture>& selector_texture = Game::GetTexture(TextureType::HotbarSelector);
 	glm::vec3 selector_position = {
-		slot_start.x + (slot_width * 2.0f * m_Hotbar.selected),
-		slot_start.y,
+		slot_offset.x + ((slot_width * 2.0f + slot_padding) * m_Hotbar.selected),
+		slot_offset.y,
 		0.0f
 	};
-	UI::TexturedQuad(selector_position, Hotbar::UIScale, Game::GetTexture(TextureType::HotbarSelector));
+	float selector_scale = (selector_texture->GetHeight() / hotbar_height) * hotbar_scale;
+	UI::TexturedQuad(selector_position, selector_scale, selector_texture, true);
+}
+void Player::RenderInventoryUI() {
+	glm::vec2 screen_min = UI::GetScreenMin();
+	glm::vec2 screen_max = UI::GetScreenMax();
 
+	// Tint screen
+	glm::vec2 screen_tint_size = (screen_max - screen_min) * 0.5f;
+	UI::ColoredQuad(glm::vec3(0.0f, 0.0f, -1.0f), screen_tint_size, UI::GetColor(ColorType::ScreenTint));
+	
+	// Show inventory
+	UI::TexturedQuad({ 0.0f, 0.0f, -0.9f }, 6.0f, Game::GetTexture(TextureType::Inventory));
+	m_InventoryHandler->Render();
 }
 
 std::string Player::StatsText() {
@@ -387,6 +471,7 @@ void Player::RenderSelector() {
 
 void Player::UpdateHand(float delta_time) {
 	if (m_Hotbar.GetSelected().id == 0 || m_Hotbar.GetSelected().id == Item::InvalidID) return;
+	if (m_Hotbar.GetSelected().id != m_Hand.held_item.id) HeldItemChanged();
 	// Follow camera
 	m_Hand.direction += (m_Camera->direction - m_Hand.direction) * 24.0f * delta_time;
 
@@ -438,6 +523,7 @@ void Player::RenderHand() {
 
 void Player::HeldItemChanged() {
 	Item& new_item = m_Hotbar.GetSelected();
+	m_Hand.held_item = new_item;
 	if (new_item.IsBlock()) Block::SetMeshType((uint8_t)new_item.id);
 }
 
