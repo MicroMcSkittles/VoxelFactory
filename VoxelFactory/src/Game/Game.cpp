@@ -191,7 +191,7 @@ void Game::Update(float delta_time) {
 	
 	if (m_State == GameState::InGame || m_State == GameState::Menu) {
 		m_Player->Update(delta_time, m_LastMousePos, m_Window);
-		m_World->Update(m_Camera->position);
+		m_World->Update(delta_time, m_Player);
 	}
 	else if (m_State == GameState::Paused) {
 		m_Menus[(size_t)m_ActiveMenu]->Update();
@@ -206,6 +206,7 @@ void Game::Render() {
 		m_World->RenderSkyBox(m_Camera);
 		m_Player->Render();
 		m_World->RenderWorld(m_Camera);
+		m_World->RenderEntities(m_Camera);
 	}
 
 	m_MainFrameBuffer->Unbind();

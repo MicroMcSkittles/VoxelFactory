@@ -21,6 +21,8 @@ struct TextureIDs {
 	uint32_t top;
 	uint32_t bottom;
 
+	inline std::vector<uint32_t> List() { return { front, back, left, right, top, bottom }; }
+
 	TextureIDs(uint32_t id) : front(id), back(id), left(id), right(id), top(id), bottom(id) {}
 	TextureIDs(uint32_t sides, uint32_t top, uint32_t bottom) : front(sides), back(sides), left(sides), right(sides), top(top), bottom(bottom) {}
 	TextureIDs(uint32_t front, uint32_t back, uint32_t left, uint32_t right, uint32_t top, uint32_t bottom) : front(front), back(back), left(left), right(right), top(top), bottom(bottom) {}
@@ -29,7 +31,7 @@ struct TextureIDs {
 struct Block {
 	uint8_t id;
 
-	static void SetMeshType(uint8_t id);
+	static void InitMesh();
 
 	static bool HasOrientation(uint8_t id);
 	static int GetAxisCount(uint8_t id);
@@ -56,7 +58,6 @@ struct Block {
 
 	const static uint32_t FaceIndices[];
 	const static uint32_t Indices[];
-
 
 	const static VertexLayout Layout;
 };

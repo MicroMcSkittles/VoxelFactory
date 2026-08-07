@@ -6,8 +6,25 @@
 #include "Renderer/Camera.h"
 #include "Renderer/Mesh.h"
 #include "Game/Voxel.h"
+#include "Game/Inventory.h"
 #include <vector>
 #include <glm/glm.hpp>
+
+class Player;
+struct ItemEntity {
+	glm::vec3 position;
+	glm::vec3 rotation;
+	glm::vec3 size;
+	glm::vec3 velocity;
+
+	Item item;
+	glm::vec3 offset = glm::vec3(0.0f);
+	float timer = 0.0f;
+	bool on_ground = false;
+
+	void Render(const Ref<Camera>& camera, float brightness);
+	bool Update(float delta_time, const Ref<Player>& player);
+};
 
 class ChunkMesher;
 class Chunk {
@@ -79,9 +96,10 @@ public:
 
 	void ShowImGui();
 
-	void Update(const glm::vec3& position);
+	void Update(float delta_time, const Ref<Player>& player);
 	void RenderSkyBox(const Ref<Camera>& camera);
 	void RenderWorld(const Ref<Camera>& camera);
+	void RenderEntities(const Ref<Camera>& camera);
 
 	void SetVoxel(const glm::vec3& position, uint8_t new_id);
 	Chunk* GetChunk(const glm::vec3& position);
@@ -96,6 +114,8 @@ public:
 	bool IsVoid(const glm::vec3& position);
 
 	float& GetBrightness() { return m_Brightness; }
+
+	void CreateItem(const Item& item, const glm::vec3& position, const glm::vec3& velocity);
 
 private:
 	CollisionResultData LineAABBIntersection(const glm::vec3& start_position, const glm::vec3& end_position, const AABB& aabb);
@@ -117,6 +137,9 @@ private:
 
 	std::vector<Chunk> m_Chunks;
 	std::vector<Ref<Mesh<BlockVertex>>> m_ChunkMeshes;
+
+	int m_EntityRenderDist;
+	std::vector<ItemEntity> m_Entities;
 
 	// Sky box vars
 	Ref<VertexArray> m_SkyBox;

@@ -18,10 +18,6 @@
 Hotbar::Hotbar() {
 	selected = 0;
 	inventory = CreateRef<Inventory>(Width, 1, 6.0f, 16.0f, 2.0f, glm::vec2(8, 8), Game::GetTexture(TextureType::Inventory));
-	for (int i = 0; i < Width; i++) {
-		inventory->GetItem({ i, 0 }).id = i + 1;
-		inventory->GetItem({ i, 0 }).count = Item::StackSize;
-	}
 }
 Item& Hotbar::GetSelected() {
 	return inventory->GetItem({ selected, 0 });
@@ -33,8 +29,14 @@ Item& Hotbar::Get(int index) {
 Player::Player(const glm::vec3& position, const Ref<Camera>& camera, const Ref<World>& world)
 	: m_Position(position), m_Camera(camera), m_World(world) {
 
-	HeldItemChanged();
+	Block::InitMesh();
 	m_Inventory = CreateRef<Inventory>(9, 3, 6.0f, 16.0f, 2.0f, glm::vec2(8, 30), Game::GetTexture(TextureType::Inventory));
+	for (int i = 0; i < 19; i++) {
+		int x = i % 9;
+		int y = i / 9;
+		m_Inventory->GetItem({ x, y }).id = i + 1;
+		m_Inventory->GetItem({ x, y }).count = Item::StackSize;
+	}
 	m_InventoryHandler = nullptr;
 
 	m_Hand.direction = m_Camera->direction;
@@ -67,6 +69,7 @@ Player::Player(const glm::vec3& position, const Ref<Camera>& camera, const Ref<W
 	m_JumpForce = 0.125f;
 	m_Reach = 7.0f;
 	m_MovementTime = 0.0f;
+	m_ItemDropForce = 0.125f;
 
 	InitSelector();
 }
@@ -117,6 +120,7 @@ void Player::ShowImGui() {
 	ImGui::DragFloat("Sprint Multiplier", &m_SprintMultiplier, 0.1f);
 	ImGui::Text("Speed: %f", m_Speed);
 	ImGui::DragFloat("Jump Force", &m_JumpForce);
+	ImGui::DragFloat("Item Drop Force", &m_ItemDropForce);
 	ImGui::DragFloat("Mouse Sensitivity", &m_MouseSensitivity);
 	ImGui::DragFloat("Reach", &m_Reach);
 	ImGui::Text("Movement Time: %f", m_MovementTime);
@@ -140,7 +144,6 @@ void Player::ShowImGui() {
 		if (ImGui::InputInt2(std::to_string(i).c_str(), item)) {
 			m_Hotbar.Get(i).id = item[0];
 			m_Hotbar.Get(i).count = item[1];
-			if (i == m_Hotbar.selected) HeldItemChanged();
 		}
 	}
 }
@@ -192,6 +195,10 @@ bool Player::OnKey(int key, int action, int mods) {
 		CloseInventory();
 		return true;
 	}
+	else if (key == GLFW_KEY_Q && action == GLFW_PRESS) {
+		DropItem();
+		return true;
+	}
 
 	return false;
 }
@@ -239,8 +246,6 @@ void Player::OnScroll(float delta) {
 
 	if (m_Hotbar.selected < 0) m_Hotbar.selected = Hotbar::Width - 1;
 	else if (m_Hotbar.selected >= Hotbar::Width) m_Hotbar.selected = 0;
-
-	if (last_item.id != m_Hotbar.GetSelected().id) HeldItemChanged();
 }
 
 void Player::OpenInventory(const Ref<Inventory>& other) {
@@ -265,11 +270,24 @@ void Player::OpenInventory() {
 }
 void Player::CloseInventory() {
 	m_OpenInventory = false;
+	m_InventoryHandler = nullptr;
 	Game::Get()->CaptureMouse();
 	Game::GetState() = GameState::InGame;
 }
 
+void Player::PushInventoryItems(Item& item) {
+	m_Hotbar.inventory->PushItems(item);
+	if (item.count == 0) return;
+	m_Inventory->PushItems(item);
+}
+bool Player::HasItemSpace(const Item& item) {
+	if (m_Hotbar.inventory->HasItemSpace(item)) return true;
+	if (m_Inventory->HasItemSpace(item)) return true;
+	return false;
+}
+
 void Player::Input(float delta_time, const Ref<Window>& window) {
+	if (delta_time > 1.0f) return;
 	GLFWwindow* window_handle = (GLFWwindow*)window->GetHandle();
 
 	// Handle Sprint
@@ -471,7 +489,6 @@ void Player::RenderSelector() {
 
 void Player::UpdateHand(float delta_time) {
 	if (m_Hotbar.GetSelected().id == 0 || m_Hotbar.GetSelected().id == Item::InvalidID) return;
-	if (m_Hotbar.GetSelected().id != m_Hand.held_item.id) HeldItemChanged();
 	// Follow camera
 	m_Hand.direction += (m_Camera->direction - m_Hand.direction) * 24.0f * delta_time;
 
@@ -499,6 +516,9 @@ void Player::RenderHand() {
 	block_preview_shader->SetUniform("u_Brightness", m_World->GetBrightness());
 	block_preview_shader->SetUniform("u_Atlas", atlas);
 
+	TextureIDs& texture_ids = Block::BlockTextureIDs[m_Hotbar.GetSelected().id - 1];
+	block_preview_shader->SetUniform("u_TextureIDs", texture_ids.List());
+
 	// Calculate model
 	glm::mat4 hand_model = glm::mat4(1.0f);
 	hand_model = glm::translate(hand_model, m_Camera->position);
@@ -521,10 +541,14 @@ void Player::RenderHand() {
 	block_preview_shader->Unbind();
 }
 
-void Player::HeldItemChanged() {
-	Item& new_item = m_Hotbar.GetSelected();
-	m_Hand.held_item = new_item;
-	if (new_item.IsBlock()) Block::SetMeshType((uint8_t)new_item.id);
+void Player::DropItem() {
+	Item& selected = m_Hotbar.GetSelected();
+	if (selected.id == Item::InvalidID) return;
+
+	m_World->CreateItem({ selected.id, 1 }, m_Position + m_CameraOffset, m_Camera->direction * m_ItemDropForce);
+	
+	selected.count -= 1;
+	if (selected.count == 0) selected = Item::Invalid;
 }
 
 // Animations

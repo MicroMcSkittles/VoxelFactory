@@ -145,16 +145,15 @@ const VertexLayout Block::Layout = { {
 	{ GL_UNSIGNED_INT, 1 }, // a_TextureID
 } };
 
-void Block::SetMeshType(uint8_t id) {
-
+void Block::InitMesh() {
 	std::vector<BlockVertex> vertices(Vertices, Vertices + 36);
 	size_t offset = 0;
-	for (int i = 0; i < FaceVertexCount; i++, offset++) vertices[offset].id = BlockTextureIDs[id - 1].front;
-	for (int i = 0; i < FaceVertexCount; i++, offset++) vertices[offset].id = BlockTextureIDs[id - 1].back;
-	for (int i = 0; i < FaceVertexCount; i++, offset++) vertices[offset].id = BlockTextureIDs[id - 1].left;
-	for (int i = 0; i < FaceVertexCount; i++, offset++) vertices[offset].id = BlockTextureIDs[id - 1].right;
-	for (int i = 0; i < FaceVertexCount; i++, offset++) vertices[offset].id = BlockTextureIDs[id - 1].top;
-	for (int i = 0; i < FaceVertexCount; i++, offset++) vertices[offset].id = BlockTextureIDs[id - 1].bottom;
+	for (int i = 0; i < FaceVertexCount; i++, offset++) vertices[offset].id = 0; // Front
+	for (int i = 0; i < FaceVertexCount; i++, offset++) vertices[offset].id = 1; // Back
+	for (int i = 0; i < FaceVertexCount; i++, offset++) vertices[offset].id = 2; // Left
+	for (int i = 0; i < FaceVertexCount; i++, offset++) vertices[offset].id = 3; // Right
+	for (int i = 0; i < FaceVertexCount; i++, offset++) vertices[offset].id = 4; // Top
+	for (int i = 0; i < FaceVertexCount; i++, offset++) vertices[offset].id = 5; // Bottom
 
 	Mesh = CreateRef<VertexArray>();
 	Mesh->Bind();

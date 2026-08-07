@@ -8,7 +8,6 @@
 #include "Game/World.h"
 #include "Game/Player.h"
 #include "Game/UI.h"
-//#include "Game/PauseMenu.h"
 #include "Game/Menu.h"
 
 #include <array>

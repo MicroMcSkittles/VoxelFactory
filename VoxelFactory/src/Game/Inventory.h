@@ -22,6 +22,7 @@ public:
 	~Inventory() {}
 
 	Item& GetItem(const glm::ivec2& position);
+	std::vector<Item>& GetItems() { return m_Items; }
 	glm::ivec2 GetHoveredSlot(const glm::vec2& mouse_pos);
 
 	float GetScale() { return m_Scale; }
@@ -31,6 +32,10 @@ public:
 	const glm::vec2& GetOffset() { return m_Offset; }
 
 	void RenderSlots();
+
+	void PushItems(Item& item);
+	glm::ivec2 FindItem(const Item& item);
+	bool HasItemSpace(const Item& item);
 
 private:
 	int m_Width;
@@ -49,7 +54,7 @@ private:
 class InventoryHandler {
 public:
 	InventoryHandler(const std::vector<Ref<Inventory>>& inventories);
-	~InventoryHandler() { }
+	~InventoryHandler();
 
 	void OnLeftClick();
 	void OnRightClick();

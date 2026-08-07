@@ -101,6 +101,13 @@ void Shader::SetUniform(const std::string& name, const Ref<Texture>& value) {
 	glUniform1i(location, value->GetSlot());
 }
 
+void Shader::SetUniform(const std::string & name, const std::vector<uint32_t>&value_list) {
+	ASSERT_MSG(m_Bound, "A OpenGL error occured: failed to set uniform uint list, shader not bound");
+	for (int i = 0; i < value_list.size(); i++) {
+		uint32_t location = glGetUniformLocation(m_Handle, (name + "[" + std::to_string(i) + "]").c_str());
+		glUniform1i(location, value_list[i]);
+	}
+}
 void Shader::SetUniform(const std::string& name, const std::vector<glm::vec2>& value_list) {
 	//ASSERT_MSG(m_Bound, "A OpenGL error occured: failed to set uniform vec2 list, shader not bound");
 	//uint32_t location = glGetUniformLocation(m_Handle, name.c_str());

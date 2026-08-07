@@ -12,7 +12,6 @@ struct Hand {
 	const glm::vec3 default_size     = glm::vec3(0.18f);
 	const glm::vec3 default_rotation = glm::vec3(-0.1f, 0.7f, 0.0f);
 
-	Item held_item;
 	glm::vec3 offset    = glm::vec3(0.0f);
 	glm::vec3 rotation  = glm::vec3(0.0f);
 	glm::vec3 direction = glm::vec3(0.0f);
@@ -54,6 +53,14 @@ public:
 	void OpenInventory();
 	void CloseInventory();
 
+	// Attempts to push items to the hotbar then main inventory
+	void PushInventoryItems(Item& item);
+	// Returns true if there is space for the item in either hotbar or inventory
+	bool HasItemSpace(const Item& item);
+
+	glm::vec3 GetPosition() { return m_Position; }
+	glm::vec3 GetCameraPosition() { return m_Position + m_CameraOffset; }
+
 private:
 
 	// Update velocity based on input
@@ -67,9 +74,8 @@ private:
 	void UpdateHand(float delta_time);
 	void RenderHand();
 
-	void HeldItemChanged();
-
 	void RenderInventoryUI();
+	void DropItem();
 
 private:
 	
@@ -112,6 +118,7 @@ private:
 	float m_JumpForce;
 	float m_Reach;
 	float m_MovementTime;
+	float m_ItemDropForce;
 
 private:
 	const inline static float c_SelectorVertices[] = {

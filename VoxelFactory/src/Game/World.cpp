@@ -35,6 +35,86 @@ void AABB::CalculateMinMax() {
 	};
 }
 
+void ItemEntity::Render(const Ref<Camera>& camera, float brightness) {
+	Ref<Shader> shader = Game::GetShader(ShaderType::BlockPreview);
+	Ref<Texture> atlas = Game::GetTexture(TextureType::BlockAtlas);
+	shader->Bind();
+	atlas->Bind();
+
+	// Calculate model matrix
+	glm::mat4 model = glm::mat4(1.0f);
+	model = glm::translate(model, position + offset);
+	model = glm::rotate(model, rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
+	model = glm::rotate(model, rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
+	model = glm::rotate(model, rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
+	model = glm::scale(model, size);
+
+	// Set uniforms
+	shader->SetUniform("u_Model", model);
+	shader->SetUniform("u_ViewProjection", camera->view_projection);
+	shader->SetUniform("u_Brightness", brightness);
+	shader->SetUniform("u_Atlas", atlas);
+
+	TextureIDs& texture_ids = Block::BlockTextureIDs[item.id - 1];
+	shader->SetUniform("u_TextureIDs", texture_ids.List());
+
+	// Figure out how many items to layer
+	float count = (float)item.count / (float)Item::StackSize;
+	if (item.count > 1 && count < 0.33f) count = 2;
+	else if (count >= 0.33f) count = 3;
+
+	Block::Mesh->Bind();
+	glDisable(GL_CULL_FACE);
+	
+	glDrawElements(GL_TRIANGLES, Block::Mesh->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
+	
+	if (count > 1) {
+		model = glm::translate(model, glm::vec3(0.15f));
+		shader->SetUniform("u_Model", model);
+		glDrawElements(GL_TRIANGLES, Block::Mesh->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
+	}
+	if (count > 2) {
+		model = glm::translate(model, glm::vec3(-0.2f, 0.2f, -0.275f));
+		shader->SetUniform("u_Model", model);
+		glDrawElements(GL_TRIANGLES, Block::Mesh->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
+	}
+
+	glEnable(GL_CULL_FACE);
+	Block::Mesh->Unbind();
+
+	atlas->Unbind();
+	shader->Unbind();
+}
+bool ItemEntity::Update(float delta_time, const Ref<Player>& player) {
+
+	// Gravity
+	if (!on_ground) velocity.y += -0.388f * delta_time;
+	// Drag
+	velocity -= velocity * 0.901f * delta_time * (on_ground ? 9.0f : 1.0f);
+
+	glm::vec3 player_direction = player->GetCameraPosition() - position;
+	float player_dist = glm::length(player_direction);
+	if (timer >= 2.0f && player->HasItemSpace(item)) {
+		// Move item towards player
+		if (player_dist <= 3.0f) {
+			velocity += glm::normalize(player_direction) * delta_time;
+		}
+		// Put item in players inventory
+		if (player_dist <= 0.5f) {
+			player->PushInventoryItems(item);
+			if (item.count == 0) return true;
+		}
+	}
+
+	// Apply animation
+	offset.y = sin(timer * 0.65f) * 0.125f + (on_ground ? size.y : 0.0f);
+	rotation.y += delta_time * 0.25f;
+	if (rotation.y >= PI2) rotation.y -= PI2;
+
+	timer += delta_time;
+	return false;
+}
+
 Chunk::Chunk(const glm::vec3& position, uint32_t seed) {
 	m_Position = position;
 
@@ -93,7 +173,7 @@ glm::vec3 Chunk::GetBlockPosition(const glm::vec3& position) {
 	return { floor(position.x), floor(position.y), floor(position.z) };
 }
 
-World::World(uint32_t seed) : m_Seed(seed), m_LoadedCenter({ 0,0,0 }), m_LoadedRadius(7) {
+World::World(uint32_t seed) : m_Seed(seed), m_LoadedCenter({ 0,0,0 }), m_LoadedRadius(7), m_EntityRenderDist(3) {
 	m_LoadedWidth = m_LoadedRadius * 2 + 1;
 	m_LoadedArea = m_LoadedWidth * m_LoadedWidth;
 
@@ -164,6 +244,10 @@ void World::RebuildChunk(const glm::vec3& position) {
 	int index = position.x - m_LoadedCenter.x + m_LoadedRadius + (position.z - m_LoadedCenter.z + m_LoadedRadius) * m_LoadedWidth;
 	m_ChunkMeshes[index] = ChunkMesher(chunk, this).CreateMesh();
 	m_ChunkMeshes[index]->CreateVertexArray();
+}
+
+void World::CreateItem(const Item& item, const glm::vec3& position, const glm::vec3& velocity) {
+	m_Entities.push_back({ position, glm::vec3(0.0f), glm::vec3(0.3f), velocity, item });
 }
 
 CollisionResultData World::LineAABBIntersection(const glm::vec3& start_position, const glm::vec3& end_position, const AABB& aabb) {
@@ -487,6 +571,15 @@ void World::RenderWorld(const Ref<Camera>& camera) {
 	world_shader->Unbind();
 	block_atlas->Unbind();
 }
+void World::RenderEntities(const Ref<Camera>& camera)
+{
+	// Render entities in nearby chunks
+	for (ItemEntity& item : m_Entities) {
+		float dist = glm::length(item.position - m_LoadedCenter * (float)Chunk::ChunkLength) / Chunk::ChunkLength;
+		if (dist >= m_EntityRenderDist) continue;
+		item.Render(camera, m_Brightness); 
+	}
+}
 void World::ShowImGui() {
 	ImGui::Text("Chunk Count: %d", m_Chunks.size());
 	ImGui::Text("Loaded Radius: %d", m_LoadedRadius);
@@ -494,14 +587,71 @@ void World::ShowImGui() {
 	ImGui::InputFloat3("Sky Color", &m_SkyColor.r);
 	ImGui::InputFloat3("Sky Horizon Color", &m_SkyHorizonColor.r);
 	ImGui::DragFloat("Brightness", &m_Brightness, 0.01f, 0.0f, 1.0f);
+	ImGui::Text("Entity Count: %d", m_Entities.size());
 }
 
-void World::Update(const glm::vec3& position) {
-	glm::vec3 chunk_position = Chunk::GetBlockChunkPosition(position);
+void World::Update(float delta_time, const Ref<Player>& player) {
+	glm::vec3 camera_position = player->GetCameraPosition();
+	glm::vec3 chunk_position = Chunk::GetBlockChunkPosition(camera_position);
 	glm::vec3 chunk_delta = chunk_position - m_LoadedCenter;
 	if (chunk_delta.x != 0 || chunk_delta.y != 0 || chunk_delta.z != 0) {
 		m_LoadedCenter = chunk_position;
 		MoveLoadedCenter({ chunk_delta.x, chunk_delta.z });
+	}
+
+	// Update entities in nearby chunks
+	for (int i = 0; i < m_Entities.size(); i++) {
+		ItemEntity& item = m_Entities[i];
+		float player_dist = glm::length(item.position - camera_position);
+		if (player_dist / Chunk::ChunkLength >= m_EntityRenderDist) continue;
+		bool destory_item = item.Update(delta_time, player);
+
+		// Delete item entity if needed
+		if (destory_item) {
+			m_Entities.erase(m_Entities.begin() + (i--));
+			continue;
+		}
+
+		// Check for/resolve collisions
+		glm::vec3 collision_normal = glm::vec3(0.0f);
+		AABB collider = { item.position, item.size };
+		ResolveDynamicAABB(collider, item.velocity, collision_normal);
+		item.position += item.velocity;
+
+		// Check if on ground
+		AABB ground_check;
+		ground_check.position = item.position;
+		ground_check.position.y -= item.size.y - 0.05f;
+		ground_check.size = { item.size.x, 0.1f, item.size.z };
+		ground_check.CalculateMinMax();
+		item.on_ground = !AABBIntersectedVoxels(ground_check).empty();
+
+		if (item.item.count == Item::StackSize) continue;
+
+		// Check if close to other entities
+		for (int j = 0; j < m_Entities.size(); j++) {
+			if (i == j) continue;
+
+			ItemEntity& other = m_Entities[j];
+			if (other.item.id != item.item.id) continue;
+			if (other.item.count == Item::StackSize) continue;
+
+			float dist = glm::length(item.position - other.position);
+			if (dist <= 0.75f) {
+				// Merge stacks
+				uint8_t item_count = item.item.count;
+				if (other.item.count + item_count > Item::StackSize) item_count = Item::StackSize - other.item.count;
+				other.item.count += item_count;
+				item.item.count -= item_count;
+
+				// Delete other stack
+				if (item.item.count == 0) {
+					m_Entities.erase(m_Entities.begin() + i);
+					if (j > i) j--;
+					i--;
+				}
+			}
+		}
 	}
 }
 void World::MoveLoadedCenter(const glm::vec2& delta) {

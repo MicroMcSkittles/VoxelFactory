@@ -5,7 +5,9 @@ uniform float u_Brightness;
 
 uniform sampler2D u_Atlas;
 in vec2 TexCoord;
-flat in uint TextureID;
+
+uniform int u_TextureIDs[6]; // front, back, left, right, top, bottom
+flat in uint Face;
 
 in vec3 Normal;
 
@@ -15,8 +17,8 @@ const vec3 c_LightDirection = -vec3(-0.6, -0.8, -0.55);
 void main() {
     // Find texture in the atlas
     vec2 atlas_coord = vec2(TexCoord.x, TexCoord.y);
-    atlas_coord.x += float(TextureID % c_AtlasSize);
-    atlas_coord.y += 15.0 - float(TextureID / c_AtlasSize);
+    atlas_coord.x += float(u_TextureIDs[Face] % c_AtlasSize);
+    atlas_coord.y += 15.0 - float(u_TextureIDs[Face] / c_AtlasSize);
     vec4 texture_color = texture(u_Atlas, atlas_coord / float(c_AtlasSize));
     if (texture_color.a < 0.0001) discard;
     
