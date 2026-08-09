@@ -111,6 +111,7 @@ private:
 	// Controls
 	bool m_Flight;
 	bool m_OpenInventory;
+	bool m_EnableCollision;
 	float m_MouseSensitivity;
 	float m_WalkSpeed;
 	float m_SprintMultiplier;

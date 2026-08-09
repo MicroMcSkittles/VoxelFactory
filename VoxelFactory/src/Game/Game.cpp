@@ -259,6 +259,15 @@ void Game::ShowImGui() {
 	if (ImGui::CollapsingHeader("World")) {
 		m_World->ShowImGui();
 	}
+	if (ImGui::CollapsingHeader("Noise")) {
+		static Ref<Texture> noise = nullptr;
+		static uint32_t seed = 123467420;
+		if (ImGui::Button("Generate")) noise = NoiseGenerator::GeneratePerlinNoise(50,50,2,{0,0}, seed);
+
+		if (noise != nullptr) {
+			ImGuiImage("Noise", noise);
+		}
+	}
 
 	ImVec2 window_size = ImGui::GetWindowSize();
 	window_size.x += window_pos.x;
@@ -352,7 +361,7 @@ void Game::InitMenus() {
 void Game::NewWorld(uint32_t seed) {
 	m_World = CreateRef<World>(seed);
 	// Spawn player on the ground
-	glm::vec3 player_position = glm::vec3(0.0f, Chunk::ChunkHeight - 1.0f, 0.0f);
+	glm::vec3 player_position = glm::vec3(16000.0f, Chunk::ChunkHeight - 1.0f, 16000.0f);
 	player_position = m_World->CastRay(Ray(player_position, glm::vec3(0.0f, -1.0f, 0.0f))).voxel_position;
 	player_position += glm::vec3(0.0f, 1.001f, 0.0f);
 	m_Player = CreateRef<Player>(player_position, m_Camera, m_World);

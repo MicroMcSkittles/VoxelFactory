@@ -15,8 +15,8 @@ in vec3 WorldPos;
 
 const int c_AtlasSize = 16;
 const vec3 c_LightDirection = -vec3(-0.6, -0.8, -0.55);
-const float c_FogMin = 75.0;
-const float c_FogMax = 125.0;
+const float c_FogMin = 158.0;//= 75.0;
+const float c_FogMax = 220.0;//= 125.0;
 
 void main() {
     // Find texture in the atlas

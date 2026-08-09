@@ -9,6 +9,8 @@
 #include "Game/Inventory.h"
 #include <vector>
 #include <glm/glm.hpp>
+#include <thread>
+#include <mutex>
 
 class Player;
 struct ItemEntity {
@@ -18,6 +20,8 @@ struct ItemEntity {
 	glm::vec3 velocity;
 
 	Item item;
+	bool player_dropped;
+
 	glm::vec3 offset = glm::vec3(0.0f);
 	float timer = 0.0f;
 	bool on_ground = false;
@@ -26,6 +30,8 @@ struct ItemEntity {
 	bool Update(float delta_time, const Ref<Player>& player);
 };
 
+
+class WorldGenerator;
 class ChunkMesher;
 class Chunk {
 public:
@@ -34,6 +40,7 @@ public:
 
 	Block& At(const glm::vec3& position);
 	bool IsVoid(const glm::vec3& position);
+	bool IsTransparent(const glm::vec3& position);
 	bool IsValid(const glm::vec3& position); // Returns true if position is inbounds
 	glm::vec3 ToWorld(const glm::vec3& position);
 
@@ -50,6 +57,7 @@ private:
 	glm::vec3 m_Position;
 
 	friend ChunkMesher;
+	friend WorldGenerator;
 
 public:
 	const static int ChunkLength = 16; // The width and length
@@ -89,6 +97,11 @@ struct CollisionResultData {
 	operator bool() { return hit; }
 };
 
+class WorldGenerator {
+public:
+	static void GenerateChunk(Chunk* chunk, uint32_t seed);
+	static void GenerateColumn(const glm::vec2& position, Chunk* chunk, uint32_t seed);
+};
 class World {
 public:
 	World(uint32_t seed);
@@ -101,7 +114,9 @@ public:
 	void RenderWorld(const Ref<Camera>& camera);
 	void RenderEntities(const Ref<Camera>& camera);
 
+	Block& GetVoxel(const glm::vec3& position);
 	void SetVoxel(const glm::vec3& position, uint8_t new_id);
+	void BreakVoxel(const glm::vec3& position);
 	Chunk* GetChunk(const glm::vec3& position);
 	void RebuildChunk(const glm::vec3& position);
 
@@ -112,10 +127,11 @@ public:
 	bool ResolveDynamicAABB(const AABB& aabb, glm::vec3& velocity, glm::vec3& normal);
 
 	bool IsVoid(const glm::vec3& position);
+	bool IsTransparent(const glm::vec3& position);
 
 	float& GetBrightness() { return m_Brightness; }
 
-	void CreateItem(const Item& item, const glm::vec3& position, const glm::vec3& velocity);
+	void CreateItem(const Item& item, const glm::vec3& position, const glm::vec3& velocity, bool player_dropped);
 
 private:
 	CollisionResultData LineAABBIntersection(const glm::vec3& start_position, const glm::vec3& end_position, const AABB& aabb);
@@ -123,7 +139,9 @@ private:
 	CollisionResultData RayAABBIntersection(const Ray& ray, const glm::vec3& aabb_min, const glm::vec3& aabb_max);
 	
 	void MoveLoadedCenter(const glm::vec2& delta);
+	void BuildChunks();
 	void CreateChunk(const glm::vec2& position);
+	void CheckChunkLoaderThread();
 
 	void InitSkyBox();
 
@@ -146,6 +164,13 @@ private:
 	glm::vec3 m_SkyColor;
 	glm::vec3 m_SkyHorizonColor;
 	float m_Brightness;
+
+	// Chunk loading multithreading vars
+	std::thread m_ChunkLoaderThread;
+	inline static std::mutex s_ChunkLoaderMutex;
+	inline static bool s_ChunkLoaderFinished = false;
+	inline static std::vector<glm::vec2> s_ChunksToRebuild;
+	inline static std::vector<glm::vec2> s_ChunksRebuilt;
 
 private:
 	const inline static float c_SkyBoxVertices[] = {
@@ -184,6 +209,7 @@ public:
 private:
 	bool IsVoid(const glm::vec3& position);
 	void MeshFace(const glm::vec3& position, const glm::vec3& face_dir, uint32_t id, uint8_t block_id, const BlockVertex* data);
+	void MeshFlower(const glm::vec3& position, uint8_t block_id);
 
 private:
 	Chunk* m_Chunk;

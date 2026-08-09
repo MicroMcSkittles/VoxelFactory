@@ -1,5 +1,6 @@
 #pragma once
 #include "Core/Core.h"
+#include "Core/Utils.h"
 #include "Renderer/Buffers.h"
 #include <glm/glm.hpp>
 
@@ -28,6 +29,13 @@ struct TextureIDs {
 	TextureIDs(uint32_t front, uint32_t back, uint32_t left, uint32_t right, uint32_t top, uint32_t bottom) : front(front), back(back), left(left), right(right), top(top), bottom(bottom) {}
 };
 
+enum BlockProperties {
+	BlockProperty_Transparent = BIT(0),
+	BlockProperty_Glass = BIT(1),
+	BlockProperty_CrossMesh = BIT(2),
+	BlockProperty_DisableCollision = BIT(3),
+};
+
 struct Block {
 	uint8_t id;
 
@@ -39,6 +47,7 @@ struct Block {
 	static glm::vec3 OrientVector(const glm::vec3& direction, int axis_count, uint8_t orientation);
 
 	static std::vector<TextureIDs> BlockTextureIDs;
+	static std::vector<uint8_t> BlockProperties;
 
 	inline static Ref<VertexArray> Mesh = nullptr;
 
@@ -47,6 +56,9 @@ struct Block {
 
 	const inline static size_t FaceVertexCount = 6;
 	const inline static size_t FaceIndexCount = 6;
+
+	const static BlockVertex FlowerVertices[];
+	const static uint32_t FlowerIndices[];
 
 	const static BlockVertex FrontVertices[];
 	const static BlockVertex BackVertices[];

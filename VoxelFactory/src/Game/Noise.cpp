@@ -12,10 +12,10 @@ Ref<Texture> NoiseGenerator::GenerateWhiteNoise(int width, int height, uint32_t 
 
 	for (int y = 0; y < height; y++) {
 		for (int x = 0; x < width; x++) {
-			uint32_t state = x + width * y;
-			uint32_t hash = PCGHash(state, seed);
-			float color = (float)hash / (float)std::numeric_limits<uint32_t>::max();
-			data.push_back((uint8_t)(color * 255));
+			//uint32_t state = x + width * y;
+			//uint32_t hash = PCGHash(state, seed);
+			//float color = (float)hash / (float)std::numeric_limits<uint32_t>::max();
+			//data.push_back((uint8_t)(color * 255));
 		}
 	}
 
@@ -27,106 +27,92 @@ Ref<Texture> NoiseGenerator::GeneratePerlinNoise(int width, int height, int freq
 	std::vector<uint8_t> data;
 	data.reserve(width * height);
 
-	float lattice_width = 1.0f / frequency;
-	//int lattice_height = ceil((float)(lattice_width * height) / (float)width);
-
 	for (int y = 0; y < height; y++) {
 		for (int x = 0; x < width; x++) {
-			glm::vec2 lattice_pos = {
-				//(offset.x + ((float)x / 16.0f)) * (float)(lattice_width - 1),
-				//(offset.y + ((float)y / 16.0f)) * (float)(lattice_height - 1)
-				(offset.x + ((float)x / (float)width)) * (float)(lattice_width - 1),
-				(offset.y + ((float)y / (float)height)) * (float)(lattice_width - 1)
-			};
-
-			glm::vec2 cell_min = { floor(lattice_pos.x), floor(lattice_pos.y) };
-			glm::vec2 cell_max = cell_min + glm::vec2(1.0f);
-
-			glm::vec2 top_left_gradient = RandGradient(cell_min, seed);
-			glm::vec2 top_right_gradient = RandGradient(glm::vec2(cell_max.x, cell_min.y), seed);
-			glm::vec2 bottom_left_gradient = RandGradient(glm::vec2(cell_min.x, cell_max.y), seed);;
-			glm::vec2 bottom_right_gradient = RandGradient(cell_max, seed);
-
-			float top_left_dot = glm::dot(top_left_gradient, lattice_pos - cell_min);
-			float top_right_dot = glm::dot(top_right_gradient, lattice_pos - glm::vec2(cell_max.x, cell_min.y));
-			float bottom_left_dot = glm::dot(bottom_left_gradient, lattice_pos - glm::vec2(cell_min.x, cell_max.y));
-			float bottom_right_dot = glm::dot(bottom_right_gradient, lattice_pos - cell_max);
-
-			glm::vec2 interp_weight = lattice_pos - cell_min;
-
-			float upper = CubicInterp(top_left_dot, top_right_dot, interp_weight.x);
-			float lower = CubicInterp(bottom_left_dot, bottom_right_dot, interp_weight.x);
-			float value = CubicInterp(upper, lower, interp_weight.y);
-
-			value = ((value + 1.0f) / 2.0f) * 255.0f;
-			value = std::max(std::min(value, 255.0f), 0.0f);
-			data.push_back((uint8_t)value);
+			float value = SampleFractalPerlinNoise({ (float)x / (float)width,(float)y / (float)height }, 12, seed);
+			uint8_t color = (uint8_t)(((value + 1.0f) * 0.5f) * 255);
+			data.push_back(color);
 		}
 	}
 
 	return CreateRef<Texture>(data.data(), width, height, GL_R8, GL_RED);
 }
 
-float NoiseGenerator::SamplePerlinNoise(const glm::vec2& position, const glm::vec2& offset, int frequency, uint32_t seed)
-{
-	float lattice_size = 1.0f / frequency;
-	glm::vec2 lattice_pos = {
-		(offset.x + (position.x / 16.0f)) * (float)(lattice_size - 1),
-		(offset.y + (position.y / 16.0f)) * (float)(lattice_size - 1)
-	};
+float NoiseGenerator::SampleWhiteNoise(const glm::vec2& position, uint32_t seed) {
 
-	glm::vec2 cell_min = { floor(lattice_pos.x), floor(lattice_pos.y) };
-	glm::vec2 cell_max = cell_min + glm::vec2(1.0f);
+	int n = position.x * 3 + position.y * 113;
 
-	glm::vec2 top_left_gradient = RandGradient(cell_min, seed);
-	glm::vec2 top_right_gradient = RandGradient(glm::vec2(cell_max.x, cell_min.y), seed);
-	glm::vec2 bottom_left_gradient = RandGradient(glm::vec2(cell_min.x, cell_max.y), seed);;
-	glm::vec2 bottom_right_gradient = RandGradient(cell_max, seed);
-
-	float top_left_dot = glm::dot(top_left_gradient, lattice_pos - cell_min);
-	float top_right_dot = glm::dot(top_right_gradient, lattice_pos - glm::vec2(cell_max.x, cell_min.y));
-	float bottom_left_dot = glm::dot(bottom_left_gradient, lattice_pos - glm::vec2(cell_min.x, cell_max.y));
-	float bottom_right_dot = glm::dot(bottom_right_gradient, lattice_pos - cell_max);
-
-	glm::vec2 interp_weight = lattice_pos - cell_min;
-
-	float upper = CubicInterp(top_left_dot, top_right_dot, interp_weight.x);
-	float lower = CubicInterp(bottom_left_dot, bottom_right_dot, interp_weight.x);
-	float value = CubicInterp(upper, lower, interp_weight.y);
-
-	return value;
+	n = (n << 13) ^ n;
+	n = n * (n * n * 15731 + 789221) + 1376312589;
+	return -1.0 + 2.0 * float(n & 0x0fffffff) / float(0x0fffffff);
 }
 
-float NoiseGenerator::SampleFractalPerlinNoise(const glm::vec2& position, const glm::vec2& offset, uint32_t seed) {
-	float noise = 0.0f;
-	noise += NoiseGenerator::SamplePerlinNoise(position, offset, 2, seed) * 0.5f;
-	noise += NoiseGenerator::SamplePerlinNoise(position, offset, 4, seed) * 0.25f;
-	noise += NoiseGenerator::SamplePerlinNoise(position, offset, 8, seed) * 0.125f;
-	noise += NoiseGenerator::SamplePerlinNoise(position, offset, 16, seed) * 0.0625f;
-	return noise;
+float NoiseGenerator::SamplePerlinNoise(const glm::vec2& position, uint32_t seed) {
+	glm::ivec2 grid_min = { (int)position.x, (int)position.y };
+	glm::ivec2 grid_max = grid_min + 1;
+
+	glm::vec2 weights = {
+		position.x - (float)grid_min.x,
+		position.y - (float)grid_min.y
+	};
+
+	// Interpolate top 2 corners
+	float corner_0 = DotGridGradient(grid_min, position);
+	float corner_1 = DotGridGradient({ grid_max.x, grid_min.y }, position);
+	float top = CubicInterp(corner_0, corner_1, weights.x);
+
+	// Interpolate bottom 2 corners
+	corner_0 = DotGridGradient({ grid_min.x, grid_max.y }, position);
+	corner_1 = DotGridGradient(grid_max, position);
+	float bottom = CubicInterp(corner_0, corner_1, weights.x);
+
+	return CubicInterp(top, bottom, weights.y);
+}
+
+float NoiseGenerator::SampleFractalPerlinNoise(const glm::vec2& position, int octave_count, uint32_t seed)
+{
+	float value = 0.0f;
+
+	float frequency = 1.0f;
+	float amplitude = 1.0f;
+	for (int i = 0; i < octave_count; i++) {
+		value += SamplePerlinNoise({ position.x * frequency, position.y * frequency }, seed) * amplitude;
+		frequency *= 2;
+		amplitude *= 0.5f;
+	}
+
+	if (value > 1.0f) value = 1.0f;
+	else if (value < -1.0f) value = -1.0f;
+
+	return value;
 }
 
 float NoiseGenerator::CubicInterp(float v1, float v2, float weight) {
 	return (v2 - v1) * (3.0f - weight * 2.0f) * weight * weight + v1;
 }
-glm::vec2 NoiseGenerator::RandGradient(const glm::vec2& position, uint32_t seed) {
-	uint32_t state = (position.x + position.y) * position.y;
-	state = PCGHash(state, seed);
-	state ^= (uint32_t)position.x;
-	return RandDirection(state, seed);
+float NoiseGenerator::DotGridGradient(const glm::ivec2& gradient_position, const glm::vec2& position) {
+	glm::vec2 gradient = RandomGradient(gradient_position);
+	glm::vec2 distance = position - glm::vec2((float)gradient_position.x, (float)gradient_position.y);
+	return glm::dot(distance, gradient);
 }
-glm::vec2 NoiseGenerator::RandDirection(uint32_t& state, uint32_t seed) {
-	return glm::normalize(glm::vec2(
-		NormalizedRand(state, seed),
-		NormalizedRand(state, seed)
-	));
-}
+glm::vec2 NoiseGenerator::RandomGradient(const glm::ivec2& position) {
+	const uint32_t w = 8 * sizeof(uint32_t);
+	const uint32_t s = w / 2;
+	uint32_t a = position.x;
+	uint32_t b = position.y;
+	a *= 3284157443;
 
-uint32_t NoiseGenerator::PCGHash(uint32_t& state, uint32_t seed) {
-	state = state * 747796405u + 2891336453u + seed;
-	uint32_t word = ((state >> ((state >> (28u * (seed + 1))) + 4u)) ^ state) * 277803737u;
-	return (word >> 22u) ^ word;
-}
-float NoiseGenerator::NormalizedRand(uint32_t& state, uint32_t seed) {
-	return ((float)PCGHash(state, seed) / (float)std::numeric_limits<uint32_t>::max()) * 2.0f - 1.0f;
+	b ^= a << s | a >> w - s;
+	b *= 1911520717;
+
+	a ^= b << s | b >> w - s;
+	a *= 2048419325;
+	float random = a * (PI / ~(~0u >> 1));
+	if (random > PI2) random -= PI2;
+	else if (random < 0.0f) random += PI2;
+
+	return {
+		cos(random),
+		sin(random)
+	};
 }

@@ -31,7 +31,7 @@ Player::Player(const glm::vec3& position, const Ref<Camera>& camera, const Ref<W
 
 	Block::InitMesh();
 	m_Inventory = CreateRef<Inventory>(9, 3, 6.0f, 16.0f, 2.0f, glm::vec2(8, 30), Game::GetTexture(TextureType::Inventory));
-	for (int i = 0; i < 19; i++) {
+	for (int i = 0; i < 23; i++) {
 		int x = i % 9;
 		int y = i / 9;
 		m_Inventory->GetItem({ x, y }).id = i + 1;
@@ -62,6 +62,7 @@ Player::Player(const glm::vec3& position, const Ref<Camera>& camera, const Ref<W
 
 	m_Flight = false;
 	m_OpenInventory = false;
+	m_EnableCollision = true;
 	m_MouseSensitivity = 0.1f;
 	m_WalkSpeed = 5.612f;
 	m_Speed = m_WalkSpeed;
@@ -116,6 +117,7 @@ void Player::ShowImGui() {
 	// Input
 	ImGui::SeparatorText("Input");
 	ImGui::Checkbox("Flight", &m_Flight);
+	ImGui::Checkbox("Enable Collision", &m_EnableCollision);
 	ImGui::DragFloat("Walk Speed", &m_WalkSpeed, 0.1f);
 	ImGui::DragFloat("Sprint Multiplier", &m_SprintMultiplier, 0.1f);
 	ImGui::Text("Speed: %f", m_Speed);
@@ -153,9 +155,11 @@ void Player::Update(float delta_time, glm::vec2& last_mouse_pos, const Ref<Windo
 	Input(delta_time, window);
 
 	// Check for/resolve collisions
-	glm::vec3 collision_normal = glm::vec3(0.0f);
-	m_Collider.CalculateMinMax();
-	m_World->ResolveDynamicAABB(m_Collider, m_Velocity, collision_normal);
+	if (m_EnableCollision) {
+		glm::vec3 collision_normal = glm::vec3(0.0f);
+		m_Collider.CalculateMinMax();
+		m_World->ResolveDynamicAABB(m_Collider, m_Velocity, collision_normal);
+	}
 	m_Collider.position += m_Velocity;
 	m_Position = m_Collider.position - m_ColliderOffset;
 
@@ -211,7 +215,7 @@ void Player::OnLeftClick() {
 	}
 
 	// Delete voxel
-	m_World->SetVoxel(m_SelectorPosition, 0);
+	m_World->BreakVoxel(m_SelectorPosition);
 	m_Hand.Hit();
 }
 void Player::OnRightClick() {
@@ -232,9 +236,9 @@ void Player::OnRightClick() {
 	if (m_World->WillIntersect(m_Collider, voxel)) return;
 	m_World->SetVoxel(voxel, block_id);
 	
-	// Item& selected = m_Hotbar.GetSelected();
-	// selected.count -= 1;
-	// if (selected.count == 0) selected = Item::Invalid;
+	Item& selected = m_Hotbar.GetSelected();
+	selected.count -= 1;
+	if (selected.count == 0) selected = Item::Invalid;
 
 	m_Hand.Hit();
 }
@@ -543,9 +547,9 @@ void Player::RenderHand() {
 
 void Player::DropItem() {
 	Item& selected = m_Hotbar.GetSelected();
-	if (selected.id == Item::InvalidID) return;
+	if (selected.count == 0) return;
 
-	m_World->CreateItem({ selected.id, 1 }, m_Position + m_CameraOffset, m_Camera->direction * m_ItemDropForce);
+	m_World->CreateItem({ selected.id, 1 }, m_Position + m_CameraOffset, m_Camera->direction * m_ItemDropForce, true);
 	
 	selected.count -= 1;
 	if (selected.count == 0) selected = Item::Invalid;

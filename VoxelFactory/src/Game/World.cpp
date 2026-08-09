@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <iostream>
 #include <limits>
+#include <chrono>
 
 #include <imgui.h>
 #include <glad/glad.h>
@@ -94,13 +95,13 @@ bool ItemEntity::Update(float delta_time, const Ref<Player>& player) {
 
 	glm::vec3 player_direction = player->GetCameraPosition() - position;
 	float player_dist = glm::length(player_direction);
-	if (timer >= 2.0f && player->HasItemSpace(item)) {
+	if ((timer >= 2.0f || !player_dropped) && player->HasItemSpace(item)) {
 		// Move item towards player
 		if (player_dist <= 3.0f) {
 			velocity += glm::normalize(player_direction) * delta_time;
 		}
 		// Put item in players inventory
-		if (player_dist <= 0.5f) {
+		if (player_dist <= 1.0f) {
 			player->PushInventoryItems(item);
 			if (item.count == 0) return true;
 		}
@@ -120,20 +121,7 @@ Chunk::Chunk(const glm::vec3& position, uint32_t seed) {
 
 	m_Blocks.resize(ChunkDataSize, Block{ 0 });
 	
-	for (int z = 0; z < ChunkLength; z++) {
-		for (int x = 0; x < ChunkLength; x++) {
-			float noise = NoiseGenerator::SampleFractalPerlinNoise({ x,z }, { position.x,position.z }, seed);
-			noise = (noise + 1.0f) / 2.0f;
-			int height = std::max(std::min(noise * (ChunkHeight / 8.0f), (float)ChunkHeight), 0.0f);
-			for (int y = 0; y < height; y++) {
-				At({ x,y + 20,z }).id = 4; // Stone
-			}
-			At({ x,height + 19, z }).id = 3; // Dirt
-			
-			if (x == 0 || z == 0 || x == ChunkLength - 1 || z == ChunkLength - 1) At({ x,height + 20, z }).id = 3; // Border Dirt
-			else At({ x,height + 20, z }).id = 1; // Grass
-		}
-	}
+	WorldGenerator::GenerateChunk(this, seed);
 }
 Chunk::~Chunk() { }
 
@@ -148,6 +136,10 @@ Block& Chunk::At(const glm::vec3& position) {
 bool Chunk::IsVoid(const glm::vec3& position) {
 	Block& block = At(position);
 	return block.id == Block::InvalidID || block.id == 0;
+}
+bool Chunk::IsTransparent(const glm::vec3& position) {
+	Block& block = At(position);
+	return block.id == Block::InvalidID || block.id == 0 || Block::BlockProperties[block.id] & BlockProperty_Transparent;
 }
 bool Chunk::IsValid(const glm::vec3& position) {
 	if (position.x < 0 || position.x >= ChunkLength) return false;
@@ -173,7 +165,7 @@ glm::vec3 Chunk::GetBlockPosition(const glm::vec3& position) {
 	return { floor(position.x), floor(position.y), floor(position.z) };
 }
 
-World::World(uint32_t seed) : m_Seed(seed), m_LoadedCenter({ 0,0,0 }), m_LoadedRadius(7), m_EntityRenderDist(3) {
+World::World(uint32_t seed) : m_Seed(seed), m_LoadedCenter({ 1000,0,1000 }), m_LoadedRadius(14), m_EntityRenderDist(3) {
 	m_LoadedWidth = m_LoadedRadius * 2 + 1;
 	m_LoadedArea = m_LoadedWidth * m_LoadedWidth;
 
@@ -182,7 +174,7 @@ World::World(uint32_t seed) : m_Seed(seed), m_LoadedCenter({ 0,0,0 }), m_LoadedR
 
 	for (int z = -m_LoadedRadius; z <= m_LoadedRadius; z++) {
 		for (int x = -m_LoadedRadius; x <= m_LoadedRadius; x++) {
-			m_Chunks.push_back(Chunk{ { x, 0, z }, m_Seed });
+			m_Chunks.push_back(Chunk{ { m_LoadedCenter.x + x, 0, m_LoadedCenter.z + z }, m_Seed });
 		}
 	}
 	for (size_t i = 0; i < m_Chunks.size(); i++) {
@@ -191,8 +183,19 @@ World::World(uint32_t seed) : m_Seed(seed), m_LoadedCenter({ 0,0,0 }), m_LoadedR
 	}
 
 	InitSkyBox();
+
+	m_ChunkLoaderThread = std::thread(&World::BuildChunks, this);
 }
-World::~World() { }
+World::~World() {
+	if (m_ChunkLoaderThread.joinable()) {
+		{
+			std::lock_guard<std::mutex> chunk_loader_lock(s_ChunkLoaderMutex);
+			s_ChunksToRebuild.clear();
+			s_ChunkLoaderFinished = true;
+		}
+		m_ChunkLoaderThread.join();
+	}
+}
 
 void World::InitSkyBox() {
 	m_SkyColor = glm::vec3(0.470f, 0.655f, 1.0f);
@@ -213,6 +216,16 @@ void World::InitSkyBox() {
 	m_SkyBox->Unbind();
 }
 
+Block& World::GetVoxel(const glm::vec3& position) {
+	// Get chunk
+	glm::vec3 chunk_position = Chunk::GetBlockChunkPosition(position);
+	Chunk* chunk = GetChunk(chunk_position);
+	if (chunk == nullptr) return Block::Invalid;
+
+	glm::vec3 local_voxel_position = Chunk::GetBlockLocalPosition(position);
+	return chunk->At(local_voxel_position);
+}
+
 void World::SetVoxel(const glm::vec3& position, uint8_t new_id) {
 	glm::vec3 local_position = Chunk::GetBlockLocalPosition(position);
 	glm::vec3 chunk_position = Chunk::GetBlockChunkPosition(position);
@@ -226,6 +239,12 @@ void World::SetVoxel(const glm::vec3& position, uint8_t new_id) {
 	else if (local_position.x == Chunk::ChunkLength - 1)RebuildChunk({ chunk_position.x + 1, 0, chunk_position.z });
 	if (local_position.z == 0) RebuildChunk({ chunk_position.x, 0, chunk_position.z - 1 });
 	else if (local_position.z == Chunk::ChunkLength - 1) RebuildChunk({ chunk_position.x, 0, chunk_position.z + 1 });
+}
+void World::BreakVoxel(const glm::vec3& position) {
+	Block block = GetVoxel(position);
+	block.id = block.id & 0b00111111;
+	CreateItem({ block.id, 1 }, position + 0.5f, glm::vec3(0.0f), false);
+	SetVoxel(position, 0);
 }
 
 Chunk* World::GetChunk(const glm::vec3& position) {
@@ -246,8 +265,8 @@ void World::RebuildChunk(const glm::vec3& position) {
 	m_ChunkMeshes[index]->CreateVertexArray();
 }
 
-void World::CreateItem(const Item& item, const glm::vec3& position, const glm::vec3& velocity) {
-	m_Entities.push_back({ position, glm::vec3(0.0f), glm::vec3(0.3f), velocity, item });
+void World::CreateItem(const Item& item, const glm::vec3& position, const glm::vec3& velocity, bool player_dropped) {
+	m_Entities.push_back({ position, glm::vec3(0.0f), glm::vec3(0.3f), velocity, item, player_dropped });
 }
 
 CollisionResultData World::LineAABBIntersection(const glm::vec3& start_position, const glm::vec3& end_position, const AABB& aabb) {
@@ -445,7 +464,7 @@ std::vector<glm::vec3> World::AABBIntersectedVoxels(const AABB& aabb)
 
 				// If current voxel isnt void then store voxel to intersected
 				glm::vec3 chunk_voxel_position = Chunk::GetBlockLocalPosition(voxel_position);
-				if (!chunk->IsVoid(chunk_voxel_position)) {
+				if (!chunk->IsVoid(chunk_voxel_position) && !(Block::BlockProperties[chunk->At(chunk_voxel_position).id] & BlockProperty_DisableCollision)) {
 					intersected.push_back(voxel_position);
 				}
 			}
@@ -475,7 +494,7 @@ bool World::ResolveDynamicAABB(const AABB& aabb, glm::vec3& velocity, glm::vec3&
 		for (int z = (int)search_area_min.z; z < (int)search_area_max.z; z++) {
 			for (int x = (int)search_area_min.x; x < (int)search_area_max.x; x++) {
 				glm::vec3 voxel = glm::vec3(x,y,z);
-				if (!IsVoid(voxel)) potential_collisions.push_back(voxel + 0.5f); // +0.5 to center the voxel
+				if (!IsVoid(voxel) && !(Block::BlockProperties[GetVoxel(voxel).id] & BlockProperty_DisableCollision)) potential_collisions.push_back(voxel + 0.5f); // +0.5 to center the voxel
 			}
 		}
 	}
@@ -507,7 +526,6 @@ bool World::ResolveDynamicAABB(const AABB& aabb, glm::vec3& velocity, glm::vec3&
 }
 
 bool World::IsVoid(const glm::vec3& position) {
-
 	// Get chunk
 	glm::vec3 chunk_position = Chunk::GetBlockChunkPosition(position);
 	Chunk* chunk = GetChunk(chunk_position);
@@ -515,6 +533,15 @@ bool World::IsVoid(const glm::vec3& position) {
 
 	glm::vec3 local_voxel_position = Chunk::GetBlockLocalPosition(position);
 	return chunk->IsVoid(local_voxel_position);
+}
+bool World::IsTransparent(const glm::vec3& position) {
+	// Get chunk
+	glm::vec3 chunk_position = Chunk::GetBlockChunkPosition(position);
+	Chunk* chunk = GetChunk(chunk_position);
+	if (chunk == nullptr) return true;
+
+	glm::vec3 local_voxel_position = Chunk::GetBlockLocalPosition(position);
+	return chunk->IsTransparent(local_voxel_position);
 }
 
 void World::RenderSkyBox(const Ref<Camera>& camera) {
@@ -560,8 +587,11 @@ void World::RenderWorld(const Ref<Camera>& camera) {
 			glm::mat4 model = glm::translate(world, position);
 			world_shader->SetUniform("u_Model", model);
 
-			Ref<VertexArray>& vao = m_ChunkMeshes[x + z * m_LoadedWidth]->GetVertexArray();
+			Ref<Mesh<BlockVertex>> mesh = m_ChunkMeshes[x + z * m_LoadedWidth];
+			if (mesh == nullptr) continue;
+			Ref<VertexArray> vao = mesh->GetVertexArray();
 			if (vao == nullptr) continue;
+			
 			vao->Bind();
 			glDrawElements(GL_TRIANGLES, vao->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
 			vao->Unbind();
@@ -575,8 +605,8 @@ void World::RenderEntities(const Ref<Camera>& camera)
 {
 	// Render entities in nearby chunks
 	for (ItemEntity& item : m_Entities) {
-		float dist = glm::length(item.position - m_LoadedCenter * (float)Chunk::ChunkLength) / Chunk::ChunkLength;
-		if (dist >= m_EntityRenderDist) continue;
+		//float dist = glm::length(item.position - m_LoadedCenter * (float)Chunk::ChunkLength) / Chunk::ChunkLength;
+		//if (dist >= m_EntityRenderDist) continue;
 		item.Render(camera, m_Brightness); 
 	}
 }
@@ -591,6 +621,9 @@ void World::ShowImGui() {
 }
 
 void World::Update(float delta_time, const Ref<Player>& player) {
+	CheckChunkLoaderThread();
+
+	// Check if more chunks need to be loaded/unloaded
 	glm::vec3 camera_position = player->GetCameraPosition();
 	glm::vec3 chunk_position = Chunk::GetBlockChunkPosition(camera_position);
 	glm::vec3 chunk_delta = chunk_position - m_LoadedCenter;
@@ -602,8 +635,6 @@ void World::Update(float delta_time, const Ref<Player>& player) {
 	// Update entities in nearby chunks
 	for (int i = 0; i < m_Entities.size(); i++) {
 		ItemEntity& item = m_Entities[i];
-		float player_dist = glm::length(item.position - camera_position);
-		if (player_dist / Chunk::ChunkLength >= m_EntityRenderDist) continue;
 		bool destory_item = item.Update(delta_time, player);
 
 		// Delete item entity if needed
@@ -668,50 +699,89 @@ void World::MoveLoadedCenter(const glm::vec2& delta) {
 	// Find the chunks that need to be created
 	int column = (delta.x < 0) ? 0 : m_LoadedWidth - 1;
 	int row = (delta.y < 0) ? 0 : m_LoadedWidth - 1;
+	glm::vec2 world_offset = {
+		m_LoadedCenter.x - m_LoadedRadius,
+		m_LoadedCenter.z - m_LoadedRadius
+	};
 	if (delta.x != 0) {
 		for (int i = 0; i < m_LoadedWidth; i++) {
 			if (column == i && delta.y != 0) continue;
-			new_chunks.push_back({ column, i });
+			new_chunks.push_back(glm::vec2(column, i ) + world_offset);
 		}
 	}
 	if (delta.y != 0) {
 		for (int i = 0; i < m_LoadedWidth; i++) {
 			if (row == i && delta.x != 0) continue;
-			new_chunks.push_back({ i, row });
+			new_chunks.push_back(glm::vec2(i, row) + world_offset);
 		}
 	}
 	if (delta.x != 0 && delta.y != 0) {
-		new_chunks.push_back({ column, row });
+		new_chunks.push_back(glm::vec2(column, row) + world_offset);
 	}
 
 	// Find existing chunks that need to be rebuilt
 	column -= delta.x;
 	row -= delta.y;
 	for (int i = 1; i < m_LoadedWidth - 1; i++) {
-		if (delta.x != 0) chunks_to_rebuild.push_back({ column, i });
-		if (delta.y != 0) chunks_to_rebuild.push_back({ i, row });
+		if (delta.x != 0) chunks_to_rebuild.push_back(glm::vec2(column, i) + world_offset);
+		if (delta.y != 0) chunks_to_rebuild.push_back(glm::vec2(i, row) + world_offset);
 	}
 
 	// Create new chunks
 	for (auto& chunk : new_chunks) {
-		CreateChunk(chunk);
+		CreateChunk(chunk - world_offset);
 	}
 
-	// Build chunks
-	for (auto& chunk : new_chunks) {
-		int index = (int)chunk.x + m_LoadedWidth * (int)chunk.y;
-		m_ChunkMeshes[index] = ChunkMesher(&m_Chunks[index], this).CreateMesh();
-		m_ChunkMeshes[index]->CreateVertexArray();
-	}
-	for (auto& chunk : chunks_to_rebuild) {
-		int index = (int)chunk.x + m_LoadedWidth * (int)chunk.y;
-		m_ChunkMeshes[index] = ChunkMesher(&m_Chunks[index], this).CreateMesh();
-		m_ChunkMeshes[index]->CreateVertexArray();
+	// Start chunk loader thread
+	std::lock_guard<std::mutex> chunk_loader_lock(s_ChunkLoaderMutex);
+	s_ChunksToRebuild.insert(s_ChunksToRebuild.end(), new_chunks.begin(), new_chunks.end());
+	s_ChunksToRebuild.insert(s_ChunksToRebuild.end(), chunks_to_rebuild.begin(), chunks_to_rebuild.end());
+}
+void World::BuildChunks() {
+	using namespace std::literals::chrono_literals;
+
+	while (!s_ChunkLoaderFinished) {
+		
+		std::this_thread::sleep_for(5ms);
+
+		std::lock_guard<std::mutex> chunk_loader_lock(s_ChunkLoaderMutex);
+		if (s_ChunksToRebuild.empty()) continue;
+
+		glm::vec2 world_offset = {
+			m_LoadedCenter.x - m_LoadedRadius,
+			m_LoadedCenter.z - m_LoadedRadius
+		};
+		glm::vec2 chunk_position = s_ChunksToRebuild[0] - world_offset;
+		s_ChunksToRebuild.erase(s_ChunksToRebuild.begin());
+
+		if (chunk_position.x < 0 || chunk_position.x >= m_LoadedWidth ||
+			chunk_position.y < 0 || chunk_position.y >= m_LoadedWidth) continue;
+
+		int chunk_index = (int)chunk_position.x + m_LoadedWidth * (int)chunk_position.y;
+		Ref<Mesh<BlockVertex>> chunk_mesh = ChunkMesher(&m_Chunks[chunk_index], this).CreateMesh();
+		m_ChunkMeshes[chunk_index]->GetVertices() = chunk_mesh->GetVertices();
+		m_ChunkMeshes[chunk_index]->GetIndices() = chunk_mesh->GetIndices();
+		m_ChunkMeshes[chunk_index]->GetLayout() = chunk_mesh->GetLayout();
+		
+		s_ChunksRebuilt.push_back(chunk_position);
 	}
 }
 void World::CreateChunk(const glm::vec2& position) {
 	int index = position.x + m_LoadedWidth * position.y;
 	m_Chunks[index] = Chunk({ position.x - m_LoadedRadius + m_LoadedCenter.x, 0, position.y - m_LoadedRadius + m_LoadedCenter.z}, m_Seed);
+	m_ChunkMeshes[index]->GetVertexArray() = nullptr;
+}
+void World::CheckChunkLoaderThread() {
+	if (!m_ChunkLoaderThread.joinable()) return;
+	std::lock_guard<std::mutex> chunk_loader_lock(s_ChunkLoaderMutex);
+
+	// Create vertex arrays for each chunk that has been rebuilt
+	while (!s_ChunksRebuilt.empty()) {
+		glm::vec2 chunk_position = s_ChunksRebuilt[0];
+		s_ChunksRebuilt.erase(s_ChunksRebuilt.begin());
+		int chunk_index = (int)chunk_position.x + m_LoadedWidth * (int)chunk_position.y;
+		m_ChunkMeshes[chunk_index]->CreateVertexArray();
+	}
 }
 
 ChunkMesher::ChunkMesher(Chunk* chunk, World* world): m_Chunk(chunk), m_World(world), m_VertexOffset(0) {}
@@ -732,6 +802,12 @@ Ref<Mesh<BlockVertex>> ChunkMesher::CreateMesh()
 				if (m_Chunk->IsVoid(position)) continue;
 
 				uint8_t block_id = m_Chunk->At({ x,y,z }).id;
+
+				if (Block::BlockProperties[block_id] & BlockProperty_CrossMesh) {
+					MeshFlower(position, block_id);
+					continue;
+				}
+
 				TextureIDs& textures = Block::BlockTextureIDs[(block_id & 0b00111111) - 1];
 				MeshFace(position, { 0,  0,  1 }, textures.front, block_id, Block::FrontVertices);
 				MeshFace(position, { 0,  0, -1 }, textures.back, block_id, Block::BackVertices);
@@ -749,7 +825,7 @@ Ref<Mesh<BlockVertex>> ChunkMesher::CreateMesh()
 }
 
 bool ChunkMesher::IsVoid(const glm::vec3& position) {
-	if (m_Chunk->IsValid(position)) return m_Chunk->IsVoid(position);
+	if (m_Chunk->IsValid(position)) return m_Chunk->IsTransparent(position);
 	glm::vec3 world_pos = {
 		m_Chunk->GetPosition().x * Chunk::ChunkLength + position.x,
 		position.y,
@@ -758,7 +834,7 @@ bool ChunkMesher::IsVoid(const glm::vec3& position) {
 	glm::vec3 other_chunk_pos = Chunk::GetBlockChunkPosition(world_pos);
 	Chunk* other_chunk = m_World->GetChunk(other_chunk_pos);
 	if (!other_chunk) return true;
-	return other_chunk->IsVoid(Chunk::GetBlockLocalPosition(position));
+	return other_chunk->IsTransparent(Chunk::GetBlockLocalPosition(position));
 }
 void ChunkMesher::MeshFace(const glm::vec3& position, const glm::vec3& face_dir, uint32_t id, uint8_t block_id, const BlockVertex* data) {
 
@@ -789,11 +865,15 @@ void ChunkMesher::MeshFace(const glm::vec3& position, const glm::vec3& face_dir,
 		else if (adj_face_dir.z > 0) other_pos.z = 0;
 		else if (adj_face_dir.z < 0) other_pos.z = Chunk::ChunkLength - 1;
 		
-		// Mesh face if adjacent block is not void
-		if (!other_chunk->IsVoid(other_pos)) return;
+		// Don't mesh face if both blocks are glass
+		if (block_id == 17 && Block::BlockProperties[block_id] & BlockProperty_Transparent && !other_chunk->IsVoid(other_pos)) return;
+		// Mesh face if adjacent block is not transparent
+		else if (!other_chunk->IsTransparent(other_pos)) return;
 	}
+	// Don't mesh face if both blocks are glass
+	else if (block_id == 17 && Block::BlockProperties[block_id] & BlockProperty_Transparent && !m_Chunk->IsVoid(other_pos)) return;
 	// Mesh face if adjacent block is not void
-	else if (!m_Chunk->IsVoid(other_pos)) return;
+	else if (!m_Chunk->IsTransparent(other_pos)) return;
 
 	// Add face data to mesh
 	for (int i = 0; i < Block::FaceVertexCount; i++) {
@@ -832,4 +912,45 @@ void ChunkMesher::MeshFace(const glm::vec3& position, const glm::vec3& face_dir,
 		m_Indices.push_back(Block::FaceIndices[i] + m_VertexOffset);
 	}
 	m_VertexOffset += Block::FaceVertexCount;
+}
+void ChunkMesher::MeshFlower(const glm::vec3& position, uint8_t block_id) {
+	TextureIDs& texture_ids = Block::BlockTextureIDs[(block_id & 0b00111111) - 1];
+	for (int i = 0; i < 12; i++) {
+		BlockVertex vertex = Block::FlowerVertices[i];
+		vertex.id = texture_ids.front;
+		vertex.position += position;
+		vertex.ambient_occlusion = 1;
+		m_Vertices.push_back(vertex);
+	}
+	for (int i = 0; i < 24; i++) {
+		m_Indices.push_back(Block::FlowerIndices[i] + m_VertexOffset);
+	}
+	m_VertexOffset += 12;
+}
+
+void WorldGenerator::GenerateChunk(Chunk* chunk, uint32_t seed) {
+	for (int z = 0; z < Chunk::ChunkLength; z++) {
+		for (int x = 0; x < Chunk::ChunkLength; x++) {
+			GenerateColumn({ x,z }, chunk, seed);
+		}
+	}
+}
+void WorldGenerator::GenerateColumn(const glm::vec2& position, Chunk* chunk, uint32_t seed) {
+	glm::vec2 voxel_position = {
+		chunk->m_Position.x + ((float)position.x / (float)Chunk::ChunkLength),
+		chunk->m_Position.z + ((float)position.y / (float)Chunk::ChunkLength)
+	};
+
+	float noise = NoiseGenerator::SampleFractalPerlinNoise(voxel_position * 0.0625f, 4, seed);
+	noise = (noise + 1.0f) / 2.0f;
+	int height = std::max(std::min(noise * (Chunk::ChunkHeight / 2.0f), (float)Chunk::ChunkHeight - 1), 0.0f);
+
+	for (int y = 0; y < height; y++) {
+		chunk->At({ position.x,y + 20,position.y }).id = 4; // Stone
+	}
+	chunk->At({ position.x,height + 19, position.y }).id = 3; // Dirt
+
+	if (position.x == 0 || position.y == 0 || position.x == Chunk::ChunkLength - 1 || position.y == Chunk::ChunkLength - 1) chunk->At({ position.x,height + 20, position.y }).id = 3; // Border Dirt
+	else chunk->At({ position.x,height + 20, position.y }).id = 1; // Grass
+	//chunk->At({ position.x,height + 20, position.y }).id = 1; // Grass
 }

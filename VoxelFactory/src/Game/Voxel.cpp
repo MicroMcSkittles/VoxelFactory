@@ -25,6 +25,46 @@ std::vector<TextureIDs> Block::BlockTextureIDs = {
 	{ TEX_COORD(1,3) }, // Glass
 	{ TEX_COORD(12,2), TEX_COORD(14,2), TEX_COORD(13,2), TEX_COORD(13,2), TEX_COORD(14,3), TEX_COORD(14,3) }, // Furnace
 	{ TEX_COORD(11,3), TEX_COORD(11,3), TEX_COORD(12,3), TEX_COORD(11,3), TEX_COORD(11,2), TEX_COORD(10,4) }, // Work bench
+	{ TEX_COORD(4,3) }, // Leaves
+	{ TEX_COORD(12,0) }, // Poppy Flower
+	{ TEX_COORD(13,0) }, // Dan Flower
+	{ TEX_COORD(11,0) }, // Cobweb
+};
+// glass, transparent, flower
+std::vector<uint8_t> Block::BlockProperties = {
+	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+	BlockProperty_Glass | BlockProperty_Transparent, // Glass
+	0,0,
+	BlockProperty_Transparent, // Leaves
+	BlockProperty_CrossMesh | BlockProperty_Transparent | BlockProperty_DisableCollision, // Poppy Flower
+	BlockProperty_CrossMesh | BlockProperty_Transparent | BlockProperty_DisableCollision, // Dandalion Flower
+	BlockProperty_CrossMesh | BlockProperty_Transparent | BlockProperty_DisableCollision, // Cobweb
+};
+
+const BlockVertex Block::FlowerVertices[] = {
+	{ { -0.5f, -0.5f,  -0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f } },
+	{ {  0.5f, -0.5f,   0.5f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f } },
+	{ {  0.5f,  0.5f,   0.5f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 1.0f } },
+	{ {  0.5f,  0.5f,   0.5f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 1.0f } },
+	{ { -0.5f,  0.5f,  -0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } },
+	{ { -0.5f, -0.5f,  -0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f } },
+
+	{ {  0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } },
+	{ {  0.5f,  0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f } },
+	{ { -0.5f,  0.5f,  0.5f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f } },
+	{ { -0.5f,  0.5f,  0.5f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f } },
+	{ { -0.5f, -0.5f,  0.5f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },
+	{ {  0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } }
+};
+const uint32_t Block::FlowerIndices[] = {
+	0,  1,   2,
+	3,  4,   5,
+	2,  1,   0,
+	5,  4,   3,
+	6,  7,   8,
+	9,  10,  11,
+	8,  7,   6,
+	11, 10,  9
 };
 
 const BlockVertex Block::FrontVertices[] = {

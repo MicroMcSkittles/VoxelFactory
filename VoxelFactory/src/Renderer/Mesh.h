@@ -1,5 +1,6 @@
 #pragma once
 #include "Renderer/Buffers.h"
+#include <iostream>
 
 template<typename T>
 class Mesh {
@@ -8,6 +9,7 @@ public:
 	Mesh() {}
 	Mesh(const std::vector<T>& vertices, const std::vector<uint32_t>& indices, const VertexLayout& layout) 
 		: m_Vertices(vertices), m_Indices(indices), m_Layout(layout) { }
+	~Mesh() { }
 
 	void CreateVertexArray() {
 		m_VertexArray = CreateRef<VertexArray>();
