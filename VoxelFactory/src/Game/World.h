@@ -30,7 +30,6 @@ struct ItemEntity {
 	bool Update(float delta_time, const Ref<Player>& player);
 };
 
-
 class WorldGenerator;
 class ChunkMesher;
 class Chunk {
@@ -140,6 +139,7 @@ private:
 	
 	void MoveLoadedCenter(const glm::vec2& delta);
 	void BuildChunks();
+	void LoadChunk();
 	void CreateChunk(const glm::vec2& position);
 	void CheckChunkLoaderThread();
 
@@ -166,9 +166,10 @@ private:
 	float m_Brightness;
 
 	// Chunk loading multithreading vars
+	inline static bool s_ThreadsFinished = false;
 	std::thread m_ChunkLoaderThread;
 	inline static std::mutex s_ChunkLoaderMutex;
-	inline static bool s_ChunkLoaderFinished = false;
+	inline static std::vector<glm::vec2> s_ChunksToLoad;
 	inline static std::vector<glm::vec2> s_ChunksToRebuild;
 	inline static std::vector<glm::vec2> s_ChunksRebuilt;
 

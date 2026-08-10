@@ -4,12 +4,27 @@
 #include "Renderer/Buffers.h"
 #include <glm/glm.hpp>
 
+enum BlockVertex_Normal {
+	BlockVertex_Normal0 = 0, // ( 0, 0, 1 )
+	BlockVertex_Normal1 = 1, // ( 0, 0,-1 )
+	BlockVertex_Normal2 = 2, // ( 1, 0, 0 )
+	BlockVertex_Normal3 = 3, // (-1, 0, 0 )
+	BlockVertex_Normal4 = 4, // ( 0, 1, 0 )
+	BlockVertex_Normal5 = 5  // ( 0,-1, 0 )
+};
+enum BlockVertex_TexCoord {
+	BlockVertex_TexCoord0 = 0,      // ( 0, 0 )
+	BlockVertex_TexCoord1 = 1 << 3, // ( 1, 0 )
+	BlockVertex_TexCoord2 = 2 << 3, // ( 0, 1 )
+	BlockVertex_TexCoord3 = 3 << 3  // ( 1, 1 )
+};
+
 struct BlockVertex {
 	glm::vec3 position;
-	glm::vec3 normal;
-	glm::vec2 tex_coord;
-	float ambient_occlusion;
+	uint32_t data; // normal: 0,1,2; tex_coord: 3, 4; ambient_occlusion: 5, 6
 	uint32_t id;
+
+	const inline static uint32_t AmbientOcclusionOffset = 5;
 };
 
 struct TextureIDs {
@@ -45,6 +60,7 @@ struct Block {
 	static int GetAxisCount(uint8_t id);
 	static uint8_t CalculateOrientation(const glm::vec3& direction, uint8_t id);
 	static glm::vec3 OrientVector(const glm::vec3& direction, int axis_count, uint8_t orientation);
+	static uint32_t OrientVector(uint32_t direction, int axis_count, uint8_t orientation);
 
 	static std::vector<TextureIDs> BlockTextureIDs;
 	static std::vector<uint8_t> BlockProperties;

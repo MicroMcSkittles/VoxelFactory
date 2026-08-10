@@ -110,6 +110,7 @@ private:
 
 	// Controls
 	bool m_Flight;
+	bool m_NoClip;
 	bool m_OpenInventory;
 	bool m_EnableCollision;
 	float m_MouseSensitivity;

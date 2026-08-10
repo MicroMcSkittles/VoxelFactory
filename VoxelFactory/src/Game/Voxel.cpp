@@ -6,29 +6,30 @@
 
 Block Block::Invalid = Block{ Block::InvalidID };
 std::vector<TextureIDs> Block::BlockTextureIDs = {
-	{ TEX_COORD(3,0), TEX_COORD(0,0), TEX_COORD(2,0) }, // Grass
-	{ TEX_COORD(4,4), TEX_COORD(2,4), TEX_COORD(2,0) }, // Snowy Grass
-	{ TEX_COORD(2,0) }, // Dirt
-	{ TEX_COORD(1,0) }, // Stone
-	{ TEX_COORD(4,1), TEX_COORD(5, 1), TEX_COORD(5,1) }, // Log
-	{ TEX_COORD(4,0) }, // Planks
-	{ TEX_COORD(3,2), TEX_COORD(4, 0), TEX_COORD(4,0) }, // Bookshelf
-	{ TEX_COORD(7,0) }, // Bricks
-	{ TEX_COORD(6,3) }, // Stone bricks
-	{ TEX_COORD(6,0) }, // Polished stone
-	{ TEX_COORD(0,1) }, // Cobble stone
-	{ TEX_COORD(1,1) }, // Gravel
-	{ TEX_COORD(2,1) }, // Sand
-	{ TEX_COORD(0,2) }, // Iron ore
-	{ TEX_COORD(2,2) }, // Coal ore
-	{ TEX_COORD(3,3) }, // Copper ore
-	{ TEX_COORD(1,3) }, // Glass
-	{ TEX_COORD(12,2), TEX_COORD(14,2), TEX_COORD(13,2), TEX_COORD(13,2), TEX_COORD(14,3), TEX_COORD(14,3) }, // Furnace
-	{ TEX_COORD(11,3), TEX_COORD(11,3), TEX_COORD(12,3), TEX_COORD(11,3), TEX_COORD(11,2), TEX_COORD(10,4) }, // Work bench
-	{ TEX_COORD(4,3) }, // Leaves
-	{ TEX_COORD(12,0) }, // Poppy Flower
-	{ TEX_COORD(13,0) }, // Dan Flower
-	{ TEX_COORD(11,0) }, // Cobweb
+	{ TEX_COORD(3,0), TEX_COORD(0,0), TEX_COORD(2,0) }, // Grass #1
+	{ TEX_COORD(4,4), TEX_COORD(2,4), TEX_COORD(2,0) }, // Snowy Grass #2
+	{ TEX_COORD(2,0) }, // Dirt #3
+	{ TEX_COORD(1,0) }, // Stone #4
+	{ TEX_COORD(4,1), TEX_COORD(5, 1), TEX_COORD(5,1) }, // Log #5
+	{ TEX_COORD(4,0) }, // Planks #6
+	{ TEX_COORD(3,2), TEX_COORD(4, 0), TEX_COORD(4,0) }, // Bookshelf #7
+	{ TEX_COORD(7,0) }, // Bricks #8
+	{ TEX_COORD(6,3) }, // Stone bricks #9
+	{ TEX_COORD(6,0) }, // Polished stone #10
+	{ TEX_COORD(0,1) }, // Cobble stone #11
+	{ TEX_COORD(1,1) }, // Gravel #12
+	{ TEX_COORD(2,1) }, // Sand #13
+	{ TEX_COORD(0,2) }, // Iron ore #14
+	{ TEX_COORD(2,2) }, // Coal ore #15
+	{ TEX_COORD(3,3) }, // Copper ore #16
+	{ TEX_COORD(1,3) }, // Glass #17
+	{ TEX_COORD(12,2), TEX_COORD(14,2), TEX_COORD(13,2), TEX_COORD(13,2), TEX_COORD(14,3), TEX_COORD(14,3) }, // Furnace #18
+	{ TEX_COORD(11,3), TEX_COORD(11,3), TEX_COORD(12,3), TEX_COORD(11,3), TEX_COORD(11,2), TEX_COORD(10,4) }, // Work bench #19
+	{ TEX_COORD(4,3) }, // Leaves #20
+	{ TEX_COORD(12,0) }, // Poppy Flower #21
+	{ TEX_COORD(13,0) }, // Dan Flower #22
+	{ TEX_COORD(11,0) }, // Cobweb #23
+	{ TEX_COORD(9,13) }, // Bedrock #24
 };
 // glass, transparent, flower
 std::vector<uint8_t> Block::BlockProperties = {
@@ -39,22 +40,37 @@ std::vector<uint8_t> Block::BlockProperties = {
 	BlockProperty_CrossMesh | BlockProperty_Transparent | BlockProperty_DisableCollision, // Poppy Flower
 	BlockProperty_CrossMesh | BlockProperty_Transparent | BlockProperty_DisableCollision, // Dandalion Flower
 	BlockProperty_CrossMesh | BlockProperty_Transparent | BlockProperty_DisableCollision, // Cobweb
+	0,
 };
 
-const BlockVertex Block::FlowerVertices[] = {
-	{ { -0.5f, -0.5f,  -0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f } },
-	{ {  0.5f, -0.5f,   0.5f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f } },
-	{ {  0.5f,  0.5f,   0.5f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 1.0f } },
-	{ {  0.5f,  0.5f,   0.5f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 1.0f } },
-	{ { -0.5f,  0.5f,  -0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } },
-	{ { -0.5f, -0.5f,  -0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f } },
+// Normals:
+// ( 0, 0, 1 ) = 0
+// ( 0, 0,-1 ) = 1
+// ( 1, 0, 0 ) = 2
+// (-1, 0, 0 ) = 3
+// ( 0, 1, 0 ) = 4
+// ( 0,-1, 0 ) = 5
 
-	{ {  0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } },
-	{ {  0.5f,  0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f } },
-	{ { -0.5f,  0.5f,  0.5f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f } },
-	{ { -0.5f,  0.5f,  0.5f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f } },
-	{ { -0.5f, -0.5f,  0.5f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },
-	{ {  0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } }
+// Tex Coords
+// ( 0, 0 ) = 0
+// ( 1, 0 ) = 1
+// ( 0, 1 ) = 2
+// ( 1, 1 ) = 3
+
+const BlockVertex Block::FlowerVertices[] = {
+	{ { -0.5f, -0.5f, -0.5f }, BlockVertex_Normal0 | BlockVertex_TexCoord1 },
+	{ {  0.5f, -0.5f,  0.5f }, BlockVertex_Normal0 | BlockVertex_TexCoord0 },
+	{ {  0.5f,  0.5f,  0.5f }, BlockVertex_Normal0 | BlockVertex_TexCoord2 },
+	{ {  0.5f,  0.5f,  0.5f }, BlockVertex_Normal0 | BlockVertex_TexCoord2 },
+	{ { -0.5f,  0.5f, -0.5f }, BlockVertex_Normal0 | BlockVertex_TexCoord3 },
+	{ { -0.5f, -0.5f, -0.5f }, BlockVertex_Normal0 | BlockVertex_TexCoord1 },
+
+	{ {  0.5f, -0.5f, -0.5f }, BlockVertex_Normal2 | BlockVertex_TexCoord0 },
+	{ {  0.5f,  0.5f, -0.5f }, BlockVertex_Normal2 | BlockVertex_TexCoord2 },
+	{ { -0.5f,  0.5f,  0.5f }, BlockVertex_Normal2 | BlockVertex_TexCoord3 },
+	{ { -0.5f,  0.5f,  0.5f }, BlockVertex_Normal2 | BlockVertex_TexCoord3 },
+	{ { -0.5f, -0.5f,  0.5f }, BlockVertex_Normal2 | BlockVertex_TexCoord1 },
+	{ {  0.5f, -0.5f, -0.5f }, BlockVertex_Normal2 | BlockVertex_TexCoord0 }
 };
 const uint32_t Block::FlowerIndices[] = {
 	0,  1,   2,
@@ -68,101 +84,101 @@ const uint32_t Block::FlowerIndices[] = {
 };
 
 const BlockVertex Block::FrontVertices[] = {
-	{ { -0.5f, -0.5f,  0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f } },
-	{ {  0.5f, -0.5f,  0.5f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f } },
-	{ {  0.5f,  0.5f,  0.5f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 1.0f } },
-	{ {  0.5f,  0.5f,  0.5f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 1.0f } },
-	{ { -0.5f,  0.5f,  0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } },
-	{ { -0.5f, -0.5f,  0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f } }
+	{ { -0.5f, -0.5f,  0.5f }, BlockVertex_Normal0 | BlockVertex_TexCoord1 },
+	{ {  0.5f, -0.5f,  0.5f }, BlockVertex_Normal0 | BlockVertex_TexCoord0 },
+	{ {  0.5f,  0.5f,  0.5f }, BlockVertex_Normal0 | BlockVertex_TexCoord2 },
+	{ {  0.5f,  0.5f,  0.5f }, BlockVertex_Normal0 | BlockVertex_TexCoord2 },
+	{ { -0.5f,  0.5f,  0.5f }, BlockVertex_Normal0 | BlockVertex_TexCoord3 },
+	{ { -0.5f, -0.5f,  0.5f }, BlockVertex_Normal0 | BlockVertex_TexCoord1 }
 };
 const BlockVertex Block::BackVertices[] = {
-	{ {  0.5f,  0.5f, -0.5f }, { 0.0f, 0.0f, -1.0f }, { 1.0f, 1.0f } },
-	{ {  0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f, -1.0f }, { 1.0f, 0.0f } },
-	{ { -0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f, -1.0f }, { 0.0f, 0.0f } },
-	{ { -0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f, -1.0f }, { 0.0f, 0.0f } },
-	{ { -0.5f,  0.5f, -0.5f }, { 0.0f, 0.0f, -1.0f }, { 0.0f, 1.0f } },
-	{ {  0.5f,  0.5f, -0.5f }, { 0.0f, 0.0f, -1.0f }, { 1.0f, 1.0f } }
+	{ {  0.5f,  0.5f, -0.5f }, BlockVertex_Normal1 | BlockVertex_TexCoord3 },
+	{ {  0.5f, -0.5f, -0.5f }, BlockVertex_Normal1 | BlockVertex_TexCoord1 },
+	{ { -0.5f, -0.5f, -0.5f }, BlockVertex_Normal1 | BlockVertex_TexCoord0 },
+	{ { -0.5f, -0.5f, -0.5f }, BlockVertex_Normal1 | BlockVertex_TexCoord0 },
+	{ { -0.5f,  0.5f, -0.5f }, BlockVertex_Normal1 | BlockVertex_TexCoord2 },
+	{ {  0.5f,  0.5f, -0.5f }, BlockVertex_Normal1 | BlockVertex_TexCoord3 }
 };
 const BlockVertex Block::LeftVertices[] = {
-	{ {  0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } },
-	{ {  0.5f,  0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f } },
-	{ {  0.5f,  0.5f,  0.5f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f } },
-	{ {  0.5f,  0.5f,  0.5f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f } },
-	{ {  0.5f, -0.5f,  0.5f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },
-	{ {  0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } }
+	{ {  0.5f, -0.5f, -0.5f }, BlockVertex_Normal2 | BlockVertex_TexCoord0 },
+	{ {  0.5f,  0.5f, -0.5f }, BlockVertex_Normal2 | BlockVertex_TexCoord2 },
+	{ {  0.5f,  0.5f,  0.5f }, BlockVertex_Normal2 | BlockVertex_TexCoord3 },
+	{ {  0.5f,  0.5f,  0.5f }, BlockVertex_Normal2 | BlockVertex_TexCoord3 },
+	{ {  0.5f, -0.5f,  0.5f }, BlockVertex_Normal2 | BlockVertex_TexCoord1 },
+	{ {  0.5f, -0.5f, -0.5f }, BlockVertex_Normal2 | BlockVertex_TexCoord0 }
 };
 const BlockVertex Block::RightVertices[] = {
-	{ { -0.5f,  0.5f,  0.5f }, { -1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f } },
-	{ { -0.5f,  0.5f, -0.5f }, { -1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f } },
-	{ { -0.5f, -0.5f, -0.5f }, { -1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },
-	{ { -0.5f, -0.5f, -0.5f }, { -1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },
-	{ { -0.5f, -0.5f,  0.5f }, { -1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } },
-	{ { -0.5f,  0.5f,  0.5f }, { -1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f } }
+	{ { -0.5f,  0.5f,  0.5f }, BlockVertex_Normal3 | BlockVertex_TexCoord2 },
+	{ { -0.5f,  0.5f, -0.5f }, BlockVertex_Normal3 | BlockVertex_TexCoord3 },
+	{ { -0.5f, -0.5f, -0.5f }, BlockVertex_Normal3 | BlockVertex_TexCoord1 },
+	{ { -0.5f, -0.5f, -0.5f }, BlockVertex_Normal3 | BlockVertex_TexCoord1 },
+	{ { -0.5f, -0.5f,  0.5f }, BlockVertex_Normal3 | BlockVertex_TexCoord0 },
+	{ { -0.5f,  0.5f,  0.5f }, BlockVertex_Normal3 | BlockVertex_TexCoord2 }
 };
 const BlockVertex Block::TopVertices[] = {
-	{ {  0.5f,  0.5f,  0.5f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f } },
-	{ {  0.5f,  0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 1.0f } },
-	{ { -0.5f,  0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 1.0f } },
-	{ { -0.5f,  0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 1.0f } },
-	{ { -0.5f,  0.5f,  0.5f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
-	{ {  0.5f,  0.5f,  0.5f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f } }
+	{ {  0.5f,  0.5f,  0.5f }, BlockVertex_Normal4 | BlockVertex_TexCoord0 },
+	{ {  0.5f,  0.5f, -0.5f }, BlockVertex_Normal4 | BlockVertex_TexCoord2 },
+	{ { -0.5f,  0.5f, -0.5f }, BlockVertex_Normal4 | BlockVertex_TexCoord3 },
+	{ { -0.5f,  0.5f, -0.5f }, BlockVertex_Normal4 | BlockVertex_TexCoord3 },
+	{ { -0.5f,  0.5f,  0.5f }, BlockVertex_Normal4 | BlockVertex_TexCoord1 },
+	{ {  0.5f,  0.5f,  0.5f }, BlockVertex_Normal4 | BlockVertex_TexCoord0 }
 };
 const BlockVertex Block::BottomVertices[] = {
-	{ { -0.5f, -0.5f, -0.5f }, { 0.0f, -1.0f, 0.0f }, { 1.0f, 1.0f } },
-	{ {  0.5f, -0.5f, -0.5f }, { 0.0f, -1.0f, 0.0f }, { 0.0f, 1.0f } },
-	{ {  0.5f, -0.5f,  0.5f }, { 0.0f, -1.0f, 0.0f }, { 0.0f, 0.0f } },
-	{ {  0.5f, -0.5f,  0.5f }, { 0.0f, -1.0f, 0.0f }, { 0.0f, 0.0f } },
-	{ { -0.5f, -0.5f,  0.5f }, { 0.0f, -1.0f, 0.0f }, { 1.0f, 0.0f } },
-	{ { -0.5f, -0.5f, -0.5f }, { 0.0f, -1.0f, 0.0f }, { 1.0f, 1.0f } }
+	{ { -0.5f, -0.5f, -0.5f }, BlockVertex_Normal5 | BlockVertex_TexCoord3 },
+	{ {  0.5f, -0.5f, -0.5f }, BlockVertex_Normal5 | BlockVertex_TexCoord2 },
+	{ {  0.5f, -0.5f,  0.5f }, BlockVertex_Normal5 | BlockVertex_TexCoord0 },
+	{ {  0.5f, -0.5f,  0.5f }, BlockVertex_Normal5 | BlockVertex_TexCoord0 },
+	{ { -0.5f, -0.5f,  0.5f }, BlockVertex_Normal5 | BlockVertex_TexCoord1 },
+	{ { -0.5f, -0.5f, -0.5f }, BlockVertex_Normal5 | BlockVertex_TexCoord3 }
 };
 const BlockVertex Block::Vertices[] = {
 	// Front
-	{ { -0.5f, -0.5f,  0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f } },
-	{ {  0.5f, -0.5f,  0.5f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f } },
-	{ {  0.5f,  0.5f,  0.5f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 1.0f } },
-	{ {  0.5f,  0.5f,  0.5f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 1.0f } },
-	{ { -0.5f,  0.5f,  0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } },
-	{ { -0.5f, -0.5f,  0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f } },
+	{ { -0.5f, -0.5f,  0.5f }, BlockVertex_Normal0 | BlockVertex_TexCoord1 },
+	{ {  0.5f, -0.5f,  0.5f }, BlockVertex_Normal0 | BlockVertex_TexCoord0 },
+	{ {  0.5f,  0.5f,  0.5f }, BlockVertex_Normal0 | BlockVertex_TexCoord2 },
+	{ {  0.5f,  0.5f,  0.5f }, BlockVertex_Normal0 | BlockVertex_TexCoord2 },
+	{ { -0.5f,  0.5f,  0.5f }, BlockVertex_Normal0 | BlockVertex_TexCoord3 },
+	{ { -0.5f, -0.5f,  0.5f }, BlockVertex_Normal0 | BlockVertex_TexCoord1 },
 
 	// Back
-	{ {  0.5f,  0.5f, -0.5f }, { 0.0f, 0.0f, -1.0f }, { 1.0f, 1.0f } },
-	{ {  0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f, -1.0f }, { 1.0f, 0.0f } },
-	{ { -0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f, -1.0f }, { 0.0f, 0.0f } },
-	{ { -0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f, -1.0f }, { 0.0f, 0.0f } },
-	{ { -0.5f,  0.5f, -0.5f }, { 0.0f, 0.0f, -1.0f }, { 0.0f, 1.0f } },
-	{ {  0.5f,  0.5f, -0.5f }, { 0.0f, 0.0f, -1.0f }, { 1.0f, 1.0f } },
+	{ {  0.5f,  0.5f, -0.5f }, BlockVertex_Normal1 | BlockVertex_TexCoord3 },
+	{ {  0.5f, -0.5f, -0.5f }, BlockVertex_Normal1 | BlockVertex_TexCoord1 },
+	{ { -0.5f, -0.5f, -0.5f }, BlockVertex_Normal1 | BlockVertex_TexCoord0 },
+	{ { -0.5f, -0.5f, -0.5f }, BlockVertex_Normal1 | BlockVertex_TexCoord0 },
+	{ { -0.5f,  0.5f, -0.5f }, BlockVertex_Normal1 | BlockVertex_TexCoord2 },
+	{ {  0.5f,  0.5f, -0.5f }, BlockVertex_Normal1 | BlockVertex_TexCoord3 },
 
 	// Left
-	{ {  0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } },
-	{ {  0.5f,  0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f } },
-	{ {  0.5f,  0.5f,  0.5f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f } },
-	{ {  0.5f,  0.5f,  0.5f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f } },
-	{ {  0.5f, -0.5f,  0.5f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },
-	{ {  0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } },
+	{ {  0.5f, -0.5f, -0.5f }, BlockVertex_Normal2 | BlockVertex_TexCoord0 },
+	{ {  0.5f,  0.5f, -0.5f }, BlockVertex_Normal2 | BlockVertex_TexCoord2 },
+	{ {  0.5f,  0.5f,  0.5f }, BlockVertex_Normal2 | BlockVertex_TexCoord3 },
+	{ {  0.5f,  0.5f,  0.5f }, BlockVertex_Normal2 | BlockVertex_TexCoord3 },
+	{ {  0.5f, -0.5f,  0.5f }, BlockVertex_Normal2 | BlockVertex_TexCoord1 },
+	{ {  0.5f, -0.5f, -0.5f }, BlockVertex_Normal2 | BlockVertex_TexCoord0 },
 
 	// Right
-	{ { -0.5f,  0.5f,  0.5f }, { -1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f } },
-	{ { -0.5f,  0.5f, -0.5f }, { -1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f } },
-	{ { -0.5f, -0.5f, -0.5f }, { -1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },
-	{ { -0.5f, -0.5f, -0.5f }, { -1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },
-	{ { -0.5f, -0.5f,  0.5f }, { -1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } },
-	{ { -0.5f,  0.5f,  0.5f }, { -1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f } },
+	{ { -0.5f,  0.5f,  0.5f }, BlockVertex_Normal3 | BlockVertex_TexCoord2 },
+	{ { -0.5f,  0.5f, -0.5f }, BlockVertex_Normal3 | BlockVertex_TexCoord3 },
+	{ { -0.5f, -0.5f, -0.5f }, BlockVertex_Normal3 | BlockVertex_TexCoord1 },
+	{ { -0.5f, -0.5f, -0.5f }, BlockVertex_Normal3 | BlockVertex_TexCoord1 },
+	{ { -0.5f, -0.5f,  0.5f }, BlockVertex_Normal3 | BlockVertex_TexCoord0 },
+	{ { -0.5f,  0.5f,  0.5f }, BlockVertex_Normal3 | BlockVertex_TexCoord2 },
 
 	// Top
-	{ {  0.5f,  0.5f,  0.5f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f } },
-	{ {  0.5f,  0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 1.0f } },
-	{ { -0.5f,  0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 1.0f } },
-	{ { -0.5f,  0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 1.0f } },
-	{ { -0.5f,  0.5f,  0.5f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
-	{ {  0.5f,  0.5f,  0.5f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f } },
+	{ {  0.5f,  0.5f,  0.5f }, BlockVertex_Normal4 | BlockVertex_TexCoord0 },
+	{ {  0.5f,  0.5f, -0.5f }, BlockVertex_Normal4 | BlockVertex_TexCoord2 },
+	{ { -0.5f,  0.5f, -0.5f }, BlockVertex_Normal4 | BlockVertex_TexCoord3 },
+	{ { -0.5f,  0.5f, -0.5f }, BlockVertex_Normal4 | BlockVertex_TexCoord3 },
+	{ { -0.5f,  0.5f,  0.5f }, BlockVertex_Normal4 | BlockVertex_TexCoord1 },
+	{ {  0.5f,  0.5f,  0.5f }, BlockVertex_Normal4 | BlockVertex_TexCoord0 },
 
 	// Bottom
-	{ { -0.5f, -0.5f, -0.5f }, { 0.0f, -1.0f, 0.0f }, { 1.0f, 1.0f } },
-	{ {  0.5f, -0.5f, -0.5f }, { 0.0f, -1.0f, 0.0f }, { 0.0f, 1.0f } },
-	{ {  0.5f, -0.5f,  0.5f }, { 0.0f, -1.0f, 0.0f }, { 0.0f, 0.0f } },
-	{ {  0.5f, -0.5f,  0.5f }, { 0.0f, -1.0f, 0.0f }, { 0.0f, 0.0f } },
-	{ { -0.5f, -0.5f,  0.5f }, { 0.0f, -1.0f, 0.0f }, { 1.0f, 0.0f } },
-	{ { -0.5f, -0.5f, -0.5f }, { 0.0f, -1.0f, 0.0f }, { 1.0f, 1.0f } }
+	{ { -0.5f, -0.5f, -0.5f }, BlockVertex_Normal5 | BlockVertex_TexCoord3 },
+	{ {  0.5f, -0.5f, -0.5f }, BlockVertex_Normal5 | BlockVertex_TexCoord2 },
+	{ {  0.5f, -0.5f,  0.5f }, BlockVertex_Normal5 | BlockVertex_TexCoord0 },
+	{ {  0.5f, -0.5f,  0.5f }, BlockVertex_Normal5 | BlockVertex_TexCoord0 },
+	{ { -0.5f, -0.5f,  0.5f }, BlockVertex_Normal5 | BlockVertex_TexCoord1 },
+	{ { -0.5f, -0.5f, -0.5f }, BlockVertex_Normal5 | BlockVertex_TexCoord3 }
 };
 const uint32_t Block::FaceIndices[] = {
 	0,  1,  2,
@@ -179,9 +195,7 @@ const uint32_t Block::Indices[] = {
 
 const VertexLayout Block::Layout = { {
 	{ GL_FLOAT, 3 }, // a_Pos
-	{ GL_FLOAT, 3 }, // a_Normal
-	{ GL_FLOAT, 2 }, // a_TexCoord
-	{ GL_FLOAT, 1 }, // a_AmbientOcclution
+	{ GL_UNSIGNED_INT, 1 }, // a_Data
 	{ GL_UNSIGNED_INT, 1 }, // a_TextureID
 } };
 
@@ -237,6 +251,32 @@ uint8_t Block::CalculateOrientation(const glm::vec3& direction, uint8_t id) {
 		if (orientation.x < 0) return 0b10000000;
 		if (orientation.z < 0) return 0b11000000;
 	}
+
+	return 0;
+}
+
+uint32_t Block::OrientVector(uint32_t direction, int axis_count, uint8_t orientation) {
+	// TODO: dont over complicate this
+	if (orientation == 1) return direction;
+
+	glm::vec3 vector_dir = glm::vec3(0.0f);
+	switch (direction) {
+	case BlockVertex_Normal0: vector_dir = {  0.0f,  0.0f,  1.0f }; break;
+	case BlockVertex_Normal1: vector_dir = {  0.0f,  0.0f, -1.0f }; break;
+	case BlockVertex_Normal2: vector_dir = {  1.0f,  0.0f,  0.0f }; break;
+	case BlockVertex_Normal3: vector_dir = { -1.0f,  0.0f,  0.0f }; break;
+	case BlockVertex_Normal4: vector_dir = {  0.0f,  1.0f,  0.0f }; break;
+	case BlockVertex_Normal5: vector_dir = {  0.0f, -1.0f,  0.0f }; break;
+	}
+
+	vector_dir = OrientVector(vector_dir, axis_count, orientation);
+
+	if (vector_dir == glm::vec3( 0.0f,  0.0f,  1.0f)) return BlockVertex_Normal0;
+	if (vector_dir == glm::vec3( 0.0f,  0.0f, -1.0f)) return BlockVertex_Normal1;
+	if (vector_dir == glm::vec3( 1.0f,  0.0f,  0.0f)) return BlockVertex_Normal2;
+	if (vector_dir == glm::vec3(-1.0f,  0.0f,  0.0f)) return BlockVertex_Normal3;
+	if (vector_dir == glm::vec3( 0.0f,  1.0f,  0.0f)) return BlockVertex_Normal4;
+	if (vector_dir == glm::vec3( 0.0f, -1.0f,  0.0f)) return BlockVertex_Normal5;
 
 	return 0;
 }

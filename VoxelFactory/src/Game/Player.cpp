@@ -61,6 +61,7 @@ Player::Player(const glm::vec3& position, const Ref<Camera>& camera, const Ref<W
 	m_ShowSelector = false;
 
 	m_Flight = false;
+	m_NoClip = false;
 	m_OpenInventory = false;
 	m_EnableCollision = true;
 	m_MouseSensitivity = 0.1f;
@@ -203,6 +204,20 @@ bool Player::OnKey(int key, int action, int mods) {
 		DropItem();
 		return true;
 	}
+	else if (key == GLFW_KEY_N && mods & GLFW_MOD_SHIFT && action == GLFW_PRESS) {
+		if (m_NoClip) {
+			m_NoClip = false;
+			m_Flight = false;
+			m_EnableCollision = true;
+			m_WalkSpeed /= 2.5f;
+		}
+		else {
+			m_NoClip = true;
+			m_Flight = true;
+			m_EnableCollision = false;
+			m_WalkSpeed *= 2.5f;
+		}
+	}
 
 	return false;
 }
@@ -214,9 +229,14 @@ void Player::OnLeftClick() {
 		return;
 	}
 
+	m_Hand.Hit();
+
+	// Check if the block is bedrock
+	Block& block = m_World->GetVoxel(m_SelectorPosition);
+	if (block.id == 24) return;
+
 	// Delete voxel
 	m_World->BreakVoxel(m_SelectorPosition);
-	m_Hand.Hit();
 }
 void Player::OnRightClick() {
 	if (Game::GetState() == GameState::Menu && m_OpenInventory) m_InventoryHandler->OnRightClick();

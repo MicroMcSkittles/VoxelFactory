@@ -165,7 +165,7 @@ glm::vec3 Chunk::GetBlockPosition(const glm::vec3& position) {
 	return { floor(position.x), floor(position.y), floor(position.z) };
 }
 
-World::World(uint32_t seed) : m_Seed(seed), m_LoadedCenter({ 1000,0,1000 }), m_LoadedRadius(14), m_EntityRenderDist(3) {
+World::World(uint32_t seed) : m_Seed(seed), m_LoadedCenter({ 0,0,0 }), m_LoadedRadius(13), m_EntityRenderDist(3) {
 	m_LoadedWidth = m_LoadedRadius * 2 + 1;
 	m_LoadedArea = m_LoadedWidth * m_LoadedWidth;
 
@@ -187,11 +187,12 @@ World::World(uint32_t seed) : m_Seed(seed), m_LoadedCenter({ 1000,0,1000 }), m_L
 	m_ChunkLoaderThread = std::thread(&World::BuildChunks, this);
 }
 World::~World() {
+	s_ThreadsFinished = true;
 	if (m_ChunkLoaderThread.joinable()) {
 		{
 			std::lock_guard<std::mutex> chunk_loader_lock(s_ChunkLoaderMutex);
+			s_ChunksToLoad.clear();
 			s_ChunksToRebuild.clear();
-			s_ChunkLoaderFinished = true;
 		}
 		m_ChunkLoaderThread.join();
 	}
@@ -640,6 +641,7 @@ void World::Update(float delta_time, const Ref<Player>& player) {
 		// Delete item entity if needed
 		if (destory_item) {
 			m_Entities.erase(m_Entities.begin() + (i--));
+			i = std::max(i, 0);
 			continue;
 		}
 
@@ -678,8 +680,12 @@ void World::Update(float delta_time, const Ref<Player>& player) {
 				// Delete other stack
 				if (item.item.count == 0) {
 					m_Entities.erase(m_Entities.begin() + i);
-					if (j > i) j--;
+					if (j > i) {
+						j--;
+						j = std::max(j, 0);
+					}
 					i--;
+					i = std::max(i, 0);
 				}
 			}
 		}
@@ -727,32 +733,47 @@ void World::MoveLoadedCenter(const glm::vec2& delta) {
 		if (delta.y != 0) chunks_to_rebuild.push_back(glm::vec2(i, row) + world_offset);
 	}
 
-	// Create new chunks
+	// Delete old vertex arrays
 	for (auto& chunk : new_chunks) {
-		CreateChunk(chunk - world_offset);
+		int index = (chunk.x - world_offset.x) + m_LoadedWidth * (chunk.y - world_offset.y);
+		m_ChunkMeshes[index]->GetVertexArray() = nullptr;
 	}
 
 	// Start chunk loader thread
 	std::lock_guard<std::mutex> chunk_loader_lock(s_ChunkLoaderMutex);
-	s_ChunksToRebuild.insert(s_ChunksToRebuild.end(), new_chunks.begin(), new_chunks.end());
+	s_ChunksToLoad.insert(s_ChunksToLoad.end(), new_chunks.begin(), new_chunks.end());
+
+	//s_ChunksToRebuild.insert(s_ChunksToRebuild.end(), new_chunks.begin(), new_chunks.end());
 	s_ChunksToRebuild.insert(s_ChunksToRebuild.end(), chunks_to_rebuild.begin(), chunks_to_rebuild.end());
 }
 void World::BuildChunks() {
 	using namespace std::literals::chrono_literals;
 
-	while (!s_ChunkLoaderFinished) {
+	bool ran_last = false;
+	while (!s_ThreadsFinished) {
 		
-		std::this_thread::sleep_for(5ms);
+		if (!ran_last) std::this_thread::sleep_for(25ms);
+		else std::this_thread::sleep_for(1ms);
+		ran_last = false;
 
 		std::lock_guard<std::mutex> chunk_loader_lock(s_ChunkLoaderMutex);
+		if (!s_ChunksToLoad.empty()) {
+			LoadChunk();
+			ran_last = true;
+			continue;
+		}
+		
 		if (s_ChunksToRebuild.empty()) continue;
+		ran_last = true;
+
+		glm::vec2 chunk_world_position = s_ChunksToRebuild[0];
+		s_ChunksToRebuild.erase(s_ChunksToRebuild.begin());
 
 		glm::vec2 world_offset = {
 			m_LoadedCenter.x - m_LoadedRadius,
 			m_LoadedCenter.z - m_LoadedRadius
 		};
-		glm::vec2 chunk_position = s_ChunksToRebuild[0] - world_offset;
-		s_ChunksToRebuild.erase(s_ChunksToRebuild.begin());
+		glm::vec2 chunk_position = chunk_world_position - world_offset;
 
 		if (chunk_position.x < 0 || chunk_position.x >= m_LoadedWidth ||
 			chunk_position.y < 0 || chunk_position.y >= m_LoadedWidth) continue;
@@ -763,8 +784,26 @@ void World::BuildChunks() {
 		m_ChunkMeshes[chunk_index]->GetIndices() = chunk_mesh->GetIndices();
 		m_ChunkMeshes[chunk_index]->GetLayout() = chunk_mesh->GetLayout();
 		
-		s_ChunksRebuilt.push_back(chunk_position);
+		s_ChunksRebuilt.push_back(chunk_world_position);
 	}
+}
+void World::LoadChunk() {
+	glm::vec2 chunk_world_position = s_ChunksToLoad[0];
+	s_ChunksToLoad.erase(s_ChunksToLoad.begin());
+
+	glm::vec2 world_offset = {
+			m_LoadedCenter.x - m_LoadedRadius,
+			m_LoadedCenter.z - m_LoadedRadius
+	};
+	glm::vec2 chunk_position = chunk_world_position - world_offset;
+
+	if (chunk_position.x < 0 || chunk_position.x >= m_LoadedWidth ||
+		chunk_position.y < 0 || chunk_position.y >= m_LoadedWidth) return;
+
+	int chunk_index = (int)chunk_position.x + m_LoadedWidth * (int)chunk_position.y;
+	m_Chunks[chunk_index] = Chunk({ chunk_world_position.x, 0, chunk_world_position.y }, m_Seed);
+
+	s_ChunksToRebuild.push_back(chunk_world_position);
 }
 void World::CreateChunk(const glm::vec2& position) {
 	int index = position.x + m_LoadedWidth * position.y;
@@ -775,9 +814,14 @@ void World::CheckChunkLoaderThread() {
 	if (!m_ChunkLoaderThread.joinable()) return;
 	std::lock_guard<std::mutex> chunk_loader_lock(s_ChunkLoaderMutex);
 
+	glm::vec2 world_offset = {
+		m_LoadedCenter.x - m_LoadedRadius,
+		m_LoadedCenter.z - m_LoadedRadius
+	};
+
 	// Create vertex arrays for each chunk that has been rebuilt
 	while (!s_ChunksRebuilt.empty()) {
-		glm::vec2 chunk_position = s_ChunksRebuilt[0];
+		glm::vec2 chunk_position = s_ChunksRebuilt[0] - world_offset;
 		s_ChunksRebuilt.erase(s_ChunksRebuilt.begin());
 		int chunk_index = (int)chunk_position.x + m_LoadedWidth * (int)chunk_position.y;
 		m_ChunkMeshes[chunk_index]->CreateVertexArray();
@@ -802,13 +846,14 @@ Ref<Mesh<BlockVertex>> ChunkMesher::CreateMesh()
 				if (m_Chunk->IsVoid(position)) continue;
 
 				uint8_t block_id = m_Chunk->At({ x,y,z }).id;
+				uint8_t actual_id = (block_id & 0b00111111);
 
-				if (Block::BlockProperties[block_id] & BlockProperty_CrossMesh) {
+				if (Block::BlockProperties[actual_id] & BlockProperty_CrossMesh) {
 					MeshFlower(position, block_id);
 					continue;
 				}
 
-				TextureIDs& textures = Block::BlockTextureIDs[(block_id & 0b00111111) - 1];
+				TextureIDs& textures = Block::BlockTextureIDs[actual_id - 1];
 				MeshFace(position, { 0,  0,  1 }, textures.front, block_id, Block::FrontVertices);
 				MeshFace(position, { 0,  0, -1 }, textures.back, block_id, Block::BackVertices);
 				MeshFace(position, { 1,  0,  0 }, textures.left, block_id, Block::LeftVertices);
@@ -879,7 +924,11 @@ void ChunkMesher::MeshFace(const glm::vec3& position, const glm::vec3& face_dir,
 	for (int i = 0; i < Block::FaceVertexCount; i++) {
 		BlockVertex vertex = data[i];
 		vertex.position = Block::OrientVector(vertex.position, axis_count, orientation);
-		vertex.normal = Block::OrientVector(vertex.normal, axis_count, orientation);
+
+		uint32_t data = 0;
+		data |= vertex.data & 24; // Copy tex coords
+		data |= Block::OrientVector(vertex.data & 7, axis_count, orientation); // orient normal
+
 		// Calculate ambient occlusion
 		glm::vec3 step = vertex.position * 2.0f;
 
@@ -901,11 +950,14 @@ void ChunkMesher::MeshFace(const glm::vec3& position, const glm::vec3& face_dir,
 		uint32_t right_voxel  = !IsVoid(position + right_voxel_offset);
 		uint32_t corner_voxel = !IsVoid(position + step);
 
-		if (left_voxel && right_voxel) vertex.ambient_occlusion = 0;
-		else vertex.ambient_occlusion = (3 - (left_voxel + right_voxel + corner_voxel)) / 2.0f;
+		uint32_t ambient_occlusion = 0;
+		if (left_voxel && right_voxel) ambient_occlusion = 0;
+		else ambient_occlusion = (3 - (left_voxel + right_voxel + corner_voxel));
+		data |= ambient_occlusion << 5;
 
 		vertex.position += position;
 		vertex.id = id;
+		vertex.data = data;
 		m_Vertices.push_back(vertex);
 	}
 	for (int i = 0; i < Block::FaceIndexCount; i++) {
@@ -919,7 +971,7 @@ void ChunkMesher::MeshFlower(const glm::vec3& position, uint8_t block_id) {
 		BlockVertex vertex = Block::FlowerVertices[i];
 		vertex.id = texture_ids.front;
 		vertex.position += position;
-		vertex.ambient_occlusion = 1;
+		vertex.data |= 1 << 5; // ambient occlusion
 		m_Vertices.push_back(vertex);
 	}
 	for (int i = 0; i < 24; i++) {
@@ -936,21 +988,32 @@ void WorldGenerator::GenerateChunk(Chunk* chunk, uint32_t seed) {
 	}
 }
 void WorldGenerator::GenerateColumn(const glm::vec2& position, Chunk* chunk, uint32_t seed) {
-	glm::vec2 voxel_position = {
+	glm::vec3 voxel_position = {
 		chunk->m_Position.x + ((float)position.x / (float)Chunk::ChunkLength),
+		0.0f,
 		chunk->m_Position.z + ((float)position.y / (float)Chunk::ChunkLength)
 	};
 
-	float noise = NoiseGenerator::SampleFractalPerlinNoise(voxel_position * 0.0625f, 4, seed);
-	noise = (noise + 1.0f) / 2.0f;
-	int height = std::max(std::min(noise * (Chunk::ChunkHeight / 2.0f), (float)Chunk::ChunkHeight - 1), 0.0f);
+	float surface_noise = NoiseGenerator::SampleFractalPerlinNoise2D(glm::vec2(voxel_position.x, voxel_position.z) * 0.0625f, 4, seed);
+	surface_noise = (surface_noise + 1.0f) / 2.0f;
+	int height = std::max(std::min(surface_noise * (Chunk::ChunkHeight / 2.0f), (float)Chunk::ChunkHeight - 1), 0.0f) + 20;
 
-	for (int y = 0; y < height; y++) {
-		chunk->At({ position.x,y + 20,position.y }).id = 4; // Stone
+	for (int y = 0; y <= height; y++) {
+		voxel_position.y = ((float)y / (float)Chunk::ChunkLength);
+
+		float cave_noise = NoiseGenerator::SampleFractalPerlinNoise3D(voxel_position, 2, seed);
+		cave_noise = (cave_noise + 1.0f) / 2.0f;
+
+		uint8_t block_id = 0;
+		bool is_border = (position.x == 0 || position.y == 0 || position.x == Chunk::ChunkLength - 1 || position.y == Chunk::ChunkLength - 1);
+
+		if      (y == 0)                   block_id = 24; // Bedrock
+		else if (cave_noise > 0.70f)       block_id = 0;  // Air
+		else if (y == height - 1)          block_id = 3;  // Dirt
+		else if (y == height && is_border) block_id = 3;  // Border Dirt
+		else if (y == height)              block_id = 1;  // Grass
+		else                               block_id = 4;  // Stone
+
+		chunk->At({ position.x,y, position.y }).id = block_id;
 	}
-	chunk->At({ position.x,height + 19, position.y }).id = 3; // Dirt
-
-	if (position.x == 0 || position.y == 0 || position.x == Chunk::ChunkLength - 1 || position.y == Chunk::ChunkLength - 1) chunk->At({ position.x,height + 20, position.y }).id = 3; // Border Dirt
-	else chunk->At({ position.x,height + 20, position.y }).id = 1; // Grass
-	//chunk->At({ position.x,height + 20, position.y }).id = 1; // Grass
 }

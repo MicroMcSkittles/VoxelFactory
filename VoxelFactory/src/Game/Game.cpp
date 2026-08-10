@@ -361,7 +361,7 @@ void Game::InitMenus() {
 void Game::NewWorld(uint32_t seed) {
 	m_World = CreateRef<World>(seed);
 	// Spawn player on the ground
-	glm::vec3 player_position = glm::vec3(16000.0f, Chunk::ChunkHeight - 1.0f, 16000.0f);
+	glm::vec3 player_position = glm::vec3(0.0f, Chunk::ChunkHeight - 1.0f, 0.0f);
 	player_position = m_World->CastRay(Ray(player_position, glm::vec3(0.0f, -1.0f, 0.0f))).voxel_position;
 	player_position += glm::vec3(0.0f, 1.001f, 0.0f);
 	m_Player = CreateRef<Player>(player_position, m_Camera, m_World);
