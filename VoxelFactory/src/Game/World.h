@@ -30,6 +30,20 @@ struct ItemEntity {
 	bool Update(float delta_time, const Ref<Player>& player);
 };
 
+struct Partical {
+	glm::vec3 position;
+	glm::vec3 velocity;
+	uint32_t block_id;
+	glm::vec2 texture_offset;
+	float life_span;
+
+	float timer = 0.0f;
+	bool on_ground = false;
+
+	void Render(const Ref<Camera>& camera, float brightness);
+	bool Update(float delta_time, const Ref<Player>& player);
+};
+
 class WorldGenerator;
 class ChunkMesher;
 class Chunk {
@@ -111,7 +125,6 @@ public:
 	void Update(float delta_time, const Ref<Player>& player);
 	void RenderSkyBox(const Ref<Camera>& camera);
 	void RenderWorld(const Ref<Camera>& camera);
-	void RenderEntities(const Ref<Camera>& camera);
 
 	Block& GetVoxel(const glm::vec3& position);
 	void SetVoxel(const glm::vec3& position, uint8_t new_id);
@@ -137,6 +150,12 @@ private:
 	CollisionResultData DynamicAABBIntersection(const AABB& aabb, const glm::vec3& velocity, const AABB& target);
 	CollisionResultData RayAABBIntersection(const Ray& ray, const glm::vec3& aabb_min, const glm::vec3& aabb_max);
 	
+	void UpdateEntities(float delta_time, const Ref<Player>& player);
+	void RenderEntities(const Ref<Camera>& camera);
+
+	void UpdateParticals(float delta_time, const Ref<Player>& player);
+	void RenderParticals(const Ref<Camera>& camera);
+
 	void MoveLoadedCenter(const glm::vec2& delta);
 	void BuildChunks();
 	void LoadChunk();
@@ -158,6 +177,7 @@ private:
 
 	int m_EntityRenderDist;
 	std::vector<ItemEntity> m_Entities;
+	std::vector<Partical> m_Particals;
 
 	// Sky box vars
 	Ref<VertexArray> m_SkyBox;

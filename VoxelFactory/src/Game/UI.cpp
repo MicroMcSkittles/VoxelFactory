@@ -146,20 +146,20 @@ UI::UI(int width, int height)
 	m_FrameBuffer = CreateRef<FrameBuffer>(m_Width, m_Height, GL_RGBA8, GL_RGBA);
 
 	// Create Quad
-	m_Quad = CreateRef<VertexArray>();
-	m_Quad->Bind();
-
-	VertexLayout vertex_layout = { {
-		{ GL_FLOAT, 2 },
-		{ GL_FLOAT, 2 }
-	} };
-	Ref<VertexBuffer> vertex_buffer = CreateRef<VertexBuffer>(c_QuadVertices, 16 * sizeof(float), vertex_layout);
-	m_Quad->GetVertexBuffer() = vertex_buffer;
-
-	Ref<IndexBuffer> index_buffer = CreateRef<IndexBuffer>(c_QuadIndices, 6 * sizeof(uint32_t));
-	m_Quad->GetIndexBuffer() = index_buffer;
-
-	m_Quad->Unbind();
+	//m_Quad = CreateRef<VertexArray>();
+	//m_Quad->Bind();
+	//
+	//VertexLayout vertex_layout = { {
+	//	{ GL_FLOAT, 2 },
+	//	{ GL_FLOAT, 2 }
+	//} };
+	//Ref<VertexBuffer> vertex_buffer = CreateRef<VertexBuffer>(c_QuadVertices, 16 * sizeof(float), vertex_layout);
+	//m_Quad->GetVertexBuffer() = vertex_buffer;
+	//
+	//Ref<IndexBuffer> index_buffer = CreateRef<IndexBuffer>(c_QuadIndices, 6 * sizeof(uint32_t));
+	//m_Quad->GetIndexBuffer() = index_buffer;
+	//
+	//m_Quad->Unbind();
 
 	m_ScreenMin = {
 		-((float)m_Camera->view_box.width / (float)m_Camera->view_box.height) * m_Camera->view_box.scale,
@@ -196,7 +196,7 @@ void UI::StartFrame() {
 	s_Instance->m_FrameBuffer->Bind();
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	s_Instance->m_Quad->Bind();
+	Game::GetMesh(MeshType::Quad)->Bind();
 	s_Instance->m_TransparentQuads.clear();
 	s_Instance->m_InTransparentPass = false;
 }
@@ -219,7 +219,7 @@ void UI::EndFrame() {
 		}
 	}
 
-	s_Instance->m_Quad->Unbind();
+	Game::GetMesh(MeshType::Quad)->Unbind();
 	s_Instance->m_FrameBuffer->Unbind();
 }
 

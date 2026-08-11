@@ -54,7 +54,7 @@ enum BlockProperties {
 struct Block {
 	uint8_t id;
 
-	static void InitMesh();
+	//static void InitMesh();
 
 	static bool HasOrientation(uint8_t id);
 	static int GetAxisCount(uint8_t id);
@@ -65,7 +65,7 @@ struct Block {
 	static std::vector<TextureIDs> BlockTextureIDs;
 	static std::vector<uint8_t> BlockProperties;
 
-	inline static Ref<VertexArray> Mesh = nullptr;
+	//inline static Ref<VertexArray> Mesh = nullptr;
 
 	const inline static uint8_t InvalidID = std::numeric_limits<uint8_t>::max();
 	static Block Invalid;

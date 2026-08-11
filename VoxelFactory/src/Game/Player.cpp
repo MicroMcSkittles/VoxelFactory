@@ -26,10 +26,85 @@ Item& Hotbar::Get(int index) {
 	return inventory->GetItem({ index, 0 });
 }
 
+void Hand::InitMesh() {
+	const float c_Vertices[] = {
+		// Front
+		-0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 1.0f, 0.0f,
+	     0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 0.0f, 0.0f,
+	     0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 0.0f, 1.0f,
+	     0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 0.0f, 1.0f,
+	    -0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 1.0f, 1.0f,
+	    -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 1.0f, 0.0f,
+	    							 
+	    // Back						 
+	     0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 1.0f, 1.0f,
+	     0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 1.0f, 0.0f,
+	    -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 0.0f, 0.0f,
+	    -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 0.0f, 0.0f,
+	    -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 0.0f, 1.0f,
+	     0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 1.0f, 1.0f,
+	    							 
+	    // Left						 
+	     0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f, 0.0f, 0.0f,
+	     0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f, 0.0f, 1.0f,
+	     0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f, 1.0f, 1.0f,
+	     0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f, 1.0f, 1.0f,
+	     0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f, 1.0f, 0.0f,
+	     0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f, 0.0f, 0.0f,
+	    							 
+	    // Right					 
+	    -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f, 0.0f, 1.0f,
+	    -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f, 1.0f, 1.0f,
+	    -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f, 1.0f, 0.0f,
+	    -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f, 1.0f, 0.0f,
+	    -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f, 0.0f, 0.0f,
+	    -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f, 0.0f, 1.0f,
+	    
+	    // Top
+	     0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f, 0.0f, 0.0f,
+	     0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f, 0.0f, 1.0f,
+	    -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f, 1.0f, 1.0f,
+	    -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f, 1.0f, 1.0f,
+	    -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f, 1.0f, 0.0f,
+	     0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f, 0.0f, 0.0f,
+	    
+	    // Bottom
+	    -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f, 1.0f, 1.0f,
+	     0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f, 0.0f, 1.0f,
+	     0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f, 0.0f, 0.0f,
+	     0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f, 0.0f, 0.0f,
+	    -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f, 1.0f, 0.0f,
+	    -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f, 1.0f, 1.0f
+	};
+	const uint32_t c_Indices[] = {
+		0,  1,  2,  3,  4,  5,  // Front
+		6,  7,  8,  9,  10, 11, // Back
+		12, 13, 14, 15, 16, 17, // Left
+		18, 19, 20, 21, 22, 23, // Right
+		24, 25, 26, 27, 28, 29, // Top
+		30, 31, 32, 33, 34, 35  // Bottom
+	};
+	const VertexLayout c_Layout = { {
+		{ GL_FLOAT, 3 }, // a_Position
+		{ GL_FLOAT, 3 }, // a_Normal
+		{ GL_FLOAT, 2 }, // a_TexCoord
+	} };
+
+	empty_hand_mesh = CreateRef<VertexArray>();
+	empty_hand_mesh->Bind();
+
+	Ref<VertexBuffer> vertex_buffer = CreateRef<VertexBuffer>(c_Vertices, sizeof(c_Vertices), c_Layout);
+	empty_hand_mesh->GetVertexBuffer() = vertex_buffer;
+
+	Ref<IndexBuffer> index_buffer = CreateRef<IndexBuffer>(c_Indices, sizeof(c_Indices));
+	empty_hand_mesh->GetIndexBuffer() = index_buffer;
+
+	empty_hand_mesh->Unbind();
+}
+
 Player::Player(const glm::vec3& position, const Ref<Camera>& camera, const Ref<World>& world)
 	: m_Position(position), m_Camera(camera), m_World(world) {
 
-	Block::InitMesh();
 	m_Inventory = CreateRef<Inventory>(9, 3, 6.0f, 16.0f, 2.0f, glm::vec2(8, 30), Game::GetTexture(TextureType::Inventory));
 	for (int i = 0; i < 23; i++) {
 		int x = i % 9;
@@ -42,6 +117,7 @@ Player::Player(const glm::vec3& position, const Ref<Camera>& camera, const Ref<W
 	m_Hand.direction = m_Camera->direction;
 	m_Hand.offset = m_Hand.default_offset;
 	m_Hand.rotation = m_Hand.default_rotation;
+	m_Hand.InitMesh();
 
 	m_CameraOffset = glm::vec3(0.0f, 1.7f, 0.0f);
 	m_Camera->position = m_Position + m_CameraOffset;
@@ -173,7 +249,7 @@ void Player::Update(float delta_time, glm::vec2& last_mouse_pos, const Ref<Windo
 	ground_check.size = ground_check.max - ground_check.min;
 
 	// Check if player is on the ground
-	m_OnGround = !m_World->AABBIntersectedVoxels(ground_check).empty();
+	m_OnGround = !m_World->AABBIntersectedVoxels(ground_check).empty() && m_EnableCollision;
 
 	CameraInput(last_mouse_pos, window);
 
@@ -529,6 +605,7 @@ void Player::UpdateHand(float delta_time) {
 void Player::RenderHand() {
 	if (m_Hotbar.GetSelected().id == 0 || m_Hotbar.GetSelected().id == Item::InvalidID) return;
 
+	//Ref<Shader>& block_preview_shader = Game::GetShader(ShaderType::Hand);
 	Ref<Shader>& block_preview_shader = Game::GetShader(ShaderType::BlockPreview);
 	block_preview_shader->Bind();
 
@@ -555,11 +632,15 @@ void Player::RenderHand() {
 	block_preview_shader->SetUniform("u_Model", hand_model);
 
 	// Draw
-	Block::Mesh->Bind();
+	Ref<VertexArray>& block_mesh = Game::GetMesh(MeshType::Block);
+	block_mesh->Bind();
+	//m_Hand.empty_hand_mesh->Bind();
 	glDisable(GL_CULL_FACE);
-	glDrawElements(GL_TRIANGLES, Block::Mesh->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
+	//glDrawElements(GL_TRIANGLES, m_Hand.empty_hand_mesh->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
+	glDrawElements(GL_TRIANGLES, block_mesh->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
 	glEnable(GL_CULL_FACE);
-	Block::Mesh->Unbind();
+	//m_Hand.empty_hand_mesh->Unbind();
+	block_mesh->Unbind();
 
 	atlas->Unbind();
 	block_preview_shader->Unbind();

@@ -80,6 +80,11 @@ void Shader::SetUniform(const std::string& name, float value) {
 	uint32_t location = glGetUniformLocation(m_Handle, name.c_str());
 	glUniform1f(location, value);
 }
+void Shader::SetUniform(const std::string& name, const glm::vec2& value) {
+	ASSERT_MSG(m_Bound, "A OpenGL error occured: failed to set uniform vec2, shader not bound");
+	uint32_t location = glGetUniformLocation(m_Handle, name.c_str());
+	glUniform2f(location, value.x, value.y);
+}
 void Shader::SetUniform(const std::string& name, const glm::vec3& value) {
 	ASSERT_MSG(m_Bound, "A OpenGL error occured: failed to set uniform vec3, shader not bound");
 	uint32_t location = glGetUniformLocation(m_Handle, name.c_str());

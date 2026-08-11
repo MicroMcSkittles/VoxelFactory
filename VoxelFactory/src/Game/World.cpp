@@ -14,6 +14,8 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <glm/gtx/euler_angles.hpp>
+
 AABB::AABB() : min(0.0f), max(0.0f), position(0.0f), size(0.0f) { }
 AABB::AABB(const glm::vec3& min, const glm::vec3& max, const glm::vec3& position, const glm::vec3& size)
 	: min(min), max(max), position(position), size(size) { }
@@ -64,24 +66,25 @@ void ItemEntity::Render(const Ref<Camera>& camera, float brightness) {
 	if (item.count > 1 && count < 0.33f) count = 2;
 	else if (count >= 0.33f) count = 3;
 
-	Block::Mesh->Bind();
+	Ref<VertexArray>& block_mesh = Game::GetMesh(MeshType::Block);
+	block_mesh->Bind();
 	glDisable(GL_CULL_FACE);
 	
-	glDrawElements(GL_TRIANGLES, Block::Mesh->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
+	glDrawElements(GL_TRIANGLES, block_mesh->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
 	
 	if (count > 1) {
 		model = glm::translate(model, glm::vec3(0.15f));
 		shader->SetUniform("u_Model", model);
-		glDrawElements(GL_TRIANGLES, Block::Mesh->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
+		glDrawElements(GL_TRIANGLES, block_mesh->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
 	}
 	if (count > 2) {
 		model = glm::translate(model, glm::vec3(-0.2f, 0.2f, -0.275f));
 		shader->SetUniform("u_Model", model);
-		glDrawElements(GL_TRIANGLES, Block::Mesh->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
+		glDrawElements(GL_TRIANGLES, block_mesh->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
 	}
 
 	glEnable(GL_CULL_FACE);
-	Block::Mesh->Unbind();
+	block_mesh->Unbind();
 
 	atlas->Unbind();
 	shader->Unbind();
@@ -112,6 +115,56 @@ bool ItemEntity::Update(float delta_time, const Ref<Player>& player) {
 	rotation.y += delta_time * 0.25f;
 	if (rotation.y >= PI2) rotation.y -= PI2;
 
+	timer += delta_time;
+	return false;
+}
+
+void Partical::Render(const Ref<Camera>& camera, float brightness) {
+	Ref<Shader> shader = Game::GetShader(ShaderType::Partical);
+	Ref<Texture> atlas = Game::GetTexture(TextureType::BlockAtlas);
+	shader->Bind();
+	atlas->Bind();
+
+	// Calculate billboard angles
+	glm::vec3 camera_direction = position - camera->position;
+	float theta = glm::atan(camera_direction.x, camera_direction.z);
+	float phi = glm::atan(-camera_direction.y, glm::length(camera_direction));
+
+	// Calculate model matrix
+	glm::mat4 model = glm::mat4(1.0f);
+	model = glm::translate(model, position);
+	model = glm::rotate(model, theta, glm::vec3(0.0f, 1.0f, 0.0f));
+	model = glm::rotate(model, phi, glm::vec3(1.0f, 0.0f, 0.0f));
+	model = glm::scale(model, glm::vec3(0.1f));
+
+	// Set uniforms
+	shader->SetUniform("u_Model", model);
+	shader->SetUniform("u_ViewProjection", camera->view_projection);
+	shader->SetUniform("u_Brightness", brightness);
+	shader->SetUniform("u_Atlas", atlas);
+	shader->SetUniform("u_TextureID", Block::BlockTextureIDs[block_id - 1].front);
+	shader->SetUniform("u_Offset", texture_offset);
+
+	Ref<VertexArray>& quad_mesh = Game::GetMesh(MeshType::Quad);
+	quad_mesh->Bind();
+
+	glDisable(GL_CULL_FACE);
+	glDrawElements(GL_TRIANGLES, quad_mesh->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
+	glEnable(GL_CULL_FACE);
+
+	quad_mesh->Unbind();
+
+	atlas->Unbind();
+	shader->Unbind();
+}
+bool Partical::Update(float delta_time, const Ref<Player>& player) {
+	// Gravity
+	if (!on_ground) velocity.y += -0.388f * delta_time;
+	// Drag
+	velocity -= velocity * 0.901f * delta_time * (on_ground ? 14.0f : 1.0f);
+
+	// Delete partical if old enough
+	if (timer >= life_span) return true;
 	timer += delta_time;
 	return false;
 }
@@ -165,7 +218,7 @@ glm::vec3 Chunk::GetBlockPosition(const glm::vec3& position) {
 	return { floor(position.x), floor(position.y), floor(position.z) };
 }
 
-World::World(uint32_t seed) : m_Seed(seed), m_LoadedCenter({ 0,0,0 }), m_LoadedRadius(13), m_EntityRenderDist(3) {
+World::World(uint32_t seed) : m_Seed(seed), m_LoadedCenter({ 0,0,0 }), m_LoadedRadius(14), m_EntityRenderDist(3) {
 	m_LoadedWidth = m_LoadedRadius * 2 + 1;
 	m_LoadedArea = m_LoadedWidth * m_LoadedWidth;
 
@@ -245,6 +298,27 @@ void World::BreakVoxel(const glm::vec3& position) {
 	Block block = GetVoxel(position);
 	block.id = block.id & 0b00111111;
 	CreateItem({ block.id, 1 }, position + 0.5f, glm::vec3(0.0f), false);
+
+	// Spawn particals
+	uint32_t state = position.x + position.y + position.z;
+	for (int i = 0; i < 16; i++) {
+		glm::vec3 offset = {
+			NoiseGenerator::RandomFloat(state),
+			NoiseGenerator::RandomFloat(state),
+			NoiseGenerator::RandomFloat(state)
+		};
+		Partical partical;
+		partical.position = position + offset;
+		partical.velocity = (offset - 0.5f) * 0.15f;
+		partical.life_span = 0.2f + NoiseGenerator::RandomFloatRange(state, -0.1f, 0.75f);
+		partical.block_id = block.id;
+		partical.texture_offset = {
+			NoiseGenerator::RandomFloatRange(state, 0.0f, 0.75f),
+			NoiseGenerator::RandomFloatRange(state, 0.0f, 0.75f)
+		};
+		m_Particals.push_back(partical);
+	}
+	
 	SetVoxel(position, 0);
 }
 
@@ -264,10 +338,6 @@ void World::RebuildChunk(const glm::vec3& position) {
 	int index = position.x - m_LoadedCenter.x + m_LoadedRadius + (position.z - m_LoadedCenter.z + m_LoadedRadius) * m_LoadedWidth;
 	m_ChunkMeshes[index] = ChunkMesher(chunk, this).CreateMesh();
 	m_ChunkMeshes[index]->CreateVertexArray();
-}
-
-void World::CreateItem(const Item& item, const glm::vec3& position, const glm::vec3& velocity, bool player_dropped) {
-	m_Entities.push_back({ position, glm::vec3(0.0f), glm::vec3(0.3f), velocity, item, player_dropped });
 }
 
 CollisionResultData World::LineAABBIntersection(const glm::vec3& start_position, const glm::vec3& end_position, const AABB& aabb) {
@@ -336,6 +406,10 @@ CollisionResultData World::RayAABBIntersection(const Ray& ray, const glm::vec3& 
 		return { true, min_dist };
 	}
 	return { };
+}
+
+void World::CreateItem(const Item& item, const glm::vec3& position, const glm::vec3& velocity, bool player_dropped) {
+	m_Entities.push_back({ position, glm::vec3(0.0f), glm::vec3(0.3f), velocity, item, player_dropped });
 }
 
 CollisionResultData World::CastRay(const Ray& ray) {
@@ -601,6 +675,9 @@ void World::RenderWorld(const Ref<Camera>& camera) {
 
 	world_shader->Unbind();
 	block_atlas->Unbind();
+
+	RenderEntities(camera);
+	RenderParticals(camera);
 }
 void World::RenderEntities(const Ref<Camera>& camera)
 {
@@ -611,6 +688,12 @@ void World::RenderEntities(const Ref<Camera>& camera)
 		item.Render(camera, m_Brightness); 
 	}
 }
+void World::RenderParticals(const Ref<Camera>& camera) {
+	for (Partical& partical : m_Particals) {
+		partical.Render(camera, m_Brightness);
+	}
+}
+
 void World::ShowImGui() {
 	ImGui::Text("Chunk Count: %d", m_Chunks.size());
 	ImGui::Text("Loaded Radius: %d", m_LoadedRadius);
@@ -633,15 +716,18 @@ void World::Update(float delta_time, const Ref<Player>& player) {
 		MoveLoadedCenter({ chunk_delta.x, chunk_delta.z });
 	}
 
-	// Update entities in nearby chunks
+	UpdateEntities(delta_time, player);
+	UpdateParticals(delta_time, player);
+}
+void World::UpdateEntities(float delta_time, const Ref<Player>& player) {
 	for (int i = 0; i < m_Entities.size(); i++) {
 		ItemEntity& item = m_Entities[i];
 		bool destory_item = item.Update(delta_time, player);
 
 		// Delete item entity if needed
 		if (destory_item) {
-			m_Entities.erase(m_Entities.begin() + (i--));
-			i = std::max(i, 0);
+			m_Entities.erase(m_Entities.begin() + i);
+			i--;
 			continue;
 		}
 
@@ -691,6 +777,35 @@ void World::Update(float delta_time, const Ref<Player>& player) {
 		}
 	}
 }
+void World::UpdateParticals(float delta_time, const Ref<Player>& player) {
+	for (int i = 0; i < m_Particals.size(); i++) {
+		Partical& partical = m_Particals[i];
+		bool destory_item = partical.Update(delta_time, player);
+
+		// Delete partical if needed
+		if (destory_item) {
+			m_Particals.erase(m_Particals.begin() + i);
+			i--;
+			continue;
+		}
+
+		// Check for/resolve collisions
+		glm::vec3 collision_normal = glm::vec3(0.0f);
+		glm::vec3 size = glm::vec3(0.1f);
+		AABB collider = { partical.position, size };
+		ResolveDynamicAABB(collider, partical.velocity, collision_normal);
+		partical.position += partical.velocity;
+
+		// Check if on ground
+		AABB ground_check;
+		ground_check.position = partical.position;
+		ground_check.position.y -= size.y - 0.05f;
+		ground_check.size = { size.x, 0.1f, size.z };
+		ground_check.CalculateMinMax();
+		partical.on_ground = !AABBIntersectedVoxels(ground_check).empty();
+	}
+}
+
 void World::MoveLoadedCenter(const glm::vec2& delta) {
 	// Shift existing chunks to new location
 	int shift_count = 0;
@@ -752,8 +867,13 @@ void World::BuildChunks() {
 	bool ran_last = false;
 	while (!s_ThreadsFinished) {
 		
+		// Very hacky way to make the frame drops in debug not as ass
+#ifdef DEBUG
+		std::this_thread::sleep_for(5ms);
+#else
 		if (!ran_last) std::this_thread::sleep_for(25ms);
 		else std::this_thread::sleep_for(1ms);
+#endif
 		ran_last = false;
 
 		std::lock_guard<std::mutex> chunk_loader_lock(s_ChunkLoaderMutex);
@@ -971,7 +1091,7 @@ void ChunkMesher::MeshFlower(const glm::vec3& position, uint8_t block_id) {
 		BlockVertex vertex = Block::FlowerVertices[i];
 		vertex.id = texture_ids.front;
 		vertex.position += position;
-		vertex.data |= 1 << 5; // ambient occlusion
+		vertex.data |= 2 << 5; // ambient occlusion
 		m_Vertices.push_back(vertex);
 	}
 	for (int i = 0; i < 24; i++) {

@@ -96,7 +96,6 @@ public:
 	static void MultilineText(const std::string& text, const glm::vec3& position, const glm::vec2& size, TextAlignment alignment = TextAlignment_Middle, const glm::vec3& forground = glm::vec3(1.0f), const glm::vec4& background = glm::vec4(0.69f, 0.69f, 0.69f, 0.75f));
 
 	static Ref<Texture>& GetFrame() { return s_Instance->m_FrameBuffer->GetColorBuffer(); }
-	static Ref<VertexArray>& GetQuad() { return s_Instance->m_Quad; }
 
 	static glm::vec2 GetWorldPosition(const glm::vec2& position);
 	static glm::vec2 GetScreenPosition(const glm::vec2& position);
@@ -119,7 +118,6 @@ private:
 
 	Ref<OrthographicCamera> m_Camera;
 	Ref<FrameBuffer> m_FrameBuffer;
-	Ref<VertexArray> m_Quad;
 
 	struct TransparentQuad {
 		glm::vec3 position;
@@ -131,16 +129,4 @@ private:
 	bool m_InTransparentPass;
 
 	inline static UI* s_Instance;
-
-private:
-	const inline static float c_QuadVertices[] = {
-		-1.0f, -1.0f, 0.0f, 0.0f,
-		-1.0f,  1.0f, 0.0f, 1.0f,
-		 1.0f,  1.0f, 1.0f, 1.0f,
-		 1.0f, -1.0f, 1.0f, 0.0f
-	};
-	const inline static uint32_t c_QuadIndices[] = {
-		2, 1, 0,
-		0, 3, 2
-	};
 };

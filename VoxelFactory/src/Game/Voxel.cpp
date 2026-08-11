@@ -199,27 +199,27 @@ const VertexLayout Block::Layout = { {
 	{ GL_UNSIGNED_INT, 1 }, // a_TextureID
 } };
 
-void Block::InitMesh() {
-	std::vector<BlockVertex> vertices(Vertices, Vertices + 36);
-	size_t offset = 0;
-	for (int i = 0; i < FaceVertexCount; i++, offset++) vertices[offset].id = 0; // Front
-	for (int i = 0; i < FaceVertexCount; i++, offset++) vertices[offset].id = 1; // Back
-	for (int i = 0; i < FaceVertexCount; i++, offset++) vertices[offset].id = 2; // Left
-	for (int i = 0; i < FaceVertexCount; i++, offset++) vertices[offset].id = 3; // Right
-	for (int i = 0; i < FaceVertexCount; i++, offset++) vertices[offset].id = 4; // Top
-	for (int i = 0; i < FaceVertexCount; i++, offset++) vertices[offset].id = 5; // Bottom
-
-	Mesh = CreateRef<VertexArray>();
-	Mesh->Bind();
-
-	Ref<VertexBuffer> vertex_buffer = CreateRef<VertexBuffer>(vertices.data(), vertices.size() * sizeof(BlockVertex), Layout);
-	Mesh->GetVertexBuffer() = vertex_buffer;
-
-	Ref<IndexBuffer> index_buffer = CreateRef<IndexBuffer>(Indices, 36 * sizeof(uint32_t));
-	Mesh->GetIndexBuffer() = index_buffer;
-
-	Mesh->Unbind();
-}
+//void Block::InitMesh() {
+//	std::vector<BlockVertex> vertices(Vertices, Vertices + 36);
+//	size_t offset = 0;
+//	for (int i = 0; i < FaceVertexCount; i++, offset++) vertices[offset].id = 0; // Front
+//	for (int i = 0; i < FaceVertexCount; i++, offset++) vertices[offset].id = 1; // Back
+//	for (int i = 0; i < FaceVertexCount; i++, offset++) vertices[offset].id = 2; // Left
+//	for (int i = 0; i < FaceVertexCount; i++, offset++) vertices[offset].id = 3; // Right
+//	for (int i = 0; i < FaceVertexCount; i++, offset++) vertices[offset].id = 4; // Top
+//	for (int i = 0; i < FaceVertexCount; i++, offset++) vertices[offset].id = 5; // Bottom
+//
+//	Mesh = CreateRef<VertexArray>();
+//	Mesh->Bind();
+//
+//	Ref<VertexBuffer> vertex_buffer = CreateRef<VertexBuffer>(vertices.data(), vertices.size() * sizeof(BlockVertex), Layout);
+//	Mesh->GetVertexBuffer() = vertex_buffer;
+//
+//	Ref<IndexBuffer> index_buffer = CreateRef<IndexBuffer>(Indices, 36 * sizeof(uint32_t));
+//	Mesh->GetIndexBuffer() = index_buffer;
+//
+//	Mesh->Unbind();
+//}
 
 bool Block::HasOrientation(uint8_t id) {
 	uint8_t actual_id = id & 0b00111111;

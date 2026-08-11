@@ -183,6 +183,7 @@ void Game::StartUp() {
 
 	LoadShaders();
 	LoadTextures();
+	LoadMeshes();
 	InitMenus();
 	NewWorld(643706557);
 }
@@ -206,7 +207,6 @@ void Game::Render() {
 		m_World->RenderSkyBox(m_Camera);
 		m_Player->Render();
 		m_World->RenderWorld(m_Camera);
-		m_World->RenderEntities(m_Camera);
 	}
 
 	m_MainFrameBuffer->Unbind();
@@ -229,7 +229,7 @@ void Game::Render() {
 	Ref<Shader>& post_proc_shader = m_Shaders[(size_t)ShaderType::PostProc];
 	post_proc_shader->Bind();
 
-	Ref<VertexArray>& quad = m_UI->GetQuad();
+	Ref<VertexArray>& quad = GetMesh(MeshType::Quad);//m_UI->GetQuad();
 	quad->Bind();
 
 	// TODO: a layer system?
@@ -313,6 +313,7 @@ void Game::LoadShaders() {
 	m_Shaders[(size_t)ShaderType::PostProc] = CreateRef<Shader>("assets/shaders/PostProc.vert", "assets/shaders/PostProc.frag");
 	m_Shaders[(size_t)ShaderType::World] = CreateRef<Shader>("assets/shaders/Main.vert", "assets/shaders/Main.frag");
 	m_Shaders[(size_t)ShaderType::BlockPreview] = CreateRef<Shader>("assets/shaders/BlockPreview.vert", "assets/shaders/BlockPreview.frag");
+	m_Shaders[(size_t)ShaderType::Partical] = CreateRef<Shader>("assets/shaders/Partical.vert", "assets/shaders/Partical.frag");
 	m_Shaders[(size_t)ShaderType::Selector] = CreateRef<Shader>("assets/shaders/Selector.vert", "assets/shaders/Selector.frag");
 	m_Shaders[(size_t)ShaderType::SkyBox] = CreateRef<Shader>("assets/shaders/SkyBox.vert", "assets/shaders/SkyBox.frag");
 	m_Shaders[(size_t)ShaderType::UIColored] = CreateRef<Shader>("assets/shaders/UI.vert", "assets/shaders/UIColored.frag");
@@ -329,6 +330,58 @@ void Game::LoadTextures() {
 	m_Textures[(size_t)TextureType::Hotbar] = CreateRef<Texture>("assets/textures/hotbar.png");
 	m_Textures[(size_t)TextureType::HotbarSelector] = CreateRef<Texture>("assets/textures/hotbar_selector.png");
 	m_Textures[(size_t)TextureType::Inventory] = CreateRef<Texture>("assets/textures/inventory.png");
+}
+void Game::LoadMeshes() {
+
+	// Block Mesh
+	std::vector<BlockVertex> block_vertices(Block::Vertices, Block::Vertices + 36);
+	size_t offset = 0;
+	for (int i = 0; i < Block::FaceVertexCount; i++, offset++) block_vertices[offset].id = 0; // Front
+	for (int i = 0; i < Block::FaceVertexCount; i++, offset++) block_vertices[offset].id = 1; // Back
+	for (int i = 0; i < Block::FaceVertexCount; i++, offset++) block_vertices[offset].id = 2; // Left
+	for (int i = 0; i < Block::FaceVertexCount; i++, offset++) block_vertices[offset].id = 3; // Right
+	for (int i = 0; i < Block::FaceVertexCount; i++, offset++) block_vertices[offset].id = 4; // Top
+	for (int i = 0; i < Block::FaceVertexCount; i++, offset++) block_vertices[offset].id = 5; // Bottom
+
+	Ref<VertexArray>& block_mesh = m_Meshes[(size_t)MeshType::Block];
+	block_mesh = CreateRef<VertexArray>();
+	block_mesh->Bind();
+
+	Ref<VertexBuffer> block_vertex_buffer = CreateRef<VertexBuffer>(block_vertices.data(), block_vertices.size() * sizeof(BlockVertex), Block::Layout);
+	block_mesh->GetVertexBuffer() = block_vertex_buffer;
+
+	Ref<IndexBuffer> block_index_buffer = CreateRef<IndexBuffer>(Block::Indices, 36 * sizeof(uint32_t));
+	block_mesh->GetIndexBuffer() = block_index_buffer;
+
+	block_mesh->Unbind();
+
+	// Quad Mesh
+	const float c_QuadVertices[] = {
+		-1.0f, -1.0f, 0.0f, 0.0f,
+		-1.0f,  1.0f, 0.0f, 1.0f,
+		 1.0f,  1.0f, 1.0f, 1.0f,
+		 1.0f, -1.0f, 1.0f, 0.0f
+	};
+	const uint32_t c_QuadIndices[] = {
+		2, 1, 0,
+		0, 3, 2
+	};
+	const VertexLayout c_QuadLayout = { {
+		{ GL_FLOAT, 2 },
+		{ GL_FLOAT, 2 }
+	} };
+
+	Ref<VertexArray>& quad_mesh = m_Meshes[(size_t)MeshType::Quad];
+	quad_mesh = CreateRef<VertexArray>();
+	quad_mesh->Bind();
+
+	Ref<VertexBuffer> quad_vertex_buffer = CreateRef<VertexBuffer>(c_QuadVertices, sizeof(c_QuadVertices), c_QuadLayout);
+	quad_mesh->GetVertexBuffer() = quad_vertex_buffer;
+
+	Ref<IndexBuffer> quad_index_buffer = CreateRef<IndexBuffer>(c_QuadIndices, sizeof(c_QuadIndices));
+	quad_mesh->GetIndexBuffer() = quad_index_buffer;
+
+	quad_mesh->Unbind();
 }
 void Game::InitMenus() {
 	// Pause menu

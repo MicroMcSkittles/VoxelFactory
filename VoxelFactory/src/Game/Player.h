@@ -16,6 +16,10 @@ struct Hand {
 	glm::vec3 rotation  = glm::vec3(0.0f);
 	glm::vec3 direction = glm::vec3(0.0f);
 
+	Ref<VertexArray> empty_hand_mesh;
+
+	void InitMesh();
+
 	// Animations
 	void Swing();
 	void Hit();

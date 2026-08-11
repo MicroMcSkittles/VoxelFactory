@@ -34,6 +34,7 @@ enum class ShaderType {
 	PostProc,
 	World,
 	BlockPreview,
+	Partical,
 	Selector,
 	SkyBox,
 	UIColored,
@@ -49,6 +50,11 @@ enum class TextureType {
 	Hotbar,
 	HotbarSelector,
 	Inventory,
+	Count
+};
+enum class MeshType {
+	Block,
+	Quad,
 	Count
 };
 enum class MenuType {
@@ -70,6 +76,7 @@ public:
 	static Ref<Font>& GetFont() { return s_Instance->m_Font; }
 	static Ref<Shader>& GetShader(ShaderType type) { return s_Instance->m_Shaders[(size_t)type]; }
 	static Ref<Texture>& GetTexture(TextureType type) { return s_Instance->m_Textures[(size_t)type]; }
+	static Ref<VertexArray>& GetMesh(MeshType type) { return s_Instance->m_Meshes[(size_t)type]; }
 	static Ref<Menu>& GetMenu(MenuType type) { return s_Instance->m_Menus[(size_t)type]; }
 	static void SetActiveMenu(MenuType type) { s_Instance->m_ActiveMenu = type; }
 	static bool IsMouseCaptured() { return s_Instance->m_MouseCaptured; }
@@ -105,6 +112,7 @@ private:
 	void ShowGameImGui();
 	void LoadShaders();
 	void LoadTextures();
+	void LoadMeshes();
 	void InitMenus();
 
 	void OnLeftClick();
@@ -130,6 +138,7 @@ private:
 	Ref<Font> m_Font;
 	std::array<Ref<Shader>, (size_t)ShaderType::Count> m_Shaders;
 	std::array<Ref<Texture>, (size_t)TextureType::Count> m_Textures;
+	std::array<Ref<VertexArray>, (size_t)MeshType::Count> m_Meshes;
 	Ref<Camera> m_Camera;
 	Ref<FrameBuffer> m_MainFrameBuffer;
 
