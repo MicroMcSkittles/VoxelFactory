@@ -632,7 +632,9 @@ void Player::RenderHand() {
 	block_preview_shader->SetUniform("u_Model", hand_model);
 
 	// Draw
-	Ref<VertexArray>& block_mesh = Game::GetMesh(MeshType::Block);
+	MeshType type = MeshType::Block;
+	if (Block::BlockProperties[((uint8_t)m_Hotbar.GetSelected().id & 0b00111111)] & BlockProperty_CrossMesh) type = MeshType::CrossMesh;
+	Ref<VertexArray>& block_mesh = Game::GetMesh(type);
 	block_mesh->Bind();
 	//m_Hand.empty_hand_mesh->Bind();
 	glDisable(GL_CULL_FACE);

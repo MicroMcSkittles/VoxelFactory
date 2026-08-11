@@ -114,6 +114,7 @@ class WorldGenerator {
 public:
 	static void GenerateChunk(Chunk* chunk, uint32_t seed);
 	static void GenerateColumn(const glm::vec2& position, Chunk* chunk, uint32_t seed);
+	static void GenerateOreVains(Chunk* chunk, int min, int max, int count, uint8_t ore_block_id, uint32_t seed);
 };
 class World {
 public:
@@ -230,7 +231,7 @@ public:
 private:
 	bool IsVoid(const glm::vec3& position);
 	void MeshFace(const glm::vec3& position, const glm::vec3& face_dir, uint32_t id, uint8_t block_id, const BlockVertex* data);
-	void MeshFlower(const glm::vec3& position, uint8_t block_id);
+	void MeshCrossMesh(const glm::vec3& position, uint8_t block_id);
 
 private:
 	Chunk* m_Chunk;

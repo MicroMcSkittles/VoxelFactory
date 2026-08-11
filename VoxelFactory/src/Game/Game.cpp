@@ -382,6 +382,24 @@ void Game::LoadMeshes() {
 	quad_mesh->GetIndexBuffer() = quad_index_buffer;
 
 	quad_mesh->Unbind();
+
+	// CrossMesh Mesh
+	std::vector<BlockVertex> crossmesh_vertices(Block::CrossMeshVertices, Block::CrossMeshVertices + 12);
+	offset = 0;
+	for (int i = 0; i < Block::FaceVertexCount; i++, offset++) crossmesh_vertices[offset].id = 0; // Front
+	for (int i = 0; i < Block::FaceVertexCount; i++, offset++) crossmesh_vertices[offset].id = 1; // Back
+	Ref<VertexArray>& crossmesh_mesh = m_Meshes[(size_t)MeshType::CrossMesh];
+	crossmesh_mesh = CreateRef<VertexArray>();
+	crossmesh_mesh->Bind();
+
+	Ref<VertexBuffer> crossmesh_vertex_buffer = CreateRef<VertexBuffer>(crossmesh_vertices.data(), 12 * sizeof(BlockVertex), Block::Layout);
+	crossmesh_mesh->GetVertexBuffer() = crossmesh_vertex_buffer;
+
+	Ref<IndexBuffer> crossmesh_index_buffer = CreateRef<IndexBuffer>(Block::CrossMeshIndices, 24 * sizeof(uint32_t));
+	crossmesh_mesh->GetIndexBuffer() = crossmesh_index_buffer;
+
+	crossmesh_mesh->Unbind();
+	
 }
 void Game::InitMenus() {
 	// Pause menu

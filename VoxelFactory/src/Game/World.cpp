@@ -66,7 +66,10 @@ void ItemEntity::Render(const Ref<Camera>& camera, float brightness) {
 	if (item.count > 1 && count < 0.33f) count = 2;
 	else if (count >= 0.33f) count = 3;
 
-	Ref<VertexArray>& block_mesh = Game::GetMesh(MeshType::Block);
+	MeshType type = MeshType::Block;
+	if (Block::BlockProperties[((uint8_t)item.id & 0b00111111)] & BlockProperty_CrossMesh) type = MeshType::CrossMesh;
+	Ref<VertexArray>& block_mesh = Game::GetMesh(type);
+
 	block_mesh->Bind();
 	glDisable(GL_CULL_FACE);
 	
@@ -218,7 +221,7 @@ glm::vec3 Chunk::GetBlockPosition(const glm::vec3& position) {
 	return { floor(position.x), floor(position.y), floor(position.z) };
 }
 
-World::World(uint32_t seed) : m_Seed(seed), m_LoadedCenter({ 0,0,0 }), m_LoadedRadius(14), m_EntityRenderDist(3) {
+World::World(uint32_t seed) : m_Seed(seed), m_LoadedCenter({ 0,0,0 }), m_LoadedRadius(2), m_EntityRenderDist(3) {
 	m_LoadedWidth = m_LoadedRadius * 2 + 1;
 	m_LoadedArea = m_LoadedWidth * m_LoadedWidth;
 
@@ -969,7 +972,7 @@ Ref<Mesh<BlockVertex>> ChunkMesher::CreateMesh()
 				uint8_t actual_id = (block_id & 0b00111111);
 
 				if (Block::BlockProperties[actual_id] & BlockProperty_CrossMesh) {
-					MeshFlower(position, block_id);
+					MeshCrossMesh(position, block_id);
 					continue;
 				}
 
@@ -1085,17 +1088,17 @@ void ChunkMesher::MeshFace(const glm::vec3& position, const glm::vec3& face_dir,
 	}
 	m_VertexOffset += Block::FaceVertexCount;
 }
-void ChunkMesher::MeshFlower(const glm::vec3& position, uint8_t block_id) {
+void ChunkMesher::MeshCrossMesh(const glm::vec3& position, uint8_t block_id) {
 	TextureIDs& texture_ids = Block::BlockTextureIDs[(block_id & 0b00111111) - 1];
 	for (int i = 0; i < 12; i++) {
-		BlockVertex vertex = Block::FlowerVertices[i];
+		BlockVertex vertex = Block::CrossMeshVertices[i];
 		vertex.id = texture_ids.front;
 		vertex.position += position;
 		vertex.data |= 2 << 5; // ambient occlusion
 		m_Vertices.push_back(vertex);
 	}
 	for (int i = 0; i < 24; i++) {
-		m_Indices.push_back(Block::FlowerIndices[i] + m_VertexOffset);
+		m_Indices.push_back(Block::CrossMeshIndices[i] + m_VertexOffset);
 	}
 	m_VertexOffset += 12;
 }
@@ -1106,6 +1109,12 @@ void WorldGenerator::GenerateChunk(Chunk* chunk, uint32_t seed) {
 			GenerateColumn({ x,z }, chunk, seed);
 		}
 	}
+
+	// Generate Ore Vains
+	GenerateOreVains(chunk, 4, 15, 100, 15, seed); // Coal Ore
+	GenerateOreVains(chunk, 4, 10, 65,  16, seed); // Copper Ore
+	GenerateOreVains(chunk, 2, 8,  60,  14, seed); // Iron Ore
+	GenerateOreVains(chunk, 1, 3,  45,  25, seed); // Indium Ore
 }
 void WorldGenerator::GenerateColumn(const glm::vec2& position, Chunk* chunk, uint32_t seed) {
 	glm::vec3 voxel_position = {
@@ -1135,5 +1144,37 @@ void WorldGenerator::GenerateColumn(const glm::vec2& position, Chunk* chunk, uin
 		else                               block_id = 4;  // Stone
 
 		chunk->At({ position.x,y, position.y }).id = block_id;
+	}
+}
+void WorldGenerator::GenerateOreVains(Chunk* chunk, int min, int max, int count, uint8_t ore_block_id, uint32_t seed) {
+	uint32_t state = ((seed << (int)chunk->m_Position.x >> ore_block_id) ^ (seed >> (int)chunk->m_Position.z)) << ore_block_id;
+	for (int i = 0; i < count; i++) {
+
+		// Find random starting point
+		glm::vec3 position = {
+			(int)NoiseGenerator::RandomFloatRange(state, 0.0f, Chunk::ChunkLength),
+			(int)NoiseGenerator::RandomFloatRange(state, 1.0f, 80.0f),
+			(int)NoiseGenerator::RandomFloatRange(state, 0.0f, Chunk::ChunkLength)
+		};
+		int ore_count = std::max((int)(state = NoiseGenerator::PCGHash(state)) % max, min);
+
+		// Place ore_count number of ore blocks
+		for (int j = 0; j < ore_count; j++) {
+			uint8_t& block_id = chunk->At(position).id;
+			if (block_id == 4) block_id = ore_block_id;
+
+			int next = (state = NoiseGenerator::PCGHash(state)) % 6;
+			glm::vec3 next_offset = glm::vec3(0.0f);
+			if (next == 1) next_offset.x += 1;
+			else if (next == 2) next_offset.x -= 1;
+			else if (next == 3) next_offset.y += 1;
+			else if (next == 4) next_offset.y -= 1;
+			else if (next == 5) next_offset.z += 1;
+			else if (next == 6) next_offset.z -= 1;
+
+			// Go other direction if stone isnt there
+			if (chunk->At(position + next_offset).id != 4) next_offset = -next_offset;
+			position += next_offset;
+		}
 	}
 }

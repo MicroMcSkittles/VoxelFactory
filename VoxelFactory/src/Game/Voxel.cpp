@@ -30,6 +30,7 @@ std::vector<TextureIDs> Block::BlockTextureIDs = {
 	{ TEX_COORD(13,0) }, // Dan Flower #22
 	{ TEX_COORD(11,0) }, // Cobweb #23
 	{ TEX_COORD(9,13) }, // Bedrock #24
+	{ TEX_COORD(1,2) }, // Indium #25
 };
 // glass, transparent, flower
 std::vector<uint8_t> Block::BlockProperties = {
@@ -40,7 +41,7 @@ std::vector<uint8_t> Block::BlockProperties = {
 	BlockProperty_CrossMesh | BlockProperty_Transparent | BlockProperty_DisableCollision, // Poppy Flower
 	BlockProperty_CrossMesh | BlockProperty_Transparent | BlockProperty_DisableCollision, // Dandalion Flower
 	BlockProperty_CrossMesh | BlockProperty_Transparent | BlockProperty_DisableCollision, // Cobweb
-	0,
+	0,0,
 };
 
 // Normals:
@@ -57,7 +58,7 @@ std::vector<uint8_t> Block::BlockProperties = {
 // ( 0, 1 ) = 2
 // ( 1, 1 ) = 3
 
-const BlockVertex Block::FlowerVertices[] = {
+const BlockVertex Block::CrossMeshVertices[] = {
 	{ { -0.5f, -0.5f, -0.5f }, BlockVertex_Normal0 | BlockVertex_TexCoord1 },
 	{ {  0.5f, -0.5f,  0.5f }, BlockVertex_Normal0 | BlockVertex_TexCoord0 },
 	{ {  0.5f,  0.5f,  0.5f }, BlockVertex_Normal0 | BlockVertex_TexCoord2 },
@@ -72,7 +73,7 @@ const BlockVertex Block::FlowerVertices[] = {
 	{ { -0.5f, -0.5f,  0.5f }, BlockVertex_Normal2 | BlockVertex_TexCoord1 },
 	{ {  0.5f, -0.5f, -0.5f }, BlockVertex_Normal2 | BlockVertex_TexCoord0 }
 };
-const uint32_t Block::FlowerIndices[] = {
+const uint32_t Block::CrossMeshIndices[] = {
 	0,  1,   2,
 	3,  4,   5,
 	2,  1,   0,
@@ -198,28 +199,6 @@ const VertexLayout Block::Layout = { {
 	{ GL_UNSIGNED_INT, 1 }, // a_Data
 	{ GL_UNSIGNED_INT, 1 }, // a_TextureID
 } };
-
-//void Block::InitMesh() {
-//	std::vector<BlockVertex> vertices(Vertices, Vertices + 36);
-//	size_t offset = 0;
-//	for (int i = 0; i < FaceVertexCount; i++, offset++) vertices[offset].id = 0; // Front
-//	for (int i = 0; i < FaceVertexCount; i++, offset++) vertices[offset].id = 1; // Back
-//	for (int i = 0; i < FaceVertexCount; i++, offset++) vertices[offset].id = 2; // Left
-//	for (int i = 0; i < FaceVertexCount; i++, offset++) vertices[offset].id = 3; // Right
-//	for (int i = 0; i < FaceVertexCount; i++, offset++) vertices[offset].id = 4; // Top
-//	for (int i = 0; i < FaceVertexCount; i++, offset++) vertices[offset].id = 5; // Bottom
-//
-//	Mesh = CreateRef<VertexArray>();
-//	Mesh->Bind();
-//
-//	Ref<VertexBuffer> vertex_buffer = CreateRef<VertexBuffer>(vertices.data(), vertices.size() * sizeof(BlockVertex), Layout);
-//	Mesh->GetVertexBuffer() = vertex_buffer;
-//
-//	Ref<IndexBuffer> index_buffer = CreateRef<IndexBuffer>(Indices, 36 * sizeof(uint32_t));
-//	Mesh->GetIndexBuffer() = index_buffer;
-//
-//	Mesh->Unbind();
-//}
 
 bool Block::HasOrientation(uint8_t id) {
 	uint8_t actual_id = id & 0b00111111;

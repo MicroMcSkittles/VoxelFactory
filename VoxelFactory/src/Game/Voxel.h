@@ -65,16 +65,14 @@ struct Block {
 	static std::vector<TextureIDs> BlockTextureIDs;
 	static std::vector<uint8_t> BlockProperties;
 
-	//inline static Ref<VertexArray> Mesh = nullptr;
-
 	const inline static uint8_t InvalidID = std::numeric_limits<uint8_t>::max();
 	static Block Invalid;
 
 	const inline static size_t FaceVertexCount = 6;
 	const inline static size_t FaceIndexCount = 6;
 
-	const static BlockVertex FlowerVertices[];
-	const static uint32_t FlowerIndices[];
+	const static BlockVertex CrossMeshVertices[];
+	const static uint32_t CrossMeshIndices[];
 
 	const static BlockVertex FrontVertices[];
 	const static BlockVertex BackVertices[];

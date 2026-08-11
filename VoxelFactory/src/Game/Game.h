@@ -55,6 +55,7 @@ enum class TextureType {
 enum class MeshType {
 	Block,
 	Quad,
+	CrossMesh,
 	Count
 };
 enum class MenuType {
@@ -147,7 +148,7 @@ private:
 	Ref<Shader> m_DebugShader;
 	Ref<VertexArray> m_DebugLineMesh;
 	inline static std::vector<DebugLine> m_DebugLines;
-	
+
 	// Input
 	bool m_MouseCaptured;
 	bool m_MouseAvalible;
