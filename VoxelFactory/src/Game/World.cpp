@@ -58,7 +58,7 @@ void ItemEntity::Render(const Ref<Camera>& camera, float brightness) {
 	shader->SetUniform("u_Brightness", brightness);
 	shader->SetUniform("u_Atlas", atlas);
 
-	TextureIDs& texture_ids = Block::BlockTextureIDs[item.id - 1];
+	const TextureIDs& texture_ids = Block::GetTextureIDs(item.id);
 	shader->SetUniform("u_TextureIDs", texture_ids.List());
 
 	// Figure out how many items to layer
@@ -67,7 +67,7 @@ void ItemEntity::Render(const Ref<Camera>& camera, float brightness) {
 	else if (count >= 0.33f) count = 3;
 
 	MeshType type = MeshType::Block;
-	if (Block::BlockProperties[((uint8_t)item.id & 0b00111111)] & BlockProperty_CrossMesh) type = MeshType::CrossMesh;
+	if (Block::HasProperty(item.id, BlockProperty_CrossMesh)) type = MeshType::CrossMesh;
 	Ref<VertexArray>& block_mesh = Game::GetMesh(type);
 
 	block_mesh->Bind();
@@ -145,7 +145,7 @@ void Partical::Render(const Ref<Camera>& camera, float brightness) {
 	shader->SetUniform("u_ViewProjection", camera->view_projection);
 	shader->SetUniform("u_Brightness", brightness);
 	shader->SetUniform("u_Atlas", atlas);
-	shader->SetUniform("u_TextureID", Block::BlockTextureIDs[block_id - 1].front);
+	shader->SetUniform("u_TextureID", Block::GetTextureIDs(block_id).front);
 	shader->SetUniform("u_Offset", texture_offset);
 
 	Ref<VertexArray>& quad_mesh = Game::GetMesh(MeshType::Quad);
@@ -191,11 +191,11 @@ Block& Chunk::At(const glm::vec3& position) {
 }
 bool Chunk::IsVoid(const glm::vec3& position) {
 	Block& block = At(position);
-	return block.id == Block::InvalidID || block.id == 0;
+	return block.id == Block::InvalidID || block.id == BlockID_Air;
 }
 bool Chunk::IsTransparent(const glm::vec3& position) {
 	Block& block = At(position);
-	return block.id == Block::InvalidID || block.id == 0 || Block::BlockProperties[block.id] & BlockProperty_Transparent;
+	return block.id == Block::InvalidID || block.id == BlockID_Air || Block::HasProperty(block.id, BlockProperty_Transparent);
 }
 bool Chunk::IsValid(const glm::vec3& position) {
 	if (position.x < 0 || position.x >= ChunkLength) return false;
@@ -290,35 +290,51 @@ void World::SetVoxel(const glm::vec3& position, uint8_t new_id) {
 	if (chunk == nullptr) return;
 	chunk->At(local_position).id = new_id;
 
-	// Rebuild affected chunks
+	// Rebuild effected chunks
 	RebuildChunk(chunk_position);
-	if (local_position.x == 0) RebuildChunk({ chunk_position.x - 1, 0, chunk_position.z });
-	else if (local_position.x == Chunk::ChunkLength - 1)RebuildChunk({ chunk_position.x + 1, 0, chunk_position.z });
-	if (local_position.z == 0) RebuildChunk({ chunk_position.x, 0, chunk_position.z - 1 });
-	else if (local_position.z == Chunk::ChunkLength - 1) RebuildChunk({ chunk_position.x, 0, chunk_position.z + 1 });
+
+	// Adjacent corner
+	if (local_position.x == 0 && local_position.z == 0)
+		RebuildChunk({ chunk_position.x - 1, 0, chunk_position.z - 1 });
+	else if (local_position.x == Chunk::ChunkLength - 1 && local_position.z == Chunk::ChunkLength - 1)
+		RebuildChunk({ chunk_position.x + 1, 0, chunk_position.z + 1 });
+
+	// Adjacent side x
+	if (local_position.x == 0)
+		RebuildChunk({ chunk_position.x - 1, 0, chunk_position.z });
+	else if (local_position.x == Chunk::ChunkLength - 1)
+		RebuildChunk({ chunk_position.x + 1, 0, chunk_position.z });
+	
+	// Adjacent side z
+	if (local_position.z == 0)
+		RebuildChunk({ chunk_position.x, 0, chunk_position.z - 1 });
+	else if (local_position.z == Chunk::ChunkLength - 1)
+		RebuildChunk({ chunk_position.x, 0, chunk_position.z + 1 });
 }
 void World::BreakVoxel(const glm::vec3& position) {
 	Block block = GetVoxel(position);
-	block.id = block.id & 0b00111111;
-	CreateItem({ block.id, 1 }, position + 0.5f, glm::vec3(0.0f), false);
+	block.id = block.id & Block::OrientationMask;
+
+	// TODO: spawn particals on the surface of the block
+	if (Block::HasProperty(block.id, BlockProperty_Unbreakable)) return;
+
+	// Generate random item position and offset
+	uint32_t state = ((int)position.x << (int)position.y) ^ (int)position.z;
+	glm::vec3 item_offset = NoiseGenerator::RandomFloat3Range(state, 0.25f, 0.75f);
+	glm::vec3 item_velocity = (item_offset - 0.5f) * 0.2f;
+	item_velocity.y = abs(item_velocity.y) + 0.05f;
+
+	CreateItem({ block.id, 1 }, position + item_offset, item_velocity, false);
 
 	// Spawn particals
-	uint32_t state = position.x + position.y + position.z;
 	for (int i = 0; i < 16; i++) {
-		glm::vec3 offset = {
-			NoiseGenerator::RandomFloat(state),
-			NoiseGenerator::RandomFloat(state),
-			NoiseGenerator::RandomFloat(state)
-		};
+		glm::vec3 offset = NoiseGenerator::RandomFloat3(state);
 		Partical partical;
 		partical.position = position + offset;
 		partical.velocity = (offset - 0.5f) * 0.15f;
 		partical.life_span = 0.2f + NoiseGenerator::RandomFloatRange(state, -0.1f, 0.75f);
 		partical.block_id = block.id;
-		partical.texture_offset = {
-			NoiseGenerator::RandomFloatRange(state, 0.0f, 0.75f),
-			NoiseGenerator::RandomFloatRange(state, 0.0f, 0.75f)
-		};
+		partical.texture_offset = NoiseGenerator::RandomFloat2Range(state, 0.0f, 0.75f);
 		m_Particals.push_back(partical);
 	}
 	
@@ -542,7 +558,7 @@ std::vector<glm::vec3> World::AABBIntersectedVoxels(const AABB& aabb)
 
 				// If current voxel isnt void then store voxel to intersected
 				glm::vec3 chunk_voxel_position = Chunk::GetBlockLocalPosition(voxel_position);
-				if (!chunk->IsVoid(chunk_voxel_position) && !(Block::BlockProperties[chunk->At(chunk_voxel_position).id] & BlockProperty_DisableCollision)) {
+				if (!chunk->IsVoid(chunk_voxel_position) && !(Block::HasProperty(chunk->At(chunk_voxel_position).id, BlockProperty_DisableCollision))) {
 					intersected.push_back(voxel_position);
 				}
 			}
@@ -572,7 +588,7 @@ bool World::ResolveDynamicAABB(const AABB& aabb, glm::vec3& velocity, glm::vec3&
 		for (int z = (int)search_area_min.z; z < (int)search_area_max.z; z++) {
 			for (int x = (int)search_area_min.x; x < (int)search_area_max.x; x++) {
 				glm::vec3 voxel = glm::vec3(x,y,z);
-				if (!IsVoid(voxel) && !(Block::BlockProperties[GetVoxel(voxel).id] & BlockProperty_DisableCollision)) potential_collisions.push_back(voxel + 0.5f); // +0.5 to center the voxel
+				if (!IsVoid(voxel) && !Block::HasProperty(GetVoxel(voxel).id, BlockProperty_DisableCollision)) potential_collisions.push_back(voxel + 0.5f); // +0.5 to center the voxel
 			}
 		}
 	}
@@ -971,12 +987,12 @@ Ref<Mesh<BlockVertex>> ChunkMesher::CreateMesh()
 				uint8_t block_id = m_Chunk->At({ x,y,z }).id;
 				uint8_t actual_id = (block_id & 0b00111111);
 
-				if (Block::BlockProperties[actual_id] & BlockProperty_CrossMesh) {
+				if (Block::HasProperty(actual_id, BlockProperty_CrossMesh)) {
 					MeshCrossMesh(position, block_id);
 					continue;
 				}
 
-				TextureIDs& textures = Block::BlockTextureIDs[actual_id - 1];
+				const TextureIDs& textures = Block::GetTextureIDs(actual_id);
 				MeshFace(position, { 0,  0,  1 }, textures.front, block_id, Block::FrontVertices);
 				MeshFace(position, { 0,  0, -1 }, textures.back, block_id, Block::BackVertices);
 				MeshFace(position, { 1,  0,  0 }, textures.left, block_id, Block::LeftVertices);
@@ -1034,12 +1050,12 @@ void ChunkMesher::MeshFace(const glm::vec3& position, const glm::vec3& face_dir,
 		else if (adj_face_dir.z < 0) other_pos.z = Chunk::ChunkLength - 1;
 		
 		// Don't mesh face if both blocks are glass
-		if (block_id == 17 && Block::BlockProperties[block_id] & BlockProperty_Transparent && !other_chunk->IsVoid(other_pos)) return;
+		if (block_id == 17 && Block::HasProperty(block_id, BlockProperty_Transparent) && !other_chunk->IsVoid(other_pos)) return;
 		// Mesh face if adjacent block is not transparent
 		else if (!other_chunk->IsTransparent(other_pos)) return;
 	}
 	// Don't mesh face if both blocks are glass
-	else if (block_id == 17 && Block::BlockProperties[block_id] & BlockProperty_Transparent && !m_Chunk->IsVoid(other_pos)) return;
+	else if (block_id == 17 && Block::HasProperty(block_id, BlockProperty_Transparent) && !m_Chunk->IsVoid(other_pos)) return;
 	// Mesh face if adjacent block is not void
 	else if (!m_Chunk->IsTransparent(other_pos)) return;
 
@@ -1089,7 +1105,7 @@ void ChunkMesher::MeshFace(const glm::vec3& position, const glm::vec3& face_dir,
 	m_VertexOffset += Block::FaceVertexCount;
 }
 void ChunkMesher::MeshCrossMesh(const glm::vec3& position, uint8_t block_id) {
-	TextureIDs& texture_ids = Block::BlockTextureIDs[(block_id & 0b00111111) - 1];
+	const TextureIDs& texture_ids = Block::GetTextureIDs(block_id);
 	for (int i = 0; i < 12; i++) {
 		BlockVertex vertex = Block::CrossMeshVertices[i];
 		vertex.id = texture_ids.front;
@@ -1111,10 +1127,10 @@ void WorldGenerator::GenerateChunk(Chunk* chunk, uint32_t seed) {
 	}
 
 	// Generate Ore Vains
-	GenerateOreVains(chunk, 4, 15, 100, 15, seed); // Coal Ore
-	GenerateOreVains(chunk, 4, 10, 65,  16, seed); // Copper Ore
-	GenerateOreVains(chunk, 2, 8,  60,  14, seed); // Iron Ore
-	GenerateOreVains(chunk, 1, 3,  45,  25, seed); // Indium Ore
+	GenerateOreVains(chunk, 4, 15, 50, BlockID_CoalOre,   seed); // Coal Ore
+	GenerateOreVains(chunk, 4, 10, 45, BlockID_CopperOre, seed); // Copper Ore
+	GenerateOreVains(chunk, 2, 8,  40, BlockID_IronOre,   seed); // Iron Ore
+	GenerateOreVains(chunk, 1, 5,  25, BlockID_IndiumOre, seed); // Indium Ore
 }
 void WorldGenerator::GenerateColumn(const glm::vec2& position, Chunk* chunk, uint32_t seed) {
 	glm::vec3 voxel_position = {
@@ -1136,12 +1152,12 @@ void WorldGenerator::GenerateColumn(const glm::vec2& position, Chunk* chunk, uin
 		uint8_t block_id = 0;
 		bool is_border = (position.x == 0 || position.y == 0 || position.x == Chunk::ChunkLength - 1 || position.y == Chunk::ChunkLength - 1);
 
-		if      (y == 0)                   block_id = 24; // Bedrock
-		else if (cave_noise > 0.70f)       block_id = 0;  // Air
-		else if (y == height - 1)          block_id = 3;  // Dirt
-		else if (y == height && is_border) block_id = 3;  // Border Dirt
-		else if (y == height)              block_id = 1;  // Grass
-		else                               block_id = 4;  // Stone
+		if      (y == 0)                   block_id = BlockID_Bedrock;
+		else if (cave_noise > 0.70f)       block_id = BlockID_Air;
+		else if (y == height - 1)          block_id = BlockID_Dirt;
+		else if (y == height && is_border) block_id = BlockID_Dirt; // Border Dirt
+		else if (y == height)              block_id = BlockID_Grass;
+		else                               block_id = BlockID_Stone;
 
 		chunk->At({ position.x,y, position.y }).id = block_id;
 	}
@@ -1152,9 +1168,9 @@ void WorldGenerator::GenerateOreVains(Chunk* chunk, int min, int max, int count,
 
 		// Find random starting point
 		glm::vec3 position = {
-			(int)NoiseGenerator::RandomFloatRange(state, 0.0f, Chunk::ChunkLength),
+			(int)NoiseGenerator::RandomFloatRange(state, 0.0f, Chunk::ChunkLength - 1),
 			(int)NoiseGenerator::RandomFloatRange(state, 1.0f, 80.0f),
-			(int)NoiseGenerator::RandomFloatRange(state, 0.0f, Chunk::ChunkLength)
+			(int)NoiseGenerator::RandomFloatRange(state, 0.0f, Chunk::ChunkLength - 1)
 		};
 		int ore_count = std::max((int)(state = NoiseGenerator::PCGHash(state)) % max, min);
 
@@ -1173,7 +1189,8 @@ void WorldGenerator::GenerateOreVains(Chunk* chunk, int min, int max, int count,
 			else if (next == 6) next_offset.z -= 1;
 
 			// Go other direction if stone isnt there
-			if (chunk->At(position + next_offset).id != 4) next_offset = -next_offset;
+			if (!chunk->IsValid(position + next_offset)) next_offset = -next_offset;
+			else if (chunk->At(position + next_offset).id != 4) next_offset = -next_offset;
 			position += next_offset;
 		}
 	}

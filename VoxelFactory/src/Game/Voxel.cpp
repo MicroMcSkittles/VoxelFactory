@@ -5,43 +5,47 @@
 #define TEX_COORD(x,y) y * 16 + x
 
 Block Block::Invalid = Block{ Block::InvalidID };
-std::vector<TextureIDs> Block::BlockTextureIDs = {
-	{ TEX_COORD(3,0), TEX_COORD(0,0), TEX_COORD(2,0) }, // Grass #1
-	{ TEX_COORD(4,4), TEX_COORD(2,4), TEX_COORD(2,0) }, // Snowy Grass #2
-	{ TEX_COORD(2,0) }, // Dirt #3
-	{ TEX_COORD(1,0) }, // Stone #4
-	{ TEX_COORD(4,1), TEX_COORD(5, 1), TEX_COORD(5,1) }, // Log #5
-	{ TEX_COORD(4,0) }, // Planks #6
-	{ TEX_COORD(3,2), TEX_COORD(4, 0), TEX_COORD(4,0) }, // Bookshelf #7
-	{ TEX_COORD(7,0) }, // Bricks #8
-	{ TEX_COORD(6,3) }, // Stone bricks #9
-	{ TEX_COORD(6,0) }, // Polished stone #10
-	{ TEX_COORD(0,1) }, // Cobble stone #11
-	{ TEX_COORD(1,1) }, // Gravel #12
-	{ TEX_COORD(2,1) }, // Sand #13
-	{ TEX_COORD(0,2) }, // Iron ore #14
-	{ TEX_COORD(2,2) }, // Coal ore #15
-	{ TEX_COORD(3,3) }, // Copper ore #16
-	{ TEX_COORD(1,3) }, // Glass #17
-	{ TEX_COORD(12,2), TEX_COORD(14,2), TEX_COORD(13,2), TEX_COORD(13,2), TEX_COORD(14,3), TEX_COORD(14,3) }, // Furnace #18
-	{ TEX_COORD(11,3), TEX_COORD(11,3), TEX_COORD(12,3), TEX_COORD(11,3), TEX_COORD(11,2), TEX_COORD(10,4) }, // Work bench #19
-	{ TEX_COORD(4,3) }, // Leaves #20
-	{ TEX_COORD(12,0) }, // Poppy Flower #21
-	{ TEX_COORD(13,0) }, // Dan Flower #22
-	{ TEX_COORD(11,0) }, // Cobweb #23
-	{ TEX_COORD(9,13) }, // Bedrock #24
-	{ TEX_COORD(1,2) }, // Indium #25
+std::vector<TextureIDs> Block::s_TextureIDs = {
+	{ TEX_COORD(10,13) }, // Air/Missing Texture
+	{ TEX_COORD(2,0) }, // Dirt
+	{ TEX_COORD(3,0), TEX_COORD(0,0), TEX_COORD(2,0) }, // Grass
+	{ TEX_COORD(4,4), TEX_COORD(2,4), TEX_COORD(2,0) }, // Snowy Grass
+	{ TEX_COORD(4,3) }, // Leaves
+	{ TEX_COORD(12,0) }, // Poppy Flower
+	{ TEX_COORD(13,0) }, // Dandelion Flower
+
+	{ TEX_COORD(9,13) }, // Bedrock
+	{ TEX_COORD(1,0) }, // Stone
+	{ TEX_COORD(0,1) }, // Cobble stone
+	{ TEX_COORD(1,1) }, // Gravel
+	{ TEX_COORD(2,1) }, // Sand
+	{ TEX_COORD(0,2) }, // Iron Ore
+	{ TEX_COORD(3,3) }, // Copper Ore
+	{ TEX_COORD(2,2) }, // Coal Ore
+	{ TEX_COORD(1,2) }, // Indium Ore
+
+	{ TEX_COORD(4,1), TEX_COORD(5, 1), TEX_COORD(5,1) }, // Log
+	{ TEX_COORD(4,0) }, // Planks
+	{ TEX_COORD(3,2), TEX_COORD(4, 0), TEX_COORD(4,0) }, // Bookshelf
+	{ TEX_COORD(7,0) }, // Bricks
+	{ TEX_COORD(6,3) }, // Stone Bricks
+	{ TEX_COORD(6,0) }, // Polished Stone
+	{ TEX_COORD(1,3) }, // Glass
+	{ TEX_COORD(11,3), TEX_COORD(11,3), TEX_COORD(12,3), TEX_COORD(11,3), TEX_COORD(11,2), TEX_COORD(10,4) }, // Work Bench
+	{ TEX_COORD(12,2), TEX_COORD(14,2), TEX_COORD(13,2), TEX_COORD(13,2), TEX_COORD(14,3), TEX_COORD(14,3) }, // Furnace
+	
+	{ TEX_COORD(11,0) }, // Cobweb
 };
-// glass, transparent, flower
-std::vector<uint8_t> Block::BlockProperties = {
-	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-	BlockProperty_Glass | BlockProperty_Transparent, // Glass
-	0,0,
+std::vector<uint8_t> Block::s_Properties = {
+	0,0,0,0,
 	BlockProperty_Transparent, // Leaves
 	BlockProperty_CrossMesh | BlockProperty_Transparent | BlockProperty_DisableCollision, // Poppy Flower
-	BlockProperty_CrossMesh | BlockProperty_Transparent | BlockProperty_DisableCollision, // Dandalion Flower
-	BlockProperty_CrossMesh | BlockProperty_Transparent | BlockProperty_DisableCollision, // Cobweb
+	BlockProperty_CrossMesh | BlockProperty_Transparent | BlockProperty_DisableCollision, // Dandelion Flower
+	BlockProperty_Unbreakable,
+	0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+	BlockProperty_Glass | BlockProperty_Transparent, // Glass
 	0,0,
+	BlockProperty_CrossMesh | BlockProperty_Transparent | BlockProperty_DisableCollision, // Cobweb
 };
 
 // Normals:
@@ -258,6 +262,22 @@ uint32_t Block::OrientVector(uint32_t direction, int axis_count, uint8_t orienta
 	if (vector_dir == glm::vec3( 0.0f, -1.0f,  0.0f)) return BlockVertex_Normal5;
 
 	return 0;
+}
+
+const TextureIDs& Block::GetTextureIDs(uint8_t id) {
+	uint8_t real_id = id & OrientationMask;
+	if (real_id >= BlockID_Count) return s_TextureIDs[0]; // return missing texture
+	return s_TextureIDs[real_id];
+}
+uint8_t Block::GetProperties(uint8_t id) {
+	uint8_t real_id = id & OrientationMask;
+	if (real_id >= BlockID_Count) return 0;
+	return s_Properties[real_id];
+}
+bool Block::HasProperty(uint8_t id, uint8_t property) {
+	uint8_t real_id = id & OrientationMask;
+	if (real_id >= BlockID_Count) return false;
+	return s_Properties[real_id] & property;
 }
 
 glm::vec3 Block::OrientVector(const glm::vec3& direction, int axis_count, uint8_t orientation) {

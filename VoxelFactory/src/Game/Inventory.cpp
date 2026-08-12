@@ -125,8 +125,7 @@ bool Item::IsBlock() {
 
 void Item::ShowPreview(const glm::vec3& position, float scale) {
 	if (IsBlock()) {
-		uint8_t block_id = (uint8_t)id - 1;
-		uint32_t texture_id = Block::BlockTextureIDs[block_id].front;
+		uint32_t texture_id = Block::GetTextureIDs(id).front;
 		UI::AtlasQuad(position, glm::vec2(scale), Game::GetTexture(TextureType::BlockAtlas), glm::vec2(16.0f), texture_id);
 	}
 

@@ -106,10 +106,10 @@ Player::Player(const glm::vec3& position, const Ref<Camera>& camera, const Ref<W
 	: m_Position(position), m_Camera(camera), m_World(world) {
 
 	m_Inventory = CreateRef<Inventory>(9, 3, 6.0f, 16.0f, 2.0f, glm::vec2(8, 30), Game::GetTexture(TextureType::Inventory));
-	for (int i = 0; i < 23; i++) {
-		int x = i % 9;
-		int y = i / 9;
-		m_Inventory->GetItem({ x, y }).id = i + 1;
+	for (int i = 1; i < std::min((int)BlockID_Count, 9 * 3); i++) {
+		int x = (i - 1) % 9;
+		int y = (i - 1) / 9;
+		m_Inventory->GetItem({ x, y }).id = i;
 		m_Inventory->GetItem({ x, y }).count = Item::StackSize;
 	}
 	m_InventoryHandler = nullptr;
@@ -305,14 +305,9 @@ void Player::OnLeftClick() {
 		return;
 	}
 
-	m_Hand.Hit();
-
-	// Check if the block is bedrock
-	Block& block = m_World->GetVoxel(m_SelectorPosition);
-	if (block.id == 24) return;
-
 	// Delete voxel
 	m_World->BreakVoxel(m_SelectorPosition);
+	m_Hand.Hit();
 }
 void Player::OnRightClick() {
 	if (Game::GetState() == GameState::Menu && m_OpenInventory) m_InventoryHandler->OnRightClick();
@@ -617,7 +612,7 @@ void Player::RenderHand() {
 	block_preview_shader->SetUniform("u_Brightness", m_World->GetBrightness());
 	block_preview_shader->SetUniform("u_Atlas", atlas);
 
-	TextureIDs& texture_ids = Block::BlockTextureIDs[m_Hotbar.GetSelected().id - 1];
+	const TextureIDs& texture_ids = Block::GetTextureIDs(m_Hotbar.GetSelected().id);
 	block_preview_shader->SetUniform("u_TextureIDs", texture_ids.List());
 
 	// Calculate model
@@ -633,7 +628,7 @@ void Player::RenderHand() {
 
 	// Draw
 	MeshType type = MeshType::Block;
-	if (Block::BlockProperties[((uint8_t)m_Hotbar.GetSelected().id & 0b00111111)] & BlockProperty_CrossMesh) type = MeshType::CrossMesh;
+	if (Block::HasProperty(m_Hotbar.GetSelected().id, BlockProperty_CrossMesh)) type = MeshType::CrossMesh;
 	Ref<VertexArray>& block_mesh = Game::GetMesh(type);
 	block_mesh->Bind();
 	//m_Hand.empty_hand_mesh->Bind();

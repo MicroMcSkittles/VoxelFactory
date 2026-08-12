@@ -174,11 +174,32 @@ uint32_t NoiseGenerator::PCGHash(uint32_t input) {
 	uint32_t word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
 	return (word >> 22u) ^ word;
 }
+
 float NoiseGenerator::RandomFloat(uint32_t& state) {
 	state = PCGHash(state);
 	return (float)state / (float)std::numeric_limits<uint32_t>::max();
 }
+glm::vec2 NoiseGenerator::RandomFloat2(uint32_t& state) {
+	return { RandomFloat(state), RandomFloat(state) };
+}
+glm::vec3 NoiseGenerator::RandomFloat3(uint32_t& state) {
+	return { RandomFloat(state), RandomFloat(state), RandomFloat(state) };
+}
+
 float NoiseGenerator::RandomFloatRange(uint32_t& state, float min, float max) {
 	float value = RandomFloat(state);
 	return value * (max - min) + min;
+}
+glm::vec2 NoiseGenerator::RandomFloat2Range(uint32_t& state, float min, float max) {
+	return {
+		RandomFloatRange(state, min, max),
+		RandomFloatRange(state, min, max)
+	};
+}
+glm::vec3 NoiseGenerator::RandomFloat3Range(uint32_t& state, float min, float max) {
+	return {
+		RandomFloatRange(state, min, max),
+		RandomFloatRange(state, min, max),
+		RandomFloatRange(state, min, max)
+	};
 }

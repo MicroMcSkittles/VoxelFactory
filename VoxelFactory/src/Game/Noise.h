@@ -17,10 +17,16 @@ public:
 	static float SampleFractalPerlinNoise3D(const glm::vec3& position, int octave_count, uint32_t seed);
 
 	static uint32_t PCGHash(uint32_t input);
-	// Random float between min and max
-	static float RandomFloatRange(uint32_t& state, float min, float max);
+
 	// Random float between 0 and 1
-	static float RandomFloat(uint32_t& state);
+	static float     RandomFloat(uint32_t&  state);
+	static glm::vec2 RandomFloat2(uint32_t& state);
+	static glm::vec3 RandomFloat3(uint32_t& state);
+
+	// Random float between min and max
+	static float     RandomFloatRange(uint32_t& state,  float min, float max);
+	static glm::vec2 RandomFloat2Range(uint32_t& state, float min, float max);
+	static glm::vec3 RandomFloat3Range(uint32_t& state, float min, float max);
 
 private:
 	static float CubicInterp(float v1, float v2, float weight);
