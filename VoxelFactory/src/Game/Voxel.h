@@ -14,6 +14,7 @@ enum BlockID {
 	BlockID_Leaves,
 	BlockID_PoppyFlower,
 	BlockID_DandelionFlower,
+	BlockID_ShortGrass,
 
 	// Stone
 	BlockID_Bedrock,

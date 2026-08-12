@@ -8,6 +8,7 @@
 #include "Game/Voxel.h"
 #include "Game/Inventory.h"
 #include <vector>
+#include <glm/gtx/hash.hpp>
 #include <glm/glm.hpp>
 #include <thread>
 #include <mutex>
@@ -110,11 +111,27 @@ struct CollisionResultData {
 	operator bool() { return hit; }
 };
 
+struct Structure {
+	std::vector<glm::vec3> positions;
+	std::vector<uint8_t> ids;
+};
+
+class World;
 class WorldGenerator {
 public:
+	static void SetWorld(World* world) { s_World = world; }
+
 	static void GenerateChunk(Chunk* chunk, uint32_t seed);
-	static void GenerateColumn(const glm::vec2& position, Chunk* chunk, uint32_t seed);
-	static void GenerateOreVains(Chunk* chunk, int min, int max, int count, uint8_t ore_block_id, uint32_t seed);
+	static void GenerateColumn(const glm::vec2& position, int& column_height, Chunk* chunk, uint32_t seed);
+	static void GenerateOreVains(Chunk* chunk, const std::vector<int>& height_map, int min, int max, int count, uint8_t ore_block_id, uint32_t seed);
+	static void GenerateTrees(Chunk* chunk, const std::vector<int>& height_map, uint32_t seed);
+	static void GenerateGrass(Chunk* chunk, const std::vector<int>& height_map, uint32_t seed);
+	static void GenerateStructure(Chunk* chunk, const Structure& structure);
+
+	static Structure CreateTree(Chunk* chunk, const glm::vec3& base_position, uint32_t seed);
+
+private:
+	inline static World* s_World;
 };
 class World {
 public:
@@ -195,6 +212,7 @@ private:
 	inline static std::vector<glm::vec2> s_ChunksRebuilt;
 
 private:
+	// TODO: move to game class
 	const inline static float c_SkyBoxVertices[] = {
 		 1.0f,  1.0f,  1.0f,
 		 1.0f, -1.0f,  1.0f,
@@ -219,6 +237,9 @@ private:
 		1, 2, 5,
 		2, 5, 6
 	};
+
+private:
+	friend WorldGenerator;
 };
 
 class ChunkMesher {

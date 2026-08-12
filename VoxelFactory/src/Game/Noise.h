@@ -16,6 +16,7 @@ public:
 	static float SamplePerlinNoise3D(const glm::vec3& position, uint32_t seed);
 	static float SampleFractalPerlinNoise3D(const glm::vec3& position, int octave_count, uint32_t seed);
 
+	static uint32_t State(const glm::vec3& input, uint32_t seed);
 	static uint32_t PCGHash(uint32_t input);
 
 	// Random float between 0 and 1

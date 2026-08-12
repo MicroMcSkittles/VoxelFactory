@@ -13,6 +13,7 @@ std::vector<TextureIDs> Block::s_TextureIDs = {
 	{ TEX_COORD(4,3) }, // Leaves
 	{ TEX_COORD(12,0) }, // Poppy Flower
 	{ TEX_COORD(13,0) }, // Dandelion Flower
+	{ TEX_COORD(7,2) }, // Dandelion Flower
 
 	{ TEX_COORD(9,13) }, // Bedrock
 	{ TEX_COORD(1,0) }, // Stone
@@ -41,6 +42,7 @@ std::vector<uint8_t> Block::s_Properties = {
 	BlockProperty_Transparent, // Leaves
 	BlockProperty_CrossMesh | BlockProperty_Transparent | BlockProperty_DisableCollision, // Poppy Flower
 	BlockProperty_CrossMesh | BlockProperty_Transparent | BlockProperty_DisableCollision, // Dandelion Flower
+	BlockProperty_CrossMesh | BlockProperty_Transparent | BlockProperty_DisableCollision, // Short Grass
 	BlockProperty_Unbreakable,
 	0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 	BlockProperty_Glass | BlockProperty_Transparent, // Glass

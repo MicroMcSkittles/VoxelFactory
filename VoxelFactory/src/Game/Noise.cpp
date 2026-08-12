@@ -169,6 +169,10 @@ glm::vec3 NoiseGenerator::RandomGradient3D(const glm::ivec3& position, uint32_t 
 	};
 }
 
+uint32_t NoiseGenerator::State(const glm::vec3& input, uint32_t seed) {
+	return (seed << (int)input.x) ^ (seed >> (int)input.y) ^ (seed << (int)input.z);
+}
+
 uint32_t NoiseGenerator::PCGHash(uint32_t input) {
 	uint32_t state = input * 747796405u + 2891336453u;
 	uint32_t word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
