@@ -16,7 +16,7 @@ in vec3 WorldPos;
 const int c_AtlasSize = 16;
 const vec3 c_LightDirection = -vec3(-0.6, -0.8, -0.55);
 
-const float c_RenderDistance = 13.0;
+const float c_RenderDistance = 14.0;
 const float c_FogMin = c_RenderDistance * 16.0 - 66.0;
 const float c_FogMax = c_RenderDistance * 16.0 - 4.0;
 

@@ -315,7 +315,7 @@ void World::SetVoxel(const glm::vec3& position, uint8_t new_id) {
 }
 void World::BreakVoxel(const glm::vec3& position) {
 	Block block = GetVoxel(position);
-	block.id = block.id & Block::OrientationMask;
+	block.id = block.id & ~Block::OrientationMask;
 
 	// TODO: spawn particals on the surface of the block
 	if (Block::HasProperty(block.id, BlockProperty_Unbreakable)) return;
@@ -1024,8 +1024,8 @@ bool ChunkMesher::IsVoid(const glm::vec3& position) {
 }
 void ChunkMesher::MeshFace(const glm::vec3& position, const glm::vec3& face_dir, uint32_t id, uint8_t block_id, const BlockVertex* data) {
 
-	uint8_t orientation = (block_id & 0b11000000) >> 6;
-	int axis_count = Block::GetAxisCount(block_id & 0b00111111);
+	uint8_t orientation = (block_id & Block::OrientationMask) >> 6;
+	int axis_count = Block::GetAxisCount(block_id);
 
 	glm::vec3 adj_face_dir = Block::OrientVector(face_dir, axis_count, orientation);
 	glm::vec3 other_pos = position + adj_face_dir;
@@ -1052,26 +1052,26 @@ void ChunkMesher::MeshFace(const glm::vec3& position, const glm::vec3& face_dir,
 		else if (adj_face_dir.z < 0) other_pos.z = Chunk::ChunkLength - 1;
 		
 		// Don't mesh face if both blocks are glass
-		if (block_id == 17 && Block::HasProperty(block_id, BlockProperty_Transparent) && !other_chunk->IsVoid(other_pos)) return;
+		if (block_id == BlockID_Glass && Block::HasProperty(block_id, BlockProperty_Transparent) && !other_chunk->IsVoid(other_pos)) return;
 		// Mesh face if adjacent block is not transparent
 		else if (!other_chunk->IsTransparent(other_pos)) return;
 	}
 	// Don't mesh face if both blocks are glass
-	else if (block_id == 17 && Block::HasProperty(block_id, BlockProperty_Transparent) && !m_Chunk->IsVoid(other_pos)) return;
+	else if (block_id == BlockID_Glass && Block::HasProperty(block_id, BlockProperty_Transparent) && !m_Chunk->IsVoid(other_pos)) return;
 	// Mesh face if adjacent block is not void
 	else if (!m_Chunk->IsTransparent(other_pos)) return;
 
 	// Add face data to mesh
 	for (int i = 0; i < Block::FaceVertexCount; i++) {
 		BlockVertex vertex = data[i];
-		vertex.position = Block::OrientVector(vertex.position, axis_count, orientation);
+		vertex.position = BlockVertex::PackPosition(Block::OrientVector(BlockVertex::UnpackPosition(vertex.position) - 0.5f, axis_count, orientation) + 0.5f);
 
 		uint32_t data = 0;
-		data |= vertex.data & 24; // Copy tex coords
-		data |= Block::OrientVector(vertex.data & 7, axis_count, orientation); // orient normal
+		data |= vertex.data & (24 << 24); // Copy tex coords
+		data |= Block::OrientVector(vertex.data & (7 << 24), axis_count, orientation); // orient normal
 
 		// Calculate ambient occlusion
-		glm::vec3 step = vertex.position * 2.0f;
+		glm::vec3 step = (BlockVertex::UnpackPosition(vertex.position) - 0.5f) * 2.0f;
 
 		glm::vec3 left_voxel_offset = glm::vec3(0.0f);
 		glm::vec3 right_voxel_offset = glm::vec3(0.0f);
@@ -1094,11 +1094,13 @@ void ChunkMesher::MeshFace(const glm::vec3& position, const glm::vec3& face_dir,
 		uint32_t ambient_occlusion = 0;
 		if (left_voxel && right_voxel) ambient_occlusion = 0;
 		else ambient_occlusion = (3 - (left_voxel + right_voxel + corner_voxel));
-		data |= ambient_occlusion << 5;
+		data |= ambient_occlusion << 29;
 
-		vertex.position += position;
-		vertex.id = id;
-		vertex.data = data;
+		glm::vec3 vertex_position = BlockVertex::UnpackPosition(vertex.position);
+		vertex_position += position;
+		vertex.position = BlockVertex::PackPosition(vertex_position);
+
+		vertex.data = data | id;
 		m_Vertices.push_back(vertex);
 	}
 	for (int i = 0; i < Block::FaceIndexCount; i++) {
@@ -1110,9 +1112,13 @@ void ChunkMesher::MeshCrossMesh(const glm::vec3& position, uint8_t block_id) {
 	const TextureIDs& texture_ids = Block::GetTextureIDs(block_id);
 	for (int i = 0; i < 12; i++) {
 		BlockVertex vertex = Block::CrossMeshVertices[i];
-		vertex.id = texture_ids.front;
-		vertex.position += position;
-		vertex.data |= 2 << 5; // ambient occlusion
+		
+		glm::vec3 vertex_position = BlockVertex::UnpackPosition(vertex.position);
+		vertex_position += position;
+		vertex.position = BlockVertex::PackPosition(vertex_position);
+
+		vertex.data |= texture_ids.front; // set id
+		vertex.data |= 2 << 29; // ambient occlusion
 		m_Vertices.push_back(vertex);
 	}
 	for (int i = 0; i < 24; i++) {
@@ -1313,7 +1319,7 @@ Structure WorldGenerator::CreateTree(Chunk* chunk, const glm::vec3& base_positio
 		glm::vec3 position = base_position;
 		position.y += i;
 		tree.positions.push_back(position);
-		tree.ids.push_back(BlockID_Log);
+		tree.ids.push_back(BlockID_Log | 64); // or 64 to make log vertical
 	}
 
 	// Leave block data (there has got to be a better way to do this...)

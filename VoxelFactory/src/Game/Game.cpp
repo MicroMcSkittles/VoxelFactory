@@ -336,12 +336,12 @@ void Game::LoadMeshes() {
 	// Block Mesh
 	std::vector<BlockVertex> block_vertices(Block::Vertices, Block::Vertices + 36);
 	size_t offset = 0;
-	for (int i = 0; i < Block::FaceVertexCount; i++, offset++) block_vertices[offset].id = 0; // Front
-	for (int i = 0; i < Block::FaceVertexCount; i++, offset++) block_vertices[offset].id = 1; // Back
-	for (int i = 0; i < Block::FaceVertexCount; i++, offset++) block_vertices[offset].id = 2; // Left
-	for (int i = 0; i < Block::FaceVertexCount; i++, offset++) block_vertices[offset].id = 3; // Right
-	for (int i = 0; i < Block::FaceVertexCount; i++, offset++) block_vertices[offset].id = 4; // Top
-	for (int i = 0; i < Block::FaceVertexCount; i++, offset++) block_vertices[offset].id = 5; // Bottom
+	for (int i = 0; i < Block::FaceVertexCount; i++, offset++) block_vertices[offset].data |= 0; // Front
+	for (int i = 0; i < Block::FaceVertexCount; i++, offset++) block_vertices[offset].data |= 1; // Back
+	for (int i = 0; i < Block::FaceVertexCount; i++, offset++) block_vertices[offset].data |= 2; // Left
+	for (int i = 0; i < Block::FaceVertexCount; i++, offset++) block_vertices[offset].data |= 3; // Right
+	for (int i = 0; i < Block::FaceVertexCount; i++, offset++) block_vertices[offset].data |= 4; // Top
+	for (int i = 0; i < Block::FaceVertexCount; i++, offset++) block_vertices[offset].data |= 5; // Bottom
 
 	Ref<VertexArray>& block_mesh = m_Meshes[(size_t)MeshType::Block];
 	block_mesh = CreateRef<VertexArray>();
@@ -386,8 +386,8 @@ void Game::LoadMeshes() {
 	// CrossMesh Mesh
 	std::vector<BlockVertex> crossmesh_vertices(Block::CrossMeshVertices, Block::CrossMeshVertices + 12);
 	offset = 0;
-	for (int i = 0; i < Block::FaceVertexCount; i++, offset++) crossmesh_vertices[offset].id = 0; // Front
-	for (int i = 0; i < Block::FaceVertexCount; i++, offset++) crossmesh_vertices[offset].id = 1; // Back
+	for (int i = 0; i < Block::FaceVertexCount; i++, offset++) crossmesh_vertices[offset].data |= 0; // Front
+	for (int i = 0; i < Block::FaceVertexCount; i++, offset++) crossmesh_vertices[offset].data |= 1; // Back
 	Ref<VertexArray>& crossmesh_mesh = m_Meshes[(size_t)MeshType::CrossMesh];
 	crossmesh_mesh = CreateRef<VertexArray>();
 	crossmesh_mesh->Bind();

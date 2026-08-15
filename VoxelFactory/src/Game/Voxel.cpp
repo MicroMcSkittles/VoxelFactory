@@ -44,9 +44,12 @@ std::vector<uint8_t> Block::s_Properties = {
 	BlockProperty_CrossMesh | BlockProperty_Transparent | BlockProperty_DisableCollision, // Dandelion Flower
 	BlockProperty_CrossMesh | BlockProperty_Transparent | BlockProperty_DisableCollision, // Short Grass
 	BlockProperty_Unbreakable,
-	0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,
+	BlockProperty_HasOrientation3Axis, // Log
+	0,0,0,0,0,
 	BlockProperty_Glass | BlockProperty_Transparent, // Glass
-	0,0,
+	BlockProperty_HasOrientation4Axis, // Work Bench
+	BlockProperty_HasOrientation4Axis, // Furnace
 	BlockProperty_CrossMesh | BlockProperty_Transparent | BlockProperty_DisableCollision, // Cobweb
 };
 
@@ -65,19 +68,19 @@ std::vector<uint8_t> Block::s_Properties = {
 // ( 1, 1 ) = 3
 
 const BlockVertex Block::CrossMeshVertices[] = {
-	{ { -0.5f, -0.5f, -0.5f }, BlockVertex_Normal0 | BlockVertex_TexCoord1 },
-	{ {  0.5f, -0.5f,  0.5f }, BlockVertex_Normal0 | BlockVertex_TexCoord0 },
-	{ {  0.5f,  0.5f,  0.5f }, BlockVertex_Normal0 | BlockVertex_TexCoord2 },
-	{ {  0.5f,  0.5f,  0.5f }, BlockVertex_Normal0 | BlockVertex_TexCoord2 },
-	{ { -0.5f,  0.5f, -0.5f }, BlockVertex_Normal0 | BlockVertex_TexCoord3 },
-	{ { -0.5f, -0.5f, -0.5f }, BlockVertex_Normal0 | BlockVertex_TexCoord1 },
+	{ BlockVertex::PackPosition({ 0.0f, 0.0f, 0.0f }), BlockVertex_Normal0 | BlockVertex_TexCoord1 },
+	{ BlockVertex::PackPosition({ 1.0f, 0.0f, 1.0f }), BlockVertex_Normal0 | BlockVertex_TexCoord0 },
+	{ BlockVertex::PackPosition({ 1.0f, 1.0f, 1.0f }), BlockVertex_Normal0 | BlockVertex_TexCoord2 },
+	{ BlockVertex::PackPosition({ 1.0f, 1.0f, 1.0f }), BlockVertex_Normal0 | BlockVertex_TexCoord2 },
+	{ BlockVertex::PackPosition({ 0.0f, 1.0f, 0.0f }), BlockVertex_Normal0 | BlockVertex_TexCoord3 },
+	{ BlockVertex::PackPosition({ 0.0f, 0.0f, 0.0f }), BlockVertex_Normal0 | BlockVertex_TexCoord1 },
 
-	{ {  0.5f, -0.5f, -0.5f }, BlockVertex_Normal2 | BlockVertex_TexCoord0 },
-	{ {  0.5f,  0.5f, -0.5f }, BlockVertex_Normal2 | BlockVertex_TexCoord2 },
-	{ { -0.5f,  0.5f,  0.5f }, BlockVertex_Normal2 | BlockVertex_TexCoord3 },
-	{ { -0.5f,  0.5f,  0.5f }, BlockVertex_Normal2 | BlockVertex_TexCoord3 },
-	{ { -0.5f, -0.5f,  0.5f }, BlockVertex_Normal2 | BlockVertex_TexCoord1 },
-	{ {  0.5f, -0.5f, -0.5f }, BlockVertex_Normal2 | BlockVertex_TexCoord0 }
+	{ BlockVertex::PackPosition({ 1.0f, 0.0f, 0.0f }), BlockVertex_Normal2 | BlockVertex_TexCoord0 },
+	{ BlockVertex::PackPosition({ 1.0f, 1.0f, 0.0f }), BlockVertex_Normal2 | BlockVertex_TexCoord2 },
+	{ BlockVertex::PackPosition({ 0.0f, 1.0f, 1.0f }), BlockVertex_Normal2 | BlockVertex_TexCoord3 },
+	{ BlockVertex::PackPosition({ 0.0f, 1.0f, 1.0f }), BlockVertex_Normal2 | BlockVertex_TexCoord3 },
+	{ BlockVertex::PackPosition({ 0.0f, 0.0f, 1.0f }), BlockVertex_Normal2 | BlockVertex_TexCoord1 },
+	{ BlockVertex::PackPosition({ 1.0f, 0.0f, 0.0f }), BlockVertex_Normal2 | BlockVertex_TexCoord0 }
 };
 const uint32_t Block::CrossMeshIndices[] = {
 	0,  1,   2,
@@ -91,101 +94,101 @@ const uint32_t Block::CrossMeshIndices[] = {
 };
 
 const BlockVertex Block::FrontVertices[] = {
-	{ { -0.5f, -0.5f,  0.5f }, BlockVertex_Normal0 | BlockVertex_TexCoord1 },
-	{ {  0.5f, -0.5f,  0.5f }, BlockVertex_Normal0 | BlockVertex_TexCoord0 },
-	{ {  0.5f,  0.5f,  0.5f }, BlockVertex_Normal0 | BlockVertex_TexCoord2 },
-	{ {  0.5f,  0.5f,  0.5f }, BlockVertex_Normal0 | BlockVertex_TexCoord2 },
-	{ { -0.5f,  0.5f,  0.5f }, BlockVertex_Normal0 | BlockVertex_TexCoord3 },
-	{ { -0.5f, -0.5f,  0.5f }, BlockVertex_Normal0 | BlockVertex_TexCoord1 }
+	{ BlockVertex::PackPosition({ 0.0f, 0.0f, 1.0f }), BlockVertex_Normal0 | BlockVertex_TexCoord1 },
+	{ BlockVertex::PackPosition({ 1.0f, 0.0f, 1.0f }), BlockVertex_Normal0 | BlockVertex_TexCoord0 },
+	{ BlockVertex::PackPosition({ 1.0f, 1.0f, 1.0f }), BlockVertex_Normal0 | BlockVertex_TexCoord2 },
+	{ BlockVertex::PackPosition({ 1.0f, 1.0f, 1.0f }), BlockVertex_Normal0 | BlockVertex_TexCoord2 },
+	{ BlockVertex::PackPosition({ 0.0f, 1.0f, 1.0f }), BlockVertex_Normal0 | BlockVertex_TexCoord3 },
+	{ BlockVertex::PackPosition({ 0.0f, 0.0f, 1.0f }), BlockVertex_Normal0 | BlockVertex_TexCoord1 }
 };
 const BlockVertex Block::BackVertices[] = {
-	{ {  0.5f,  0.5f, -0.5f }, BlockVertex_Normal1 | BlockVertex_TexCoord3 },
-	{ {  0.5f, -0.5f, -0.5f }, BlockVertex_Normal1 | BlockVertex_TexCoord1 },
-	{ { -0.5f, -0.5f, -0.5f }, BlockVertex_Normal1 | BlockVertex_TexCoord0 },
-	{ { -0.5f, -0.5f, -0.5f }, BlockVertex_Normal1 | BlockVertex_TexCoord0 },
-	{ { -0.5f,  0.5f, -0.5f }, BlockVertex_Normal1 | BlockVertex_TexCoord2 },
-	{ {  0.5f,  0.5f, -0.5f }, BlockVertex_Normal1 | BlockVertex_TexCoord3 }
+	{ BlockVertex::PackPosition({ 1.0f, 1.0f, 0.0f }), BlockVertex_Normal1 | BlockVertex_TexCoord3 },
+	{ BlockVertex::PackPosition({ 1.0f, 0.0f, 0.0f }), BlockVertex_Normal1 | BlockVertex_TexCoord1 },
+	{ BlockVertex::PackPosition({ 0.0f, 0.0f, 0.0f }), BlockVertex_Normal1 | BlockVertex_TexCoord0 },
+	{ BlockVertex::PackPosition({ 0.0f, 0.0f, 0.0f }), BlockVertex_Normal1 | BlockVertex_TexCoord0 },
+	{ BlockVertex::PackPosition({ 0.0f, 1.0f, 0.0f }), BlockVertex_Normal1 | BlockVertex_TexCoord2 },
+	{ BlockVertex::PackPosition({ 1.0f, 1.0f, 0.0f }), BlockVertex_Normal1 | BlockVertex_TexCoord3 }
 };
 const BlockVertex Block::LeftVertices[] = {
-	{ {  0.5f, -0.5f, -0.5f }, BlockVertex_Normal2 | BlockVertex_TexCoord0 },
-	{ {  0.5f,  0.5f, -0.5f }, BlockVertex_Normal2 | BlockVertex_TexCoord2 },
-	{ {  0.5f,  0.5f,  0.5f }, BlockVertex_Normal2 | BlockVertex_TexCoord3 },
-	{ {  0.5f,  0.5f,  0.5f }, BlockVertex_Normal2 | BlockVertex_TexCoord3 },
-	{ {  0.5f, -0.5f,  0.5f }, BlockVertex_Normal2 | BlockVertex_TexCoord1 },
-	{ {  0.5f, -0.5f, -0.5f }, BlockVertex_Normal2 | BlockVertex_TexCoord0 }
+	{ BlockVertex::PackPosition({ 1.0f, 0.0f, 0.0f }), BlockVertex_Normal2 | BlockVertex_TexCoord0 },
+	{ BlockVertex::PackPosition({ 1.0f, 1.0f, 0.0f }), BlockVertex_Normal2 | BlockVertex_TexCoord2 },
+	{ BlockVertex::PackPosition({ 1.0f, 1.0f, 1.0f }), BlockVertex_Normal2 | BlockVertex_TexCoord3 },
+	{ BlockVertex::PackPosition({ 1.0f, 1.0f, 1.0f }), BlockVertex_Normal2 | BlockVertex_TexCoord3 },
+	{ BlockVertex::PackPosition({ 1.0f, 0.0f, 1.0f }), BlockVertex_Normal2 | BlockVertex_TexCoord1 },
+	{ BlockVertex::PackPosition({ 1.0f, 0.0f, 0.0f }), BlockVertex_Normal2 | BlockVertex_TexCoord0 }
 };
 const BlockVertex Block::RightVertices[] = {
-	{ { -0.5f,  0.5f,  0.5f }, BlockVertex_Normal3 | BlockVertex_TexCoord2 },
-	{ { -0.5f,  0.5f, -0.5f }, BlockVertex_Normal3 | BlockVertex_TexCoord3 },
-	{ { -0.5f, -0.5f, -0.5f }, BlockVertex_Normal3 | BlockVertex_TexCoord1 },
-	{ { -0.5f, -0.5f, -0.5f }, BlockVertex_Normal3 | BlockVertex_TexCoord1 },
-	{ { -0.5f, -0.5f,  0.5f }, BlockVertex_Normal3 | BlockVertex_TexCoord0 },
-	{ { -0.5f,  0.5f,  0.5f }, BlockVertex_Normal3 | BlockVertex_TexCoord2 }
+	{ BlockVertex::PackPosition({ 0.0f, 1.0f, 1.0f }), BlockVertex_Normal3 | BlockVertex_TexCoord2 },
+	{ BlockVertex::PackPosition({ 0.0f, 1.0f, 0.0f }), BlockVertex_Normal3 | BlockVertex_TexCoord3 },
+	{ BlockVertex::PackPosition({ 0.0f, 0.0f, 0.0f }), BlockVertex_Normal3 | BlockVertex_TexCoord1 },
+	{ BlockVertex::PackPosition({ 0.0f, 0.0f, 0.0f }), BlockVertex_Normal3 | BlockVertex_TexCoord1 },
+	{ BlockVertex::PackPosition({ 0.0f, 0.0f, 1.0f }), BlockVertex_Normal3 | BlockVertex_TexCoord0 },
+	{ BlockVertex::PackPosition({ 0.0f, 1.0f, 1.0f }), BlockVertex_Normal3 | BlockVertex_TexCoord2 }
 };
 const BlockVertex Block::TopVertices[] = {
-	{ {  0.5f,  0.5f,  0.5f }, BlockVertex_Normal4 | BlockVertex_TexCoord0 },
-	{ {  0.5f,  0.5f, -0.5f }, BlockVertex_Normal4 | BlockVertex_TexCoord2 },
-	{ { -0.5f,  0.5f, -0.5f }, BlockVertex_Normal4 | BlockVertex_TexCoord3 },
-	{ { -0.5f,  0.5f, -0.5f }, BlockVertex_Normal4 | BlockVertex_TexCoord3 },
-	{ { -0.5f,  0.5f,  0.5f }, BlockVertex_Normal4 | BlockVertex_TexCoord1 },
-	{ {  0.5f,  0.5f,  0.5f }, BlockVertex_Normal4 | BlockVertex_TexCoord0 }
+	{ BlockVertex::PackPosition({ 1.0f, 1.0f, 1.0f }), BlockVertex_Normal4 | BlockVertex_TexCoord0 },
+	{ BlockVertex::PackPosition({ 1.0f, 1.0f, 0.0f }), BlockVertex_Normal4 | BlockVertex_TexCoord2 },
+	{ BlockVertex::PackPosition({ 0.0f, 1.0f, 0.0f }), BlockVertex_Normal4 | BlockVertex_TexCoord3 },
+	{ BlockVertex::PackPosition({ 0.0f, 1.0f, 0.0f }), BlockVertex_Normal4 | BlockVertex_TexCoord3 },
+	{ BlockVertex::PackPosition({ 0.0f, 1.0f, 1.0f }), BlockVertex_Normal4 | BlockVertex_TexCoord1 },
+	{ BlockVertex::PackPosition({ 1.0f, 1.0f, 1.0f }), BlockVertex_Normal4 | BlockVertex_TexCoord0 }
 };
 const BlockVertex Block::BottomVertices[] = {
-	{ { -0.5f, -0.5f, -0.5f }, BlockVertex_Normal5 | BlockVertex_TexCoord3 },
-	{ {  0.5f, -0.5f, -0.5f }, BlockVertex_Normal5 | BlockVertex_TexCoord2 },
-	{ {  0.5f, -0.5f,  0.5f }, BlockVertex_Normal5 | BlockVertex_TexCoord0 },
-	{ {  0.5f, -0.5f,  0.5f }, BlockVertex_Normal5 | BlockVertex_TexCoord0 },
-	{ { -0.5f, -0.5f,  0.5f }, BlockVertex_Normal5 | BlockVertex_TexCoord1 },
-	{ { -0.5f, -0.5f, -0.5f }, BlockVertex_Normal5 | BlockVertex_TexCoord3 }
+	{ BlockVertex::PackPosition({ 0.0f, 0.0f, 0.0f }), BlockVertex_Normal5 | BlockVertex_TexCoord3 },
+	{ BlockVertex::PackPosition({ 1.0f, 0.0f, 0.0f }), BlockVertex_Normal5 | BlockVertex_TexCoord2 },
+	{ BlockVertex::PackPosition({ 1.0f, 0.0f, 1.0f }), BlockVertex_Normal5 | BlockVertex_TexCoord0 },
+	{ BlockVertex::PackPosition({ 1.0f, 0.0f, 1.0f }), BlockVertex_Normal5 | BlockVertex_TexCoord0 },
+	{ BlockVertex::PackPosition({ 0.0f, 0.0f, 1.0f }), BlockVertex_Normal5 | BlockVertex_TexCoord1 },
+	{ BlockVertex::PackPosition({ 0.0f, 0.0f, 0.0f }), BlockVertex_Normal5 | BlockVertex_TexCoord3 }
 };
 const BlockVertex Block::Vertices[] = {
 	// Front
-	{ { -0.5f, -0.5f,  0.5f }, BlockVertex_Normal0 | BlockVertex_TexCoord1 },
-	{ {  0.5f, -0.5f,  0.5f }, BlockVertex_Normal0 | BlockVertex_TexCoord0 },
-	{ {  0.5f,  0.5f,  0.5f }, BlockVertex_Normal0 | BlockVertex_TexCoord2 },
-	{ {  0.5f,  0.5f,  0.5f }, BlockVertex_Normal0 | BlockVertex_TexCoord2 },
-	{ { -0.5f,  0.5f,  0.5f }, BlockVertex_Normal0 | BlockVertex_TexCoord3 },
-	{ { -0.5f, -0.5f,  0.5f }, BlockVertex_Normal0 | BlockVertex_TexCoord1 },
+	{ BlockVertex::PackPosition({ 0.0f, 0.0f, 1.0f }), BlockVertex_Normal0 | BlockVertex_TexCoord1 },
+	{ BlockVertex::PackPosition({ 1.0f, 0.0f, 1.0f }), BlockVertex_Normal0 | BlockVertex_TexCoord0 },
+	{ BlockVertex::PackPosition({ 1.0f, 1.0f, 1.0f }), BlockVertex_Normal0 | BlockVertex_TexCoord2 },
+	{ BlockVertex::PackPosition({ 1.0f, 1.0f, 1.0f }), BlockVertex_Normal0 | BlockVertex_TexCoord2 },
+	{ BlockVertex::PackPosition({ 0.0f, 1.0f, 1.0f }), BlockVertex_Normal0 | BlockVertex_TexCoord3 },
+	{ BlockVertex::PackPosition({ 0.0f, 0.0f, 1.0f }), BlockVertex_Normal0 | BlockVertex_TexCoord1 },
 
 	// Back
-	{ {  0.5f,  0.5f, -0.5f }, BlockVertex_Normal1 | BlockVertex_TexCoord3 },
-	{ {  0.5f, -0.5f, -0.5f }, BlockVertex_Normal1 | BlockVertex_TexCoord1 },
-	{ { -0.5f, -0.5f, -0.5f }, BlockVertex_Normal1 | BlockVertex_TexCoord0 },
-	{ { -0.5f, -0.5f, -0.5f }, BlockVertex_Normal1 | BlockVertex_TexCoord0 },
-	{ { -0.5f,  0.5f, -0.5f }, BlockVertex_Normal1 | BlockVertex_TexCoord2 },
-	{ {  0.5f,  0.5f, -0.5f }, BlockVertex_Normal1 | BlockVertex_TexCoord3 },
+	{ BlockVertex::PackPosition({ 1.0f, 1.0f, 0.0f }), BlockVertex_Normal1 | BlockVertex_TexCoord3 },
+	{ BlockVertex::PackPosition({ 1.0f, 0.0f, 0.0f }), BlockVertex_Normal1 | BlockVertex_TexCoord1 },
+	{ BlockVertex::PackPosition({ 0.0f, 0.0f, 0.0f }), BlockVertex_Normal1 | BlockVertex_TexCoord0 },
+	{ BlockVertex::PackPosition({ 0.0f, 0.0f, 0.0f }), BlockVertex_Normal1 | BlockVertex_TexCoord0 },
+	{ BlockVertex::PackPosition({ 0.0f, 1.0f, 0.0f }), BlockVertex_Normal1 | BlockVertex_TexCoord2 },
+	{ BlockVertex::PackPosition({ 1.0f, 1.0f, 0.0f }), BlockVertex_Normal1 | BlockVertex_TexCoord3 },
 
 	// Left
-	{ {  0.5f, -0.5f, -0.5f }, BlockVertex_Normal2 | BlockVertex_TexCoord0 },
-	{ {  0.5f,  0.5f, -0.5f }, BlockVertex_Normal2 | BlockVertex_TexCoord2 },
-	{ {  0.5f,  0.5f,  0.5f }, BlockVertex_Normal2 | BlockVertex_TexCoord3 },
-	{ {  0.5f,  0.5f,  0.5f }, BlockVertex_Normal2 | BlockVertex_TexCoord3 },
-	{ {  0.5f, -0.5f,  0.5f }, BlockVertex_Normal2 | BlockVertex_TexCoord1 },
-	{ {  0.5f, -0.5f, -0.5f }, BlockVertex_Normal2 | BlockVertex_TexCoord0 },
+	{ BlockVertex::PackPosition({ 1.0f, 0.0f, 0.0f }), BlockVertex_Normal2 | BlockVertex_TexCoord0 },
+	{ BlockVertex::PackPosition({ 1.0f, 1.0f, 0.0f }), BlockVertex_Normal2 | BlockVertex_TexCoord2 },
+	{ BlockVertex::PackPosition({ 1.0f, 1.0f, 1.0f }), BlockVertex_Normal2 | BlockVertex_TexCoord3 },
+	{ BlockVertex::PackPosition({ 1.0f, 1.0f, 1.0f }), BlockVertex_Normal2 | BlockVertex_TexCoord3 },
+	{ BlockVertex::PackPosition({ 1.0f, 0.0f, 1.0f }), BlockVertex_Normal2 | BlockVertex_TexCoord1 },
+	{ BlockVertex::PackPosition({ 1.0f, 0.0f, 0.0f }), BlockVertex_Normal2 | BlockVertex_TexCoord0 },
 
 	// Right
-	{ { -0.5f,  0.5f,  0.5f }, BlockVertex_Normal3 | BlockVertex_TexCoord2 },
-	{ { -0.5f,  0.5f, -0.5f }, BlockVertex_Normal3 | BlockVertex_TexCoord3 },
-	{ { -0.5f, -0.5f, -0.5f }, BlockVertex_Normal3 | BlockVertex_TexCoord1 },
-	{ { -0.5f, -0.5f, -0.5f }, BlockVertex_Normal3 | BlockVertex_TexCoord1 },
-	{ { -0.5f, -0.5f,  0.5f }, BlockVertex_Normal3 | BlockVertex_TexCoord0 },
-	{ { -0.5f,  0.5f,  0.5f }, BlockVertex_Normal3 | BlockVertex_TexCoord2 },
+	{ BlockVertex::PackPosition({ 0.0f, 1.0f, 1.0f }), BlockVertex_Normal3 | BlockVertex_TexCoord2 },
+	{ BlockVertex::PackPosition({ 0.0f, 1.0f, 0.0f }), BlockVertex_Normal3 | BlockVertex_TexCoord3 },
+	{ BlockVertex::PackPosition({ 0.0f, 0.0f, 0.0f }), BlockVertex_Normal3 | BlockVertex_TexCoord1 },
+	{ BlockVertex::PackPosition({ 0.0f, 0.0f, 0.0f }), BlockVertex_Normal3 | BlockVertex_TexCoord1 },
+	{ BlockVertex::PackPosition({ 0.0f, 0.0f, 1.0f }), BlockVertex_Normal3 | BlockVertex_TexCoord0 },
+	{ BlockVertex::PackPosition({ 0.0f, 1.0f, 1.0f }), BlockVertex_Normal3 | BlockVertex_TexCoord2 },
 
 	// Top
-	{ {  0.5f,  0.5f,  0.5f }, BlockVertex_Normal4 | BlockVertex_TexCoord0 },
-	{ {  0.5f,  0.5f, -0.5f }, BlockVertex_Normal4 | BlockVertex_TexCoord2 },
-	{ { -0.5f,  0.5f, -0.5f }, BlockVertex_Normal4 | BlockVertex_TexCoord3 },
-	{ { -0.5f,  0.5f, -0.5f }, BlockVertex_Normal4 | BlockVertex_TexCoord3 },
-	{ { -0.5f,  0.5f,  0.5f }, BlockVertex_Normal4 | BlockVertex_TexCoord1 },
-	{ {  0.5f,  0.5f,  0.5f }, BlockVertex_Normal4 | BlockVertex_TexCoord0 },
+	{ BlockVertex::PackPosition({ 1.0f, 1.0f, 1.0f }), BlockVertex_Normal4 | BlockVertex_TexCoord0 },
+	{ BlockVertex::PackPosition({ 1.0f, 1.0f, 0.0f }), BlockVertex_Normal4 | BlockVertex_TexCoord2 },
+	{ BlockVertex::PackPosition({ 0.0f, 1.0f, 0.0f }), BlockVertex_Normal4 | BlockVertex_TexCoord3 },
+	{ BlockVertex::PackPosition({ 0.0f, 1.0f, 0.0f }), BlockVertex_Normal4 | BlockVertex_TexCoord3 },
+	{ BlockVertex::PackPosition({ 0.0f, 1.0f, 1.0f }), BlockVertex_Normal4 | BlockVertex_TexCoord1 },
+	{ BlockVertex::PackPosition({ 1.0f, 1.0f, 1.0f }), BlockVertex_Normal4 | BlockVertex_TexCoord0 },
 
 	// Bottom
-	{ { -0.5f, -0.5f, -0.5f }, BlockVertex_Normal5 | BlockVertex_TexCoord3 },
-	{ {  0.5f, -0.5f, -0.5f }, BlockVertex_Normal5 | BlockVertex_TexCoord2 },
-	{ {  0.5f, -0.5f,  0.5f }, BlockVertex_Normal5 | BlockVertex_TexCoord0 },
-	{ {  0.5f, -0.5f,  0.5f }, BlockVertex_Normal5 | BlockVertex_TexCoord0 },
-	{ { -0.5f, -0.5f,  0.5f }, BlockVertex_Normal5 | BlockVertex_TexCoord1 },
-	{ { -0.5f, -0.5f, -0.5f }, BlockVertex_Normal5 | BlockVertex_TexCoord3 }
+	{ BlockVertex::PackPosition({ 0.0f, 0.0f, 0.0f }), BlockVertex_Normal5 | BlockVertex_TexCoord3 },
+	{ BlockVertex::PackPosition({ 1.0f, 0.0f, 0.0f }), BlockVertex_Normal5 | BlockVertex_TexCoord2 },
+	{ BlockVertex::PackPosition({ 1.0f, 0.0f, 1.0f }), BlockVertex_Normal5 | BlockVertex_TexCoord0 },
+	{ BlockVertex::PackPosition({ 1.0f, 0.0f, 1.0f }), BlockVertex_Normal5 | BlockVertex_TexCoord0 },
+	{ BlockVertex::PackPosition({ 0.0f, 0.0f, 1.0f }), BlockVertex_Normal5 | BlockVertex_TexCoord1 },
+	{ BlockVertex::PackPosition({ 0.0f, 0.0f, 0.0f }), BlockVertex_Normal5 | BlockVertex_TexCoord3 }
 };
 const uint32_t Block::FaceIndices[] = {
 	0,  1,  2,
@@ -201,19 +204,14 @@ const uint32_t Block::Indices[] = {
 };
 
 const VertexLayout Block::Layout = { {
-	{ GL_FLOAT, 3 }, // a_Pos
+	{ GL_UNSIGNED_INT, 1 }, // a_Pos
 	{ GL_UNSIGNED_INT, 1 }, // a_Data
-	{ GL_UNSIGNED_INT, 1 }, // a_TextureID
 } };
 
-bool Block::HasOrientation(uint8_t id) {
-	uint8_t actual_id = id & 0b00111111;
-	if (actual_id == 5 || actual_id == 18 || actual_id == 19) return true;
-	return false;
-}
 int Block::GetAxisCount(uint8_t id) {
-	if (id == 5) return 3; // 3 possable orentations
-	if (id == 18 || id == 19) return 4; // 4 possable orentations
+	uint8_t actual_id = id & ~OrientationMask;
+	if (HasProperty(actual_id, BlockProperty_HasOrientation3Axis ^ BlockProperty_HasOrientation)) return 3;
+	if (HasProperty(actual_id, BlockProperty_HasOrientation4Axis ^ BlockProperty_HasOrientation)) return 4;
 	return 0;
 }
 uint8_t Block::CalculateOrientation(const glm::vec3& direction, uint8_t id) {
@@ -265,23 +263,6 @@ uint32_t Block::OrientVector(uint32_t direction, int axis_count, uint8_t orienta
 
 	return 0;
 }
-
-const TextureIDs& Block::GetTextureIDs(uint8_t id) {
-	uint8_t real_id = id & OrientationMask;
-	if (real_id >= BlockID_Count) return s_TextureIDs[0]; // return missing texture
-	return s_TextureIDs[real_id];
-}
-uint8_t Block::GetProperties(uint8_t id) {
-	uint8_t real_id = id & OrientationMask;
-	if (real_id >= BlockID_Count) return 0;
-	return s_Properties[real_id];
-}
-bool Block::HasProperty(uint8_t id, uint8_t property) {
-	uint8_t real_id = id & OrientationMask;
-	if (real_id >= BlockID_Count) return false;
-	return s_Properties[real_id] & property;
-}
-
 glm::vec3 Block::OrientVector(const glm::vec3& direction, int axis_count, uint8_t orientation) {
 	if (axis_count == 3) {
 		if (orientation == 0) return glm::vec3(-direction.y, direction.x, direction.z);
@@ -296,4 +277,35 @@ glm::vec3 Block::OrientVector(const glm::vec3& direction, int axis_count, uint8_
 	}
 
 	return direction;
+}
+
+const TextureIDs& Block::GetTextureIDs(uint8_t id) {
+	uint8_t real_id = id & ~OrientationMask;
+	if (real_id >= BlockID_Count) return s_TextureIDs[0]; // return missing texture
+	return s_TextureIDs[real_id];
+}
+uint8_t Block::GetProperties(uint8_t id) {
+	uint8_t real_id = id & ~OrientationMask;
+	if (real_id >= BlockID_Count) return 0;
+	return s_Properties[real_id];
+}
+bool Block::HasProperty(uint8_t id, uint8_t property) {
+	uint8_t real_id = id & ~OrientationMask;
+	if (real_id >= BlockID_Count) return false;
+	return s_Properties[real_id] & property;
+}
+
+uint32_t BlockVertex::PackPosition(const glm::vec3& position) {
+	uint32_t position_bits = 0;
+	position_bits |= (uint8_t)position.x;
+	position_bits |= (uint16_t)position.y << 8;
+	position_bits |= (uint8_t)position.z << 24;
+	return position_bits;
+}
+glm::vec3 BlockVertex::UnpackPosition(uint32_t position_bits) {
+	glm::vec3 position;
+	position.x = (float)(position_bits & 0x000000FF);
+	position.y = (float)((position_bits & 0x00FFFF00) >> 8);
+	position.z = (float)((position_bits & 0xFF000000) >> 24);
+	return position;
 }

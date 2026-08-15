@@ -44,26 +44,27 @@ enum BlockID {
 };
 
 enum BlockVertex_Normal {
-	BlockVertex_Normal0 = 0, // ( 0, 0, 1 )
-	BlockVertex_Normal1 = 1, // ( 0, 0,-1 )
-	BlockVertex_Normal2 = 2, // ( 1, 0, 0 )
-	BlockVertex_Normal3 = 3, // (-1, 0, 0 )
-	BlockVertex_Normal4 = 4, // ( 0, 1, 0 )
-	BlockVertex_Normal5 = 5  // ( 0,-1, 0 )
+	BlockVertex_Normal0 = 0 << 24, // ( 0, 0, 1 )
+	BlockVertex_Normal1 = 1 << 24, // ( 0, 0,-1 )
+	BlockVertex_Normal2 = 2 << 24, // ( 1, 0, 0 )
+	BlockVertex_Normal3 = 3 << 24, // (-1, 0, 0 )
+	BlockVertex_Normal4 = 4 << 24, // ( 0, 1, 0 )
+	BlockVertex_Normal5 = 5 << 24  // ( 0,-1, 0 )
 };
 enum BlockVertex_TexCoord {
-	BlockVertex_TexCoord0 = 0,      // ( 0, 0 )
-	BlockVertex_TexCoord1 = 1 << 3, // ( 1, 0 )
-	BlockVertex_TexCoord2 = 2 << 3, // ( 0, 1 )
-	BlockVertex_TexCoord3 = 3 << 3  // ( 1, 1 )
+	BlockVertex_TexCoord0 = 0 << 27, // ( 0, 0 )
+	BlockVertex_TexCoord1 = 1 << 27, // ( 1, 0 )
+	BlockVertex_TexCoord2 = 2 << 27, // ( 0, 1 )
+	BlockVertex_TexCoord3 = 3 << 27  // ( 1, 1 )
 };
 
 struct BlockVertex {
-	glm::vec3 position;
-	uint32_t data; // normal: 0,1,2; tex_coord: 3, 4; ambient_occlusion: 5, 6
-	uint32_t id;
+	uint32_t position; // x: 0-7; y: 8-23; z: 24-31
+	uint32_t data; // id: 0-23; normal: 24,25,26; tex_coord: 27, 28; ambient_occlusion: 29, 30
 
-	const inline static uint32_t AmbientOcclusionOffset = 5;
+	static uint32_t PackPosition(const glm::vec3& position);
+	static glm::vec3 UnpackPosition(uint32_t position_bits);
+	const inline static uint32_t DataOffset = 24;
 };
 
 struct TextureIDs {
@@ -84,17 +85,19 @@ struct TextureIDs {
 };
 
 enum BlockProperties {
-	BlockProperty_Transparent      = BIT(0),
-	BlockProperty_Glass            = BIT(1),
-	BlockProperty_CrossMesh        = BIT(2),
-	BlockProperty_DisableCollision = BIT(3),
-	BlockProperty_Unbreakable      = BIT(4),
+	BlockProperty_Transparent          = BIT(0),
+	BlockProperty_Glass                = BIT(1),
+	BlockProperty_CrossMesh            = BIT(2),
+	BlockProperty_DisableCollision     = BIT(3),
+	BlockProperty_Unbreakable          = BIT(4),
+	BlockProperty_HasOrientation       = BIT(5),
+	BlockProperty_HasOrientation3Axis  = BIT(5) | BIT(6),
+	BlockProperty_HasOrientation4Axis  = BIT(5) | BIT(7),
 };
 
 struct Block {
 	uint8_t id;
 
-	static bool HasOrientation(uint8_t id);
 	static int GetAxisCount(uint8_t id);
 	static uint8_t CalculateOrientation(const glm::vec3& direction, uint8_t id);
 	static glm::vec3 OrientVector(const glm::vec3& direction, int axis_count, uint8_t orientation);
@@ -107,7 +110,7 @@ struct Block {
 	const inline static uint8_t InvalidID = std::numeric_limits<uint8_t>::max();
 	static Block Invalid;
 
-	const inline static uint8_t OrientationMask = 0x3F;
+	const inline static uint8_t OrientationMask = 0b11000000;
 
 	const static BlockVertex CrossMeshVertices[];
 	const static uint32_t CrossMeshIndices[];

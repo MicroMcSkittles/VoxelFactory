@@ -319,8 +319,9 @@ void Player::OnRightClick() {
 
 	// Find block oriantation
 	glm::vec3 direction = -(m_Camera->direction * ray_data.dist);
-	uint8_t holding_id = (uint8_t)m_Hotbar.GetSelected().id;
-	uint8_t block_id = holding_id | Block::CalculateOrientation(direction, holding_id);
+	uint8_t block_id = (uint8_t)m_Hotbar.GetSelected().id;
+	if (Block::HasProperty(block_id, BlockProperty_HasOrientation)) 
+		block_id |= Block::CalculateOrientation(direction, block_id);
 
 	// Place block from players hand
 	glm::vec3 voxel = ray_data.voxel_position + ray_data.normal;
