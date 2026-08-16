@@ -96,6 +96,7 @@ public:
 
 	void StartUp();
 	void Update(float delta_time);
+	void PhysicsUpdate(float delta_time);
 	void Render();
 	void ShowImGui();
 	void ShutDown();
@@ -129,6 +130,10 @@ private:
 	Ref<UI> m_UI;
 	bool m_Running;
 	GameState m_State;
+
+	// Physics
+	float m_PhysicsUpdateTime;
+	int m_PhysicsUpdatesPerSecond;
 
 	// Menus
 	MenuType m_ActiveMenu;

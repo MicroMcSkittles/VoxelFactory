@@ -42,7 +42,8 @@ public:
 	Player(const glm::vec3& position, const Ref<Camera>& camera, const Ref<World>& world);
 
 	void ShowImGui();
-	void Update(float delta_time, glm::vec2& last_mouse_pos, const Ref<Window>& window);
+	void Update(float delta_time, glm::vec2& last_mouse_pos);
+	void PhysicsUpdate(float delta_time);
 	void Render();
 	void RenderUI();
 
@@ -68,9 +69,9 @@ public:
 private:
 
 	// Update velocity based on input
-	void Input(float delta_time, const Ref<Window>& window);
+	void Input(float delta_time);
 	// Update camera rotation based on mouse movement
-	void CameraInput(glm::vec2& last_mouse_pos, const Ref<Window>& window);
+	void CameraInput(glm::vec2& last_mouse_pos);
 
 	void InitSelector();
 	void RenderSelector();

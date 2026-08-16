@@ -30,6 +30,9 @@ Game::Game() {
 	m_FPS = 0.0f;
 	m_DebugLineMesh = nullptr;
 	m_ActiveMenu = MenuType::None;
+
+	m_PhysicsUpdateTime = 0.0f;
+	m_PhysicsUpdatesPerSecond = 60;
 }
 Game::~Game() { }
 
@@ -65,6 +68,17 @@ void Game::Run() {
 
 		ImGuiHandler::StartFrame();
 		Update(delta_time);
+
+		float physics_delta_time = 1.0f / (float)m_PhysicsUpdatesPerSecond;
+		if (m_PhysicsUpdateTime >= physics_delta_time) {
+			int update_count = (int)(m_PhysicsUpdateTime * m_PhysicsUpdatesPerSecond);
+			for (int i = 0; i < update_count; i++) {
+				PhysicsUpdate(physics_delta_time);
+			}
+			m_PhysicsUpdateTime -= update_count * physics_delta_time;
+		}
+		m_PhysicsUpdateTime += delta_time;
+		
 		Render();
 		ShowImGui();
 		ImGuiHandler::EndFrame();
@@ -188,14 +202,18 @@ void Game::StartUp() {
 	NewWorld(643706557);
 }
 void Game::Update(float delta_time) {
-	GLFWwindow* window_handle = (GLFWwindow*)m_Window->GetHandle();
-	
 	if (m_State == GameState::InGame || m_State == GameState::Menu) {
-		m_Player->Update(delta_time, m_LastMousePos, m_Window);
+		m_Player->Update(delta_time, m_LastMousePos);
 		m_World->Update(delta_time, m_Player);
 	}
 	else if (m_State == GameState::Paused) {
 		m_Menus[(size_t)m_ActiveMenu]->Update();
+	}
+}
+void Game::PhysicsUpdate(float delta_time) {
+	if (m_State == GameState::InGame || m_State == GameState::Menu) {
+		m_Player->PhysicsUpdate(delta_time);
+		m_World->PhysicsUpdate(delta_time, m_Player);
 	}
 }
 void Game::Render() {

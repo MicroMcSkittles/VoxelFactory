@@ -172,7 +172,8 @@ bool Partical::Update(float delta_time, const Ref<Player>& player) {
 	return false;
 }
 
-Chunk::Chunk(const glm::vec3& position, uint32_t seed) {
+Chunk::Chunk(const glm::vec3& position, uint32_t seed)
+{
 	m_Position = position;
 
 	m_Blocks.resize(ChunkDataSize, Block{ 0 });
@@ -198,6 +199,12 @@ bool Chunk::IsTransparent(const glm::vec3& position) {
 	return block.id == Block::InvalidID || block.id == BlockID_Air || Block::HasProperty(block.id, BlockProperty_Transparent);
 }
 bool Chunk::IsValid(const glm::vec3& position) {
+	if (position.x < 0 || position.x >= ChunkLength) return false;
+	if (position.y < 0 || position.y >= ChunkHeight) return false;
+	if (position.z < 0 || position.z >= ChunkLength) return false;
+	return true;
+}
+bool Chunk::InBounds(const glm::vec3& position) {
 	if (position.x < 0 || position.x >= ChunkLength) return false;
 	if (position.y < 0 || position.y >= ChunkHeight) return false;
 	if (position.z < 0 || position.z >= ChunkLength) return false;
@@ -736,7 +743,8 @@ void World::Update(float delta_time, const Ref<Player>& player) {
 		m_LoadedCenter = chunk_position;
 		MoveLoadedCenter({ chunk_delta.x, chunk_delta.z });
 	}
-
+}
+void World::PhysicsUpdate(float delta_time, const Ref<Player>& player) {
 	UpdateEntities(delta_time, player);
 	UpdateParticals(delta_time, player);
 }
@@ -848,17 +856,20 @@ void World::MoveLoadedCenter(const glm::vec2& delta) {
 	if (delta.x != 0) {
 		for (int i = 0; i < m_LoadedWidth; i++) {
 			if (column == i && delta.y != 0) continue;
-			new_chunks.push_back(glm::vec2(column, i ) + world_offset);
+			new_chunks.push_back(glm::vec2(column, i) + world_offset);
+			new_chunks.push_back(glm::vec2(column + delta.x, i) + world_offset);
 		}
 	}
 	if (delta.y != 0) {
 		for (int i = 0; i < m_LoadedWidth; i++) {
 			if (row == i && delta.x != 0) continue;
 			new_chunks.push_back(glm::vec2(i, row) + world_offset);
+			new_chunks.push_back(glm::vec2(i, row + delta.y) + world_offset);
 		}
 	}
 	if (delta.x != 0 && delta.y != 0) {
 		new_chunks.push_back(glm::vec2(column, row) + world_offset);
+		new_chunks.push_back(glm::vec2(column + delta.x, row + delta.y) + world_offset);
 	}
 
 	// Find existing chunks that need to be rebuilt
@@ -871,15 +882,16 @@ void World::MoveLoadedCenter(const glm::vec2& delta) {
 
 	// Delete old vertex arrays
 	for (auto& chunk : new_chunks) {
-		int index = (chunk.x - world_offset.x) + m_LoadedWidth * (chunk.y - world_offset.y);
+		glm::vec2 local_position = chunk - world_offset;
+		if (local_position.x < 0 || local_position.x >= m_LoadedWidth ||
+			local_position.y < 0 || local_position.y >= m_LoadedWidth) continue;
+		int index = local_position.x + m_LoadedWidth * local_position.y;
 		m_ChunkMeshes[index]->GetVertexArray() = nullptr;
 	}
 
 	// Start chunk loader thread
 	std::lock_guard<std::mutex> chunk_loader_lock(s_ChunkLoaderMutex);
 	s_ChunksToLoad.insert(s_ChunksToLoad.end(), new_chunks.begin(), new_chunks.end());
-
-	//s_ChunksToRebuild.insert(s_ChunksToRebuild.end(), new_chunks.begin(), new_chunks.end());
 	s_ChunksToRebuild.insert(s_ChunksToRebuild.end(), chunks_to_rebuild.begin(), chunks_to_rebuild.end());
 }
 void World::BuildChunks() {
@@ -887,7 +899,7 @@ void World::BuildChunks() {
 
 	bool ran_last = false;
 	while (!s_ThreadsFinished) {
-		
+
 		// Very hacky way to make the frame drops in debug not as ass
 #ifdef DEBUG
 		std::this_thread::sleep_for(5ms);
@@ -895,9 +907,11 @@ void World::BuildChunks() {
 		if (!ran_last) std::this_thread::sleep_for(25ms);
 		else std::this_thread::sleep_for(1ms);
 #endif
+
 		ran_last = false;
 
 		std::lock_guard<std::mutex> chunk_loader_lock(s_ChunkLoaderMutex);
+
 		if (!s_ChunksToLoad.empty()) {
 			LoadChunk();
 			ran_last = true;
@@ -948,7 +962,7 @@ void World::LoadChunk() {
 }
 void World::CreateChunk(const glm::vec2& position) {
 	int index = position.x + m_LoadedWidth * position.y;
-	m_Chunks[index] = Chunk({ position.x - m_LoadedRadius + m_LoadedCenter.x, 0, position.y - m_LoadedRadius + m_LoadedCenter.z}, m_Seed);
+	m_Chunks[index] = Chunk({ position.x - m_LoadedRadius + m_LoadedCenter.x, 0, position.y - m_LoadedRadius + m_LoadedCenter.z }, m_Seed);
 	m_ChunkMeshes[index]->GetVertexArray() = nullptr;
 }
 void World::CheckChunkLoaderThread() {
@@ -1131,7 +1145,7 @@ void WorldGenerator::GenerateChunk(Chunk* chunk, uint32_t seed) {
 
 	std::vector<int> height_map;
 	height_map.resize(Chunk::ChunkArea);
-	
+
 	for (int z = 0; z < Chunk::ChunkLength; z++) {
 		for (int x = 0; x < Chunk::ChunkLength; x++) {
 			GenerateColumn({ x,z }, height_map[x + z * Chunk::ChunkLength], chunk, seed);
@@ -1139,10 +1153,10 @@ void WorldGenerator::GenerateChunk(Chunk* chunk, uint32_t seed) {
 	}
 
 	// Generate Ore Vains
-	GenerateOreVains(chunk, height_map, 4, 15, 50, BlockID_CoalOre,   seed); // Coal Ore
+	GenerateOreVains(chunk, height_map, 4, 15, 50, BlockID_CoalOre, seed); // Coal Ore
 	GenerateOreVains(chunk, height_map, 4, 10, 45, BlockID_CopperOre, seed); // Copper Ore
-	GenerateOreVains(chunk, height_map, 2, 8,  40, BlockID_IronOre,   seed); // Iron Ore
-	GenerateOreVains(chunk, height_map, 1, 5,  25, BlockID_IndiumOre, seed); // Indium Ore
+	GenerateOreVains(chunk, height_map, 2, 8, 40, BlockID_IronOre, seed); // Iron Ore
+	GenerateOreVains(chunk, height_map, 1, 5, 25, BlockID_IndiumOre, seed); // Indium Ore
 
 	// Generate Foleage
 	GenerateGrass(chunk, height_map, seed);
@@ -1168,7 +1182,7 @@ void WorldGenerator::GenerateColumn(const glm::vec2& position, int& column_heigh
 		uint8_t block_id = 0;
 		//bool is_border = (position.x == 0 || position.y == 0 || position.x == Chunk::ChunkLength - 1 || position.y == Chunk::ChunkLength - 1);
 
-		if      (y == 0)                          block_id = BlockID_Bedrock;
+		if (y == 0)                          block_id = BlockID_Bedrock;
 		else if (cave_noise > 0.70f)              block_id = BlockID_Air;
 		else if (y == column_height - 1)          block_id = BlockID_Dirt;
 		//else if (y == column_height && is_border) block_id = BlockID_Dirt; // Border Dirt
@@ -1213,7 +1227,7 @@ void WorldGenerator::GenerateOreVains(Chunk* chunk, const std::vector<int>& heig
 	}
 }
 void WorldGenerator::GenerateTrees(Chunk* chunk, const std::vector<int>& height_map, uint32_t seed) {
-	
+
 	float tree_density = 0.5f;
 	float noise_scale = 4.0f;
 	float tree_padding = 2.0f;
@@ -1234,18 +1248,18 @@ void WorldGenerator::GenerateTrees(Chunk* chunk, const std::vector<int>& height_
 				chunk->m_Position.z + z / (float)Chunk::ChunkLength
 			};
 			float noise = NoiseGenerator::SamplePerlinNoise2D(noise_position * noise_scale, seed);
-			
+
 			if (noise <= 1.0f - tree_density) continue;
 			state = NoiseGenerator::PCGHash((state << x) ^ (state >> z));
 			if ((state % 100) / 100.0f >= 0.15f) continue;
 
 			// Don't place a tree if one is already close by
 			bool has_neighbor = false;
-			glm::vec2 min_area = glm::vec2(x,z) - tree_padding;
-			glm::vec2 max_area = glm::vec2(x,z) + tree_padding;
+			glm::vec2 min_area = glm::vec2(x, z) - tree_padding;
+			glm::vec2 max_area = glm::vec2(x, z) + tree_padding;
 			for (glm::vec3& origin : tree_origins) {
 				if (origin.x >= min_area.x && origin.x <= max_area.x &&
-					origin.z >= min_area.y && origin.z <= max_area.y) 
+					origin.z >= min_area.y && origin.z <= max_area.y)
 				{
 					has_neighbor = true;
 					break;
@@ -1262,10 +1276,10 @@ void WorldGenerator::GenerateTrees(Chunk* chunk, const std::vector<int>& height_
 	}
 }
 void WorldGenerator::GenerateGrass(Chunk* chunk, const std::vector<int>& height_map, uint32_t seed) {
-	
+
 	float noise_scale = 5.5f;
 	float grass_density = 0.65f;
-	
+
 	uint32_t state = NoiseGenerator::State(chunk->m_Position, seed);
 
 	for (int z = 0; z < Chunk::ChunkLength; z++) {
@@ -1286,7 +1300,7 @@ void WorldGenerator::GenerateGrass(Chunk* chunk, const std::vector<int>& height_
 			float flower_noise = (state % 100) / 100.0f;
 
 			uint8_t block_id = 0;
-			if      (flower_noise >= 0.80f && flower_noise < 0.90f) block_id = BlockID_PoppyFlower;
+			if (flower_noise >= 0.80f && flower_noise < 0.90f) block_id = BlockID_PoppyFlower;
 			else if (flower_noise >= 0.90f)                         block_id = BlockID_DandelionFlower;
 			else                                                    block_id = BlockID_ShortGrass;
 
@@ -1298,7 +1312,7 @@ void WorldGenerator::GenerateStructure(Chunk* chunk, const Structure& structure)
 	for (int i = 0; i < structure.positions.size(); i++) {
 		glm::vec3 position = structure.positions[i];
 		uint8_t id = structure.ids[i];
-		
+
 		if (chunk->IsValid(position)) {
 			chunk->At(position).id = id;
 			continue;
@@ -1309,7 +1323,7 @@ Structure WorldGenerator::CreateTree(Chunk* chunk, const glm::vec3& base_positio
 
 	uint32_t state = NoiseGenerator::State(chunk->ToWorld(base_position), seed);
 	Structure tree;
-	
+
 	// Calculate tree trunk height
 	state = NoiseGenerator::PCGHash(state);
 	int tree_height = 4 + (state % 3);

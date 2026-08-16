@@ -45,6 +45,16 @@ struct Partical {
 	bool Update(float delta_time, const Ref<Player>& player);
 };
 
+struct PregeneratedBlock {
+	glm::vec3 position;
+	uint8_t id;
+};
+struct PregeneratedChunk {
+	glm::vec2 position;
+	std::vector<uint8_t> height_map;
+	std::vector<PregeneratedBlock> blocks;
+};
+
 class WorldGenerator;
 class ChunkMesher;
 class Chunk {
@@ -62,6 +72,7 @@ public:
 	static glm::vec3 GetBlockChunkPosition(const glm::vec3& position); // Returns the position of the chunk a block is in
 	static glm::vec3 GetBlockLocalPosition(const glm::vec3& position); // Returns the local position of a block in a chunk
 	static glm::vec3 GetBlockPosition(const glm::vec3& position); // Returns the position of the voxel a point is in
+	static bool InBounds(const glm::vec3& position);
 
 private:
 	// TODO: store blocks in a better way
@@ -141,6 +152,7 @@ public:
 	void ShowImGui();
 
 	void Update(float delta_time, const Ref<Player>& player);
+	void PhysicsUpdate(float delta_time, const Ref<Player>& player);
 	void RenderSkyBox(const Ref<Camera>& camera);
 	void RenderWorld(const Ref<Camera>& camera);
 

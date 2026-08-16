@@ -227,9 +227,17 @@ void Player::ShowImGui() {
 	}
 }
 
-void Player::Update(float delta_time, glm::vec2& last_mouse_pos, const Ref<Window>& window) {
+void Player::Update(float delta_time, glm::vec2& last_mouse_pos) {
 
-	Input(delta_time, window);
+	CameraInput(last_mouse_pos);
+
+	// Selector ray
+	CollisionResultData ray_result = m_World->CastRay({ m_Camera->position, m_Camera->direction });
+	m_ShowSelector = (ray_result.hit && ray_result.dist <= m_Reach);
+	m_SelectorPosition = ray_result.voxel_position;
+}
+void Player::PhysicsUpdate(float delta_time) {
+	Input(delta_time);
 
 	// Check for/resolve collisions
 	if (m_EnableCollision) {
@@ -250,13 +258,6 @@ void Player::Update(float delta_time, glm::vec2& last_mouse_pos, const Ref<Windo
 
 	// Check if player is on the ground
 	m_OnGround = !m_World->AABBIntersectedVoxels(ground_check).empty() && m_EnableCollision;
-
-	CameraInput(last_mouse_pos, window);
-
-	// Selector ray
-	CollisionResultData ray_result = m_World->CastRay({ m_Camera->position, m_Camera->direction });
-	m_ShowSelector = (ray_result.hit && ray_result.dist <= m_Reach);
-	m_SelectorPosition = ray_result.voxel_position;
 
 	// Update hand
 	UpdateHand(delta_time);
@@ -382,9 +383,8 @@ bool Player::HasItemSpace(const Item& item) {
 	return false;
 }
 
-void Player::Input(float delta_time, const Ref<Window>& window) {
-	if (delta_time > 1.0f) return;
-	GLFWwindow* window_handle = (GLFWwindow*)window->GetHandle();
+void Player::Input(float delta_time) {
+	GLFWwindow* window_handle = (GLFWwindow*)Game::GetWindow()->GetHandle();
 
 	// Handle Sprint
 	if (glfwGetKey(window_handle, GLFW_KEY_LEFT_SHIFT)) m_Speed = m_WalkSpeed * m_SprintMultiplier;
@@ -432,14 +432,14 @@ void Player::Input(float delta_time, const Ref<Window>& window) {
 		m_Velocity.y = m_JumpForce;
 	}
 }
-void Player::CameraInput(glm::vec2& last_mouse_pos, const Ref<Window>& window) {
+void Player::CameraInput(glm::vec2& last_mouse_pos) {
 	if (m_OpenInventory || !Game::IsMouseCaptured()) {
 		m_Camera->position = m_Position + m_CameraOffset;
 		m_Camera->UpdateView();
 		return;
 	}
-	
-	GLFWwindow* window_handle = (GLFWwindow*)window->GetHandle();
+
+	GLFWwindow* window_handle = (GLFWwindow*)Game::GetWindow()->GetHandle();
 	
 	// Get mouse delta
 	double mouse_x = 0.0, mouse_y = 0.0;
