@@ -1,57 +1,12 @@
 #include "Game/Voxel.h"
+#include "Core/JSON.h"
 
 #include <glad/glad.h>
 
-#define TEX_COORD(x,y) y * 16 + x
+#define TEX_COORD_IMPL(v) v.y * 16 + v.x
+#define TEX_COORD(v) TEX_COORD_IMPL(((glm::vec2)v))
 
 Block Block::Invalid = Block{ Block::InvalidID };
-std::vector<TextureIDs> Block::s_TextureIDs = {
-	{ TEX_COORD(10,13) }, // Air/Missing Texture
-	{ TEX_COORD(2,0) }, // Dirt
-	{ TEX_COORD(3,0), TEX_COORD(0,0), TEX_COORD(2,0) }, // Grass
-	{ TEX_COORD(4,4), TEX_COORD(2,4), TEX_COORD(2,0) }, // Snowy Grass
-	{ TEX_COORD(4,3) }, // Leaves
-	{ TEX_COORD(12,0) }, // Poppy Flower
-	{ TEX_COORD(13,0) }, // Dandelion Flower
-	{ TEX_COORD(7,2) }, // Dandelion Flower
-
-	{ TEX_COORD(9,13) }, // Bedrock
-	{ TEX_COORD(1,0) }, // Stone
-	{ TEX_COORD(0,1) }, // Cobble stone
-	{ TEX_COORD(1,1) }, // Gravel
-	{ TEX_COORD(2,1) }, // Sand
-	{ TEX_COORD(0,2) }, // Iron Ore
-	{ TEX_COORD(3,3) }, // Copper Ore
-	{ TEX_COORD(2,2) }, // Coal Ore
-	{ TEX_COORD(1,2) }, // Indium Ore
-
-	{ TEX_COORD(4,1), TEX_COORD(5, 1), TEX_COORD(5,1) }, // Log
-	{ TEX_COORD(4,0) }, // Planks
-	{ TEX_COORD(3,2), TEX_COORD(4, 0), TEX_COORD(4,0) }, // Bookshelf
-	{ TEX_COORD(7,0) }, // Bricks
-	{ TEX_COORD(6,3) }, // Stone Bricks
-	{ TEX_COORD(6,0) }, // Polished Stone
-	{ TEX_COORD(1,3) }, // Glass
-	{ TEX_COORD(11,3), TEX_COORD(11,3), TEX_COORD(12,3), TEX_COORD(11,3), TEX_COORD(11,2), TEX_COORD(10,4) }, // Work Bench
-	{ TEX_COORD(12,2), TEX_COORD(14,2), TEX_COORD(13,2), TEX_COORD(13,2), TEX_COORD(14,3), TEX_COORD(14,3) }, // Furnace
-	
-	{ TEX_COORD(11,0) }, // Cobweb
-};
-std::vector<uint8_t> Block::s_Properties = {
-	0,0,0,0,
-	BlockProperty_Transparent, // Leaves
-	BlockProperty_CrossMesh | BlockProperty_Transparent | BlockProperty_DisableCollision, // Poppy Flower
-	BlockProperty_CrossMesh | BlockProperty_Transparent | BlockProperty_DisableCollision, // Dandelion Flower
-	BlockProperty_CrossMesh | BlockProperty_Transparent | BlockProperty_DisableCollision, // Short Grass
-	BlockProperty_Unbreakable,
-	0,0,0,0,0,0,0,0,
-	BlockProperty_HasOrientation3Axis, // Log
-	0,0,0,0,0,
-	BlockProperty_Glass | BlockProperty_Transparent, // Glass
-	BlockProperty_HasOrientation4Axis, // Work Bench
-	BlockProperty_HasOrientation4Axis, // Furnace
-	BlockProperty_CrossMesh | BlockProperty_Transparent | BlockProperty_DisableCollision, // Cobweb
-};
 
 // Normals:
 // ( 0, 0, 1 ) = 0
@@ -279,20 +234,77 @@ glm::vec3 Block::OrientVector(const glm::vec3& direction, int axis_count, uint8_
 	return direction;
 }
 
+TextureIDs LoadTextureIDs(const JSON::Node& data_tree) {
+	ASSERT(data_tree.type == JSON::NodeType::Array);
+	int count = data_tree.Size();
+	ASSERT(count == 1 || count == 3 || count == 6);
+	
+	if (count == 1) return TextureIDs(TEX_COORD(data_tree.children_array[0]));
+	if (count == 3) return TextureIDs(TEX_COORD(data_tree.children_array[0]), TEX_COORD(data_tree.children_array[1]), TEX_COORD(data_tree.children_array[2]));
+	if (count == 6) return TextureIDs(TEX_COORD(data_tree.children_array[0]), TEX_COORD(data_tree.children_array[1]), TEX_COORD(data_tree.children_array[2]), TEX_COORD(data_tree.children_array[3]), TEX_COORD(data_tree.children_array[4]), TEX_COORD(data_tree.children_array[5]));
+	return TextureIDs();
+}
+uint16_t StringToProperty(const std::string& property_str) {
+	if (property_str == "Transparent")      return BlockProperty_Transparent;
+	if (property_str == "Glass")            return BlockProperty_Glass;
+	if (property_str == "CrossMesh")        return BlockProperty_CrossMesh;
+	if (property_str == "DisableCollision") return BlockProperty_DisableCollision;
+	if (property_str == "Unbreakable")      return BlockProperty_Unbreakable;
+	if (property_str == "3AxisOrientation") return BlockProperty_HasOrientation3Axis;
+	if (property_str == "4AxisOrientation") return BlockProperty_HasOrientation4Axis;
+	if (property_str == "LightEmitting")    return BlockProperty_LightEmitting;
+	return 0;
+}
+void Block::LoadData(const std::string& filename) {
+	JSON::Node data_tree = JSON::Parser::Parse(filename);
+	
+	s_MissingTexture = LoadTextureIDs(data_tree["MissingTexture"]);
+
+	JSON::Node& break_progress_ids = data_tree["BreakProgressTextureCoords"];
+	for (int i = 0; i < break_progress_ids.children_array.size(); i++) {
+		s_BreakTextureIDs.push_back(TextureIDs(TEX_COORD(break_progress_ids.children_array[i])));
+	}
+
+	JSON::Node& block_data = data_tree["BlockData"];
+	s_Data.resize(block_data.Size());
+	for (int i = 0; i < block_data.Size(); i++) {
+		JSON::Node& child = block_data.children_array[i];
+		BlockData& data = s_Data[i];
+		
+		data.name = child["Name"];
+		data.texture_ids = LoadTextureIDs(child["TextureIDs"]);
+		if (child["BreakTime"].IsNull()) data.break_time = 0.0f;
+		else data.break_time = child["BreakTime"];
+
+		for (JSON::Node& property : child["Properties"].children_array) {
+			data.properties |= StringToProperty(property);
+		}
+	}
+
+}
+const TextureIDs& Block::GetBreakTextureIDs(uint8_t state) {
+	if (state >= s_BreakTextureIDs.size()) return s_MissingTexture;
+	return s_BreakTextureIDs[state];
+}
 const TextureIDs& Block::GetTextureIDs(uint8_t id) {
 	uint8_t real_id = id & ~OrientationMask;
-	if (real_id >= BlockID_Count) return s_TextureIDs[0]; // return missing texture
-	return s_TextureIDs[real_id];
+	if (real_id >= BlockID_Count) return s_MissingTexture;
+	return s_Data[real_id].texture_ids;
 }
-uint8_t Block::GetProperties(uint8_t id) {
+uint16_t Block::GetProperties(uint8_t id) {
 	uint8_t real_id = id & ~OrientationMask;
 	if (real_id >= BlockID_Count) return 0;
-	return s_Properties[real_id];
+	return s_Data[real_id].properties;
 }
-bool Block::HasProperty(uint8_t id, uint8_t property) {
+bool Block::HasProperty(uint8_t id, uint16_t property) {
 	uint8_t real_id = id & ~OrientationMask;
 	if (real_id >= BlockID_Count) return false;
-	return s_Properties[real_id] & property;
+	return s_Data[real_id].properties & property;
+}
+const BlockData& Block::GetData(uint8_t id) {
+	uint8_t real_id = id & ~OrientationMask;
+	if (real_id >= BlockID_Count) return s_Data[0]; // return air
+	return s_Data[real_id];
 }
 
 uint32_t BlockVertex::PackPosition(const glm::vec3& position) {

@@ -38,6 +38,8 @@ enum BlockID {
 	BlockID_WorkBench,
 	BlockID_Furnace,
 
+	BlockID_Glowstone,
+
 	// Misc
 	BlockID_Cobweb,
 	BlockID_Count
@@ -58,9 +60,11 @@ enum BlockVertex_TexCoord {
 	BlockVertex_TexCoord3 = 3 << 27  // ( 1, 1 )
 };
 
+const inline static uint8_t MaxLightLevel = 15;
+
 struct BlockVertex {
 	uint32_t position; // x: 0-7; y: 8-23; z: 24-31
-	uint32_t data; // id: 0-23; normal: 24,25,26; tex_coord: 27, 28; ambient_occlusion: 29, 30
+	uint32_t data; // id: 0-19; light_level: 20-23 normal: 24,25,26; tex_coord: 27, 28; ambient_occlusion: 29, 30
 
 	static uint32_t PackPosition(const glm::vec3& position);
 	static glm::vec3 UnpackPosition(uint32_t position_bits);
@@ -79,6 +83,7 @@ struct TextureIDs {
 
 	inline std::vector<uint32_t> List() const { return { front, back, left, right, top, bottom }; }
 
+	TextureIDs() : front(0), back(0), left(0), right(0), top(0), bottom(0) {}
 	TextureIDs(uint32_t id) : front(id), back(id), left(id), right(id), top(id), bottom(id) {}
 	TextureIDs(uint32_t sides, uint32_t top, uint32_t bottom) : front(sides), back(sides), left(sides), right(sides), top(top), bottom(bottom) {}
 	TextureIDs(uint32_t front, uint32_t back, uint32_t left, uint32_t right, uint32_t top, uint32_t bottom) : front(front), back(back), left(left), right(right), top(top), bottom(bottom) {}
@@ -93,19 +98,30 @@ enum BlockProperties {
 	BlockProperty_HasOrientation       = BIT(5),
 	BlockProperty_HasOrientation3Axis  = BIT(5) | BIT(6),
 	BlockProperty_HasOrientation4Axis  = BIT(5) | BIT(7),
+	BlockProperty_LightEmitting        = BIT(8)
+};
+struct BlockData {
+	std::string name;
+	TextureIDs texture_ids;
+	uint16_t properties = 0;
+	float break_time = 1.0f;
 };
 
 struct Block {
-	uint8_t id;
+	uint8_t id = 0;
 
 	static int GetAxisCount(uint8_t id);
 	static uint8_t CalculateOrientation(const glm::vec3& direction, uint8_t id);
 	static glm::vec3 OrientVector(const glm::vec3& direction, int axis_count, uint8_t orientation);
 	static uint32_t OrientVector(uint32_t direction, int axis_count, uint8_t orientation);
 
+	static void LoadData(const std::string& filename);
+
+	static const TextureIDs& GetBreakTextureIDs(uint8_t state);
 	static const TextureIDs& GetTextureIDs(uint8_t id);
-	static uint8_t GetProperties(uint8_t id);
-	static bool HasProperty(uint8_t id, uint8_t property);
+	static uint16_t GetProperties(uint8_t id);
+	static bool HasProperty(uint8_t id, uint16_t property);
+	static const BlockData& GetData(uint8_t id);
 
 	const inline static uint8_t InvalidID = std::numeric_limits<uint8_t>::max();
 	static Block Invalid;
@@ -132,6 +148,7 @@ struct Block {
 	const static VertexLayout Layout;
 	
 private:
-	static std::vector<TextureIDs> s_TextureIDs;
-	static std::vector<uint8_t> s_Properties;
+	inline static TextureIDs s_MissingTexture;
+	inline static std::vector<TextureIDs> s_BreakTextureIDs;
+	inline static std::vector<BlockData> s_Data;
 };

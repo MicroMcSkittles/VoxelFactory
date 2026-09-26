@@ -14,6 +14,7 @@
 #include <imgui.h>
 #include <imgui_internal.h>
 #include "Player.h"
+#include "Core/JSON.h"
 
 Game::Game() {
 	ASSERT(s_Instance == nullptr);
@@ -194,6 +195,8 @@ void Game::StartUp() {
 	m_UI = CreateRef<UI>(m_Window->GetWidth(), m_Window->GetHeight());
 
 	m_Font = CreateRef<Font>("assets/font/Font.fnt");
+
+	Block::LoadData("assets/configs/blocks.json");
 
 	LoadShaders();
 	LoadTextures();
@@ -418,6 +421,78 @@ void Game::LoadMeshes() {
 
 	crossmesh_mesh->Unbind();
 	
+	// SkyBox Mesh
+	const float c_SkyBoxVertices[] = {
+		 1.0f,  1.0f,  1.0f,
+		 1.0f, -1.0f,  1.0f,
+		-1.0f, -1.0f,  1.0f,
+		-1.0f,  1.0f,  1.0f,
+		 1.0f,  1.0f, -1.0f,
+		 1.0f, -1.0f, -1.0f,
+		-1.0f, -1.0f, -1.0f,
+		-1.0f,  1.0f, -1.0f
+	};
+	const uint32_t c_SkyBoxIndices[] = {
+		0, 1, 3,
+		1, 2, 3,
+		4, 5, 7,
+		5, 6, 7,
+		0, 1, 4,
+		1, 4, 5,
+		2, 3, 7,
+		2, 6, 7,
+		0, 3, 4,
+		3, 4, 7,
+		1, 2, 5,
+		2, 5, 6
+	};
+
+	Ref<VertexArray>& skybox_mesh = m_Meshes[(size_t)MeshType::SkyBox];
+	skybox_mesh = CreateRef<VertexArray>();
+	skybox_mesh->Bind();
+
+	VertexLayout skybox_layout = { { { GL_FLOAT, 3 } } };
+
+	Ref<VertexBuffer> skybox_vertex_buffer = CreateRef<VertexBuffer>(c_SkyBoxVertices, 24 * sizeof(float), skybox_layout);
+	skybox_mesh->GetVertexBuffer() = skybox_vertex_buffer;
+
+	Ref<IndexBuffer> skybox_index_buffer = CreateRef<IndexBuffer>(c_SkyBoxIndices, 36 * sizeof(uint32_t));
+	skybox_mesh->GetIndexBuffer() = skybox_index_buffer;
+
+	skybox_mesh->Unbind();
+
+	// Wire Selector Mesh
+	const float c_WireSelectorVertices[] = {
+		-0.505f, -0.505f, -0.505f, 0.0f, 0.0f, 0.0f,
+		-0.505f,  0.505f, -0.505f, 0.0f, 0.0f, 0.0f,
+		 0.505f, -0.505f, -0.505f, 0.0f, 0.0f, 0.0f,
+		 0.505f,  0.505f, -0.505f, 0.0f, 0.0f, 0.0f,
+		-0.505f, -0.505f,  0.505f, 0.0f, 0.0f, 0.0f,
+		-0.505f,  0.505f,  0.505f, 0.0f, 0.0f, 0.0f,
+		 0.505f, -0.505f,  0.505f, 0.0f, 0.0f, 0.0f,
+		 0.505f,  0.505f,  0.505f, 0.0f, 0.0f, 0.0f
+	};
+	const uint32_t c_WireSelectorIndices[] = {
+		0, 1, 1, 3, 3, 2, 2, 0,
+		0, 4, 1, 5, 2, 6, 3, 7,
+		4, 5, 5, 7, 7, 6, 6, 4
+	};
+
+	Ref<VertexArray>& wire_selector_mesh = m_Meshes[(size_t)MeshType::WireSelector];
+	wire_selector_mesh = CreateRef<VertexArray>();
+	wire_selector_mesh->Bind();
+
+	VertexLayout wire_selector_layout = { {
+		{ GL_FLOAT, 3 },
+		{ GL_FLOAT, 3 }
+	} };
+	Ref<VertexBuffer> wire_selector_vertex_buffer = CreateRef<VertexBuffer>(c_WireSelectorVertices, 48 * sizeof(float), wire_selector_layout);
+	wire_selector_mesh->GetVertexBuffer() = wire_selector_vertex_buffer;
+
+	Ref<IndexBuffer> wire_selector_index_buffer = CreateRef<IndexBuffer>(c_WireSelectorIndices, 24 * sizeof(uint32_t));
+	wire_selector_mesh->GetIndexBuffer() = wire_selector_index_buffer;
+
+	wire_selector_mesh->Unbind();
 }
 void Game::InitMenus() {
 	// Pause menu
@@ -450,7 +525,7 @@ void Game::InitMenus() {
 void Game::NewWorld(uint32_t seed) {
 	m_World = CreateRef<World>(seed);
 	// Spawn player on the ground
-	glm::vec3 player_position = glm::vec3(0.0f, Chunk::ChunkHeight - 1.0f, 0.0f);
+	glm::vec3 player_position = glm::vec3(8.0f, Chunk::ChunkHeight - 1.0f, 8.0f);
 	player_position = m_World->CastRay(Ray(player_position, glm::vec3(0.0f, -1.0f, 0.0f))).voxel_position;
 	player_position += glm::vec3(0.0f, 1.001f, 0.0f);
 	m_Player = CreateRef<Player>(player_position, m_Camera, m_World);

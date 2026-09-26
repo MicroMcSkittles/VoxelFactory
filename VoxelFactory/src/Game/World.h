@@ -8,10 +8,9 @@
 #include "Game/Voxel.h"
 #include "Game/Inventory.h"
 #include <vector>
+#include <unordered_map>
 #include <glm/gtx/hash.hpp>
 #include <glm/glm.hpp>
-#include <thread>
-#include <mutex>
 
 class Player;
 struct ItemEntity {
@@ -33,7 +32,10 @@ struct ItemEntity {
 
 struct Partical {
 	glm::vec3 position;
+	float size;
+
 	glm::vec3 velocity;
+
 	uint32_t block_id;
 	glm::vec2 texture_offset;
 	float life_span;
@@ -57,12 +59,19 @@ struct PregeneratedChunk {
 
 class WorldGenerator;
 class ChunkMesher;
+// TODO: stop using a vec3 for the chunk position, why did i write it like that in the first place...
 class Chunk {
 public:
+	Chunk();
 	Chunk(const glm::vec3& position, uint32_t seed);
 	~Chunk();
 
 	Block& At(const glm::vec3& position);
+
+	void ClearLightLevels();
+	uint8_t GetLightLevel(const glm::vec3& position);
+	void SetLightLevel(const glm::vec3& position, uint8_t light_level);
+
 	bool IsVoid(const glm::vec3& position);
 	bool IsTransparent(const glm::vec3& position);
 	bool IsValid(const glm::vec3& position); // Returns true if position is inbounds
@@ -79,6 +88,7 @@ private:
 	// https://www.reddit.com/r/technicalminecraft/comments/gjioyz/how_does_minecraft_handle_chunks_from_a_memory/
 	// is a good explenation of a way to do that
 	std::vector<Block> m_Blocks;
+	std::vector<uint8_t> m_LightLevels; // ranges 0-15
 	glm::vec3 m_Position;
 
 	friend ChunkMesher;
@@ -159,6 +169,7 @@ public:
 	Block& GetVoxel(const glm::vec3& position);
 	void SetVoxel(const glm::vec3& position, uint8_t new_id);
 	void BreakVoxel(const glm::vec3& position);
+
 	Chunk* GetChunk(const glm::vec3& position);
 	void RebuildChunk(const glm::vec3& position);
 
@@ -174,6 +185,7 @@ public:
 	float& GetBrightness() { return m_Brightness; }
 
 	void CreateItem(const Item& item, const glm::vec3& position, const glm::vec3& velocity, bool player_dropped);
+	void SpawnSurfaceParticals(const glm::vec3& position, const glm::vec3& normal, int count, uint32_t state);
 
 private:
 	CollisionResultData LineAABBIntersection(const glm::vec3& start_position, const glm::vec3& end_position, const AABB& aabb);
@@ -186,11 +198,10 @@ private:
 	void UpdateParticals(float delta_time, const Ref<Player>& player);
 	void RenderParticals(const Ref<Camera>& camera);
 
-	void MoveLoadedCenter(const glm::vec2& delta);
-	void BuildChunks();
-	void LoadChunk();
+	void CalculateLightLevels(const glm::vec2& chunk_position);
+	void PropagateLight(const glm::vec3& position);
+
 	void CreateChunk(const glm::vec2& position);
-	void CheckChunkLoaderThread();
 
 	void InitSkyBox();
 
@@ -202,53 +213,19 @@ private:
 	int m_LoadedWidth;
 	int m_LoadedArea;
 
-	std::vector<Chunk> m_Chunks;
-	std::vector<Ref<Mesh<BlockVertex>>> m_ChunkMeshes;
+	// Chunk Data Vars
+	std::unordered_map<glm::vec2, Chunk> m_Chunks;
+	std::unordered_map<glm::vec2, Ref<Mesh<BlockVertex>>> m_ChunkMeshes;
 
 	int m_EntityRenderDist;
 	std::vector<ItemEntity> m_Entities;
 	std::vector<Partical> m_Particals;
 
 	// Sky box vars
-	Ref<VertexArray> m_SkyBox;
 	glm::vec3 m_SkyColor;
 	glm::vec3 m_SkyHorizonColor;
 	float m_Brightness;
-
-	// Chunk loading multithreading vars
-	inline static bool s_ThreadsFinished = false;
-	std::thread m_ChunkLoaderThread;
-	inline static std::mutex s_ChunkLoaderMutex;
-	inline static std::vector<glm::vec2> s_ChunksToLoad;
-	inline static std::vector<glm::vec2> s_ChunksToRebuild;
-	inline static std::vector<glm::vec2> s_ChunksRebuilt;
-
-private:
-	// TODO: move to game class
-	const inline static float c_SkyBoxVertices[] = {
-		 1.0f,  1.0f,  1.0f,
-		 1.0f, -1.0f,  1.0f,
-		-1.0f, -1.0f,  1.0f,
-		-1.0f,  1.0f,  1.0f,
-		 1.0f,  1.0f, -1.0f,
-		 1.0f, -1.0f, -1.0f,
-		-1.0f, -1.0f, -1.0f,
-		-1.0f,  1.0f, -1.0f
-	};
-	const inline static uint32_t c_SkyBoxIndices[] = {
-		0, 1, 3,
-		1, 2, 3,
-		4, 5, 7,
-		5, 6, 7,
-		0, 1, 4,
-		1, 4, 5,
-		2, 3, 7,
-		2, 6, 7,
-		0, 3, 4,
-		3, 4, 7,
-		1, 2, 5,
-		2, 5, 6
-	};
+	float m_FogDistance; // In terms of chunks
 
 private:
 	friend WorldGenerator;

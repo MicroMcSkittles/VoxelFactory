@@ -14,7 +14,7 @@ inline bool FloatEquals(float f1, float f2, float epsilon = 0.001f) {
 
 #ifdef DEBUG
 
-#define ASSERT(cond)               if(!(cond)) { exit(-1); }
+#define ASSERT(cond)               if(!(cond)) { __debugbreak(); exit(-1); }
 #define ASSERT_MSG(cond, msg, ...) if(!(cond)) { std::cerr << std::format(msg, __VA_ARGS__) << std::endl; exit(-1); }
 
 #else

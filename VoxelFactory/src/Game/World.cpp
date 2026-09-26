@@ -8,6 +8,7 @@
 #include <iostream>
 #include <limits>
 #include <chrono>
+#include <unordered_set>
 
 #include <imgui.h>
 #include <glad/glad.h>
@@ -138,7 +139,7 @@ void Partical::Render(const Ref<Camera>& camera, float brightness) {
 	model = glm::translate(model, position);
 	model = glm::rotate(model, theta, glm::vec3(0.0f, 1.0f, 0.0f));
 	model = glm::rotate(model, phi, glm::vec3(1.0f, 0.0f, 0.0f));
-	model = glm::scale(model, glm::vec3(0.1f));
+	model = glm::scale(model, glm::vec3(size * 0.1f));
 
 	// Set uniforms
 	shader->SetUniform("u_Model", model);
@@ -172,11 +173,14 @@ bool Partical::Update(float delta_time, const Ref<Player>& player) {
 	return false;
 }
 
-Chunk::Chunk(const glm::vec3& position, uint32_t seed)
-{
+Chunk::Chunk() {
+	m_Position = glm::vec3(0.0f);
+}
+Chunk::Chunk(const glm::vec3& position, uint32_t seed) {
 	m_Position = position;
 
 	m_Blocks.resize(ChunkDataSize, Block{ 0 });
+	m_LightLevels.resize(ChunkDataSize, MaxLightLevel);
 
 	WorldGenerator::GenerateChunk(this, seed);
 }
@@ -189,6 +193,26 @@ Block& Chunk::At(const glm::vec3& position) {
 	size_t index = position.x + position.z * ChunkLength + position.y * ChunkArea;
 	if (index >= ChunkDataSize) return Block::Invalid;
 	return m_Blocks[index];
+}
+void Chunk::ClearLightLevels() {
+	m_LightLevels.clear();
+	m_LightLevels.resize(ChunkDataSize, 0);
+}
+uint8_t Chunk::GetLightLevel(const glm::vec3& position) {
+	if (position.x < 0 || position.x >= ChunkLength) return 0;
+	if (position.y < 0 || position.y >= ChunkHeight) return 0;
+	if (position.z < 0 || position.z >= ChunkLength) return 0;
+	size_t index = position.x + position.z * ChunkLength + position.y * ChunkArea;
+	if (index >= ChunkDataSize) return 0;
+	return m_LightLevels[index] & 0xF;
+}
+void Chunk::SetLightLevel(const glm::vec3& position, uint8_t light_level) {
+	if (position.x < 0 || position.x >= ChunkLength) return;
+	if (position.y < 0 || position.y >= ChunkHeight) return;
+	if (position.z < 0 || position.z >= ChunkLength) return;
+	size_t index = position.x + position.z * ChunkLength + position.y * ChunkArea;
+	if (index >= ChunkDataSize) return;
+	m_LightLevels[index] = light_level & 0xF;
 }
 bool Chunk::IsVoid(const glm::vec3& position) {
 	Block& block = At(position);
@@ -228,58 +252,46 @@ glm::vec3 Chunk::GetBlockPosition(const glm::vec3& position) {
 	return { floor(position.x), floor(position.y), floor(position.z) };
 }
 
-World::World(uint32_t seed) : m_Seed(seed), m_LoadedCenter({ 0,0,0 }), m_LoadedRadius(14), m_EntityRenderDist(3) {
+World::World(uint32_t seed) : m_Seed(seed), m_LoadedCenter({ 0,0,0 }), m_EntityRenderDist(3) {
+#ifdef DEBUG
+	m_LoadedRadius = 5;
+#else
+	m_LoadedRadius = 15;
+#endif
+
 	m_LoadedWidth = m_LoadedRadius * 2 + 1;
 	m_LoadedArea = m_LoadedWidth * m_LoadedWidth;
 
 	WorldGenerator::SetWorld(this);
-
 	m_Chunks.reserve(m_LoadedArea);
-	m_ChunkMeshes.resize(m_LoadedArea);
+	m_ChunkMeshes.reserve(m_LoadedArea);
 
+	// Generate chunk data
 	for (int z = -m_LoadedRadius; z <= m_LoadedRadius; z++) {
 		for (int x = -m_LoadedRadius; x <= m_LoadedRadius; x++) {
-			m_Chunks.push_back(Chunk{ { m_LoadedCenter.x + x, 0, m_LoadedCenter.z + z }, m_Seed });
+			m_Chunks.insert({ {x,z}, Chunk{ { m_LoadedCenter.x + x, 0, m_LoadedCenter.z + z}, m_Seed} });
 		}
 	}
-	for (size_t i = 0; i < m_Chunks.size(); i++) {
-		m_ChunkMeshes[i] = ChunkMesher(&m_Chunks[i], this).CreateMesh();
-		m_ChunkMeshes[i]->CreateVertexArray();
+	for (int z = -m_LoadedRadius; z <= m_LoadedRadius; z++) {
+		for (int x = -m_LoadedRadius; x <= m_LoadedRadius; x++) {
+			CalculateLightLevels({ m_LoadedCenter.x + x, m_LoadedCenter.z + z });
+		}
+	}
+	// Generate chunk meshes
+	for (auto& [key, chunk] : m_Chunks) {
+		m_ChunkMeshes.insert({ key, ChunkMesher(&chunk, this).CreateMesh() });
+		m_ChunkMeshes[key]->CreateVertexArray();
 	}
 
 	InitSkyBox();
-
-	m_ChunkLoaderThread = std::thread(&World::BuildChunks, this);
 }
-World::~World() {
-	s_ThreadsFinished = true;
-	if (m_ChunkLoaderThread.joinable()) {
-		{
-			std::lock_guard<std::mutex> chunk_loader_lock(s_ChunkLoaderMutex);
-			s_ChunksToLoad.clear();
-			s_ChunksToRebuild.clear();
-		}
-		m_ChunkLoaderThread.join();
-	}
-}
+World::~World() { }
 
 void World::InitSkyBox() {
 	m_SkyColor = glm::vec3(0.470f, 0.655f, 1.0f);
 	m_SkyHorizonColor = glm::vec3(0.753f, 0.847f, 1.0f);
 	m_Brightness = 1.0f;
-
-	m_SkyBox = CreateRef<VertexArray>();
-	m_SkyBox->Bind();
-
-	VertexLayout layout = { { { GL_FLOAT, 3 } } };
-
-	Ref<VertexBuffer> vertex_buffer = CreateRef<VertexBuffer>(c_SkyBoxVertices, 24 * sizeof(float), layout);
-	m_SkyBox->GetVertexBuffer() = vertex_buffer;
-
-	Ref<IndexBuffer> index_buffer = CreateRef<IndexBuffer>(c_SkyBoxIndices, 36 * sizeof(uint32_t));
-	m_SkyBox->GetIndexBuffer() = index_buffer;
-
-	m_SkyBox->Unbind();
+	m_FogDistance = 14.0f;
 }
 
 Block& World::GetVoxel(const glm::vec3& position) {
@@ -340,6 +352,7 @@ void World::BreakVoxel(const glm::vec3& position) {
 		glm::vec3 offset = NoiseGenerator::RandomFloat3(state);
 		Partical partical;
 		partical.position = position + offset;
+		partical.size = 1.0f;
 		partical.velocity = (offset - 0.5f) * 0.15f;
 		partical.life_span = 0.2f + NoiseGenerator::RandomFloatRange(state, -0.1f, 0.75f);
 		partical.block_id = block.id;
@@ -351,21 +364,18 @@ void World::BreakVoxel(const glm::vec3& position) {
 }
 
 Chunk* World::GetChunk(const glm::vec3& position) {
-	// Check if chunk position is in bounds
-	if (position.x - m_LoadedCenter.x < -m_LoadedRadius || position.x - m_LoadedCenter.x > m_LoadedRadius ||
-		position.z - m_LoadedCenter.z < -m_LoadedRadius || position.z - m_LoadedCenter.z > m_LoadedRadius) return nullptr;
-
-	// Get chunk index
-	size_t index = position.x - m_LoadedCenter.x + m_LoadedRadius + (position.z - m_LoadedCenter.z + m_LoadedRadius) * m_LoadedWidth;
-	if (index >= m_Chunks.size()) return nullptr;
-	return &m_Chunks[index];
+	if (!m_Chunks.count({ position.x, position.z })) return nullptr;
+	return &m_Chunks[{ position.x, position.z }];
 }
 void World::RebuildChunk(const glm::vec3& position) {
 	Chunk* chunk = GetChunk(position);
 	if (chunk == nullptr) return;
-	int index = position.x - m_LoadedCenter.x + m_LoadedRadius + (position.z - m_LoadedCenter.z + m_LoadedRadius) * m_LoadedWidth;
-	m_ChunkMeshes[index] = ChunkMesher(chunk, this).CreateMesh();
-	m_ChunkMeshes[index]->CreateVertexArray();
+
+	glm::vec2 key = { position.x, position.z };
+	CalculateLightLevels(key);
+
+	m_ChunkMeshes[key] = ChunkMesher(chunk, this).CreateMesh();
+	m_ChunkMeshes[key]->CreateVertexArray();
 }
 
 CollisionResultData World::LineAABBIntersection(const glm::vec3& start_position, const glm::vec3& end_position, const AABB& aabb) {
@@ -438,6 +448,49 @@ CollisionResultData World::RayAABBIntersection(const Ray& ray, const glm::vec3& 
 
 void World::CreateItem(const Item& item, const glm::vec3& position, const glm::vec3& velocity, bool player_dropped) {
 	m_Entities.push_back({ position, glm::vec3(0.0f), glm::vec3(0.3f), velocity, item, player_dropped });
+}
+
+void World::SpawnSurfaceParticals(const glm::vec3& position, const glm::vec3& normal, int count, uint32_t state) {
+	uint32_t rand_state = state << ((((int)position.x >> state) << (int)position.y) ^ (int)position.z);
+	uint8_t block_id = GetVoxel(position).id;
+
+	for (int i = 0; i < count; i++) {
+		Partical partical;
+		partical.size = 0.5f;
+		partical.block_id = block_id;
+		partical.life_span = 0.2f + NoiseGenerator::RandomFloatRange(rand_state, -0.1f, 0.35f);
+		partical.texture_offset = NoiseGenerator::RandomFloat2Range(rand_state, 0.0f, 0.75f);
+
+		glm::vec2 offset = NoiseGenerator::RandomFloat2Range(rand_state, -0.45f, 0.45f);
+		glm::vec2 velocity = NoiseGenerator::RandomFloat2Range(rand_state, -0.025f, 0.025f);
+		partical.position = (position + 0.5f) + (normal * 0.56f);
+		if (normal.x != 0.0f) {
+			partical.position.z += offset.x;
+			partical.position.y += offset.y;
+			
+			partical.velocity.x = (normal.x * -0.05f) + velocity.x;
+			partical.velocity.y = 0.025f;
+			partical.velocity.z = velocity.y;
+		}
+		else if (normal.y != 0.0f) {
+			partical.position.x += offset.x;
+			partical.position.z += offset.y;
+
+			partical.velocity.x = velocity.x;
+			partical.velocity.y = 0.025f;
+			partical.velocity.z = velocity.y;
+		}
+		else if (normal.z != 0.0f) {
+			partical.position.x += offset.x;
+			partical.position.y += offset.y;
+
+			partical.velocity.x = velocity.x;
+			partical.velocity.y = 0.025f;
+			partical.velocity.z = (normal.z * -0.05f) + velocity.y;
+		}
+
+		m_Particals.push_back(partical);
+	}
 }
 
 CollisionResultData World::CastRay(const Ray& ray) {
@@ -658,9 +711,10 @@ void World::RenderSkyBox(const Ref<Camera>& camera) {
 	sky_box_shader->SetUniform("u_ViewProjection", camera->view_projection);
 	sky_box_shader->SetUniform("u_CameraPosition", camera->position);
 
-	m_SkyBox->Bind();
-	glDrawElements(GL_TRIANGLES, m_SkyBox->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
-	m_SkyBox->Unbind();
+	Ref<VertexArray> skybox_mesh = Game::GetMesh(MeshType::SkyBox);
+	skybox_mesh->Bind();
+	glDrawElements(GL_TRIANGLES, skybox_mesh->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
+	skybox_mesh->Unbind();
 
 	glEnable(GL_CULL_FACE);
 	glDepthMask(GL_TRUE);
@@ -680,9 +734,15 @@ void World::RenderWorld(const Ref<Camera>& camera) {
 	world_shader->SetUniform("u_CameraPos", camera->position);
 	world_shader->SetUniform("u_SkyHorizonColor", m_SkyHorizonColor);
 	world_shader->SetUniform("u_Brightness", m_Brightness);
+	world_shader->SetUniform("u_FogDistance", m_FogDistance);
 
 	glm::vec3 world_position = glm::vec3(0.5f) + m_LoadedCenter * (float)Chunk::ChunkLength;
 	glm::mat4 world = glm::translate(glm::mat4(1.0f), world_position); 
+
+	glm::vec2 world_offset = {
+		m_LoadedCenter.x - m_LoadedRadius,
+		m_LoadedCenter.z - m_LoadedRadius
+	};
 
 	for (int z = 0; z < m_LoadedRadius * 2 + 1; z++) {
 		for (int x = 0; x < m_LoadedRadius * 2 + 1; x++) {
@@ -690,7 +750,8 @@ void World::RenderWorld(const Ref<Camera>& camera) {
 			glm::mat4 model = glm::translate(world, position);
 			world_shader->SetUniform("u_Model", model);
 
-			Ref<Mesh<BlockVertex>> mesh = m_ChunkMeshes[x + z * m_LoadedWidth];
+			//Ref<Mesh<BlockVertex>> mesh = m_ChunkMeshes[x + z * m_LoadedWidth];
+			Ref<Mesh<BlockVertex>> mesh = m_ChunkMeshes[glm::vec2(x, z) + world_offset];
 			if (mesh == nullptr) continue;
 			Ref<VertexArray> vao = mesh->GetVertexArray();
 			if (vao == nullptr) continue;
@@ -722,9 +783,75 @@ void World::RenderParticals(const Ref<Camera>& camera) {
 	}
 }
 
+void World::CalculateLightLevels(const glm::vec2& chunk_position) {
+	Chunk* chunk = GetChunk({ chunk_position.x, 0, chunk_position.y });
+	if (chunk == nullptr) return;
+
+	// Find all light emitters in the chunk
+	std::vector<glm::vec3> light_emitters;
+	for (int y = 0; y < Chunk::ChunkHeight; y++) {
+		for (int z = 0; z < Chunk::ChunkLength; z++) {
+			for (int x = 0; x < Chunk::ChunkLength; x++) {
+				Block& block = chunk->At({ x,y,z });
+				if (Block::HasProperty(block.id, BlockProperty_LightEmitting)) {
+					light_emitters.push_back(chunk->ToWorld({ x,y,z }));
+				}
+			}
+		}
+	}
+
+	for (glm::vec3& light_emitter : light_emitters) {
+		PropagateLight(light_emitter);
+	}
+}
+void World::PropagateLight(const glm::vec3& position) {
+	glm::vec3 start_chunk_pos = Chunk::GetBlockChunkPosition(position);
+	Chunk* start_chunk = GetChunk(start_chunk_pos);
+	if (start_chunk == nullptr) return;
+	start_chunk->SetLightLevel(Chunk::GetBlockLocalPosition(position), MaxLightLevel);
+
+	std::vector<glm::vec3> light_queue;
+	light_queue.push_back(position);
+	
+	auto Propagate = [&](uint8_t light_level, const glm::vec3& other) {
+
+		glm::vec3 chunk_pos = Chunk::GetBlockChunkPosition(other);
+		Chunk* chunk = GetChunk(chunk_pos);
+		if (chunk == nullptr) return;
+
+		glm::vec3 local_pos = Chunk::GetBlockLocalPosition(other);
+
+		uint8_t block_id = chunk->At(local_pos).id;
+		if (!Block::HasProperty(block_id, BlockProperty_Transparent) && block_id != 0) return;
+		if (chunk->GetLightLevel(local_pos) + 2 > light_level) return;
+
+		chunk->SetLightLevel(local_pos, light_level - 1);
+		light_queue.push_back(other);
+	};
+
+	while (!light_queue.empty()) {
+		glm::vec3 light_position = light_queue[light_queue.size() - 1];
+		light_queue.pop_back();
+
+		glm::vec3 chunk_pos = Chunk::GetBlockChunkPosition(light_position);
+		Chunk* chunk = GetChunk(chunk_pos);
+		if (chunk == nullptr) continue;
+
+		uint8_t light_level = chunk->GetLightLevel(Chunk::GetBlockLocalPosition(light_position));
+		Propagate(light_level, light_position + glm::vec3( 1,  0,  0));
+		Propagate(light_level, light_position + glm::vec3(-1,  0,  0));
+		Propagate(light_level, light_position + glm::vec3( 0,  1,  0));
+		Propagate(light_level, light_position + glm::vec3( 0, -1,  0));
+		Propagate(light_level, light_position + glm::vec3( 0,  0,  1));
+		Propagate(light_level, light_position + glm::vec3( 0,  0, -1));
+
+	}
+
+}
+
 void World::ShowImGui() {
 	ImGui::Text("Chunk Count: %d", m_Chunks.size());
-	ImGui::Text("Loaded Radius: %d", m_LoadedRadius);
+	ImGui::Text("Loaded Radius: %d", (int)m_LoadedRadius);
 	ImGui::Text("Loaded Center: %s", VEC3_STR(m_LoadedCenter).c_str());
 	ImGui::InputFloat3("Sky Color", &m_SkyColor.r);
 	ImGui::InputFloat3("Sky Horizon Color", &m_SkyHorizonColor.r);
@@ -733,16 +860,7 @@ void World::ShowImGui() {
 }
 
 void World::Update(float delta_time, const Ref<Player>& player) {
-	CheckChunkLoaderThread();
-
-	// Check if more chunks need to be loaded/unloaded
-	glm::vec3 camera_position = player->GetCameraPosition();
-	glm::vec3 chunk_position = Chunk::GetBlockChunkPosition(camera_position);
-	glm::vec3 chunk_delta = chunk_position - m_LoadedCenter;
-	if (chunk_delta.x != 0 || chunk_delta.y != 0 || chunk_delta.z != 0) {
-		m_LoadedCenter = chunk_position;
-		MoveLoadedCenter({ chunk_delta.x, chunk_delta.z });
-	}
+	
 }
 void World::PhysicsUpdate(float delta_time, const Ref<Player>& player) {
 	UpdateEntities(delta_time, player);
@@ -835,152 +953,10 @@ void World::UpdateParticals(float delta_time, const Ref<Player>& player) {
 	}
 }
 
-void World::MoveLoadedCenter(const glm::vec2& delta) {
-	// Shift existing chunks to new location
-	int shift_count = 0;
-	shift_count += (int)delta.x;
-	shift_count += m_LoadedWidth * (int)delta.y;
-	std::rotate(m_Chunks.begin(), ((shift_count > 0) ? m_Chunks.begin() : m_Chunks.end()) + shift_count, m_Chunks.end());
-	std::rotate(m_ChunkMeshes.begin(), ((shift_count > 0) ? m_ChunkMeshes.begin() : m_ChunkMeshes.end()) + shift_count, m_ChunkMeshes.end());
-	
-	std::vector<glm::vec2> new_chunks;
-	std::vector<glm::vec2> chunks_to_rebuild;
-
-	// Find the chunks that need to be created
-	int column = (delta.x < 0) ? 0 : m_LoadedWidth - 1;
-	int row = (delta.y < 0) ? 0 : m_LoadedWidth - 1;
-	glm::vec2 world_offset = {
-		m_LoadedCenter.x - m_LoadedRadius,
-		m_LoadedCenter.z - m_LoadedRadius
-	};
-	if (delta.x != 0) {
-		for (int i = 0; i < m_LoadedWidth; i++) {
-			if (column == i && delta.y != 0) continue;
-			new_chunks.push_back(glm::vec2(column, i) + world_offset);
-			new_chunks.push_back(glm::vec2(column + delta.x, i) + world_offset);
-		}
-	}
-	if (delta.y != 0) {
-		for (int i = 0; i < m_LoadedWidth; i++) {
-			if (row == i && delta.x != 0) continue;
-			new_chunks.push_back(glm::vec2(i, row) + world_offset);
-			new_chunks.push_back(glm::vec2(i, row + delta.y) + world_offset);
-		}
-	}
-	if (delta.x != 0 && delta.y != 0) {
-		new_chunks.push_back(glm::vec2(column, row) + world_offset);
-		new_chunks.push_back(glm::vec2(column + delta.x, row + delta.y) + world_offset);
-	}
-
-	// Find existing chunks that need to be rebuilt
-	column -= delta.x;
-	row -= delta.y;
-	for (int i = 1; i < m_LoadedWidth - 1; i++) {
-		if (delta.x != 0) chunks_to_rebuild.push_back(glm::vec2(column, i) + world_offset);
-		if (delta.y != 0) chunks_to_rebuild.push_back(glm::vec2(i, row) + world_offset);
-	}
-
-	// Delete old vertex arrays
-	for (auto& chunk : new_chunks) {
-		glm::vec2 local_position = chunk - world_offset;
-		if (local_position.x < 0 || local_position.x >= m_LoadedWidth ||
-			local_position.y < 0 || local_position.y >= m_LoadedWidth) continue;
-		int index = local_position.x + m_LoadedWidth * local_position.y;
-		m_ChunkMeshes[index]->GetVertexArray() = nullptr;
-	}
-
-	// Start chunk loader thread
-	std::lock_guard<std::mutex> chunk_loader_lock(s_ChunkLoaderMutex);
-	s_ChunksToLoad.insert(s_ChunksToLoad.end(), new_chunks.begin(), new_chunks.end());
-	s_ChunksToRebuild.insert(s_ChunksToRebuild.end(), chunks_to_rebuild.begin(), chunks_to_rebuild.end());
-}
-void World::BuildChunks() {
-	using namespace std::literals::chrono_literals;
-
-	bool ran_last = false;
-	while (!s_ThreadsFinished) {
-
-		// Very hacky way to make the frame drops in debug not as ass
-#ifdef DEBUG
-		std::this_thread::sleep_for(5ms);
-#else
-		if (!ran_last) std::this_thread::sleep_for(25ms);
-		else std::this_thread::sleep_for(1ms);
-#endif
-
-		ran_last = false;
-
-		std::lock_guard<std::mutex> chunk_loader_lock(s_ChunkLoaderMutex);
-
-		if (!s_ChunksToLoad.empty()) {
-			LoadChunk();
-			ran_last = true;
-			continue;
-		}
-		
-		if (s_ChunksToRebuild.empty()) continue;
-		ran_last = true;
-
-		glm::vec2 chunk_world_position = s_ChunksToRebuild[0];
-		s_ChunksToRebuild.erase(s_ChunksToRebuild.begin());
-
-		glm::vec2 world_offset = {
-			m_LoadedCenter.x - m_LoadedRadius,
-			m_LoadedCenter.z - m_LoadedRadius
-		};
-		glm::vec2 chunk_position = chunk_world_position - world_offset;
-
-		if (chunk_position.x < 0 || chunk_position.x >= m_LoadedWidth ||
-			chunk_position.y < 0 || chunk_position.y >= m_LoadedWidth) continue;
-
-		int chunk_index = (int)chunk_position.x + m_LoadedWidth * (int)chunk_position.y;
-		Ref<Mesh<BlockVertex>> chunk_mesh = ChunkMesher(&m_Chunks[chunk_index], this).CreateMesh();
-		m_ChunkMeshes[chunk_index]->GetVertices() = chunk_mesh->GetVertices();
-		m_ChunkMeshes[chunk_index]->GetIndices() = chunk_mesh->GetIndices();
-		m_ChunkMeshes[chunk_index]->GetLayout() = chunk_mesh->GetLayout();
-		
-		s_ChunksRebuilt.push_back(chunk_world_position);
-	}
-}
-void World::LoadChunk() {
-	glm::vec2 chunk_world_position = s_ChunksToLoad[0];
-	s_ChunksToLoad.erase(s_ChunksToLoad.begin());
-
-	glm::vec2 world_offset = {
-		m_LoadedCenter.x - m_LoadedRadius,
-		m_LoadedCenter.z - m_LoadedRadius
-	};
-	glm::vec2 chunk_position = chunk_world_position - world_offset;
-
-	if (chunk_position.x < 0 || chunk_position.x >= m_LoadedWidth ||
-		chunk_position.y < 0 || chunk_position.y >= m_LoadedWidth) return;
-
-	int chunk_index = (int)chunk_position.x + m_LoadedWidth * (int)chunk_position.y;
-	m_Chunks[chunk_index] = Chunk({ chunk_world_position.x, 0, chunk_world_position.y }, m_Seed);
-
-	s_ChunksToRebuild.push_back(chunk_world_position);
-}
 void World::CreateChunk(const glm::vec2& position) {
-	int index = position.x + m_LoadedWidth * position.y;
-	m_Chunks[index] = Chunk({ position.x - m_LoadedRadius + m_LoadedCenter.x, 0, position.y - m_LoadedRadius + m_LoadedCenter.z }, m_Seed);
-	m_ChunkMeshes[index]->GetVertexArray() = nullptr;
-}
-void World::CheckChunkLoaderThread() {
-	if (!m_ChunkLoaderThread.joinable()) return;
-	std::lock_guard<std::mutex> chunk_loader_lock(s_ChunkLoaderMutex);
-
-	glm::vec2 world_offset = {
-		m_LoadedCenter.x - m_LoadedRadius,
-		m_LoadedCenter.z - m_LoadedRadius
-	};
-
-	// Create vertex arrays for each chunk that has been rebuilt
-	while (!s_ChunksRebuilt.empty()) {
-		glm::vec2 chunk_position = s_ChunksRebuilt[0] - world_offset;
-		s_ChunksRebuilt.erase(s_ChunksRebuilt.begin());
-		int chunk_index = (int)chunk_position.x + m_LoadedWidth * (int)chunk_position.y;
-		m_ChunkMeshes[chunk_index]->CreateVertexArray();
-	}
+	if (!m_Chunks.count(position)) m_Chunks.insert({ position, Chunk({ position.x - m_LoadedRadius + m_LoadedCenter.x, 0, position.y - m_LoadedRadius + m_LoadedCenter.z }, m_Seed) });
+	else m_Chunks[position] = Chunk({ position.x - m_LoadedRadius + m_LoadedCenter.x, 0, position.y - m_LoadedRadius + m_LoadedCenter.z }, m_Seed);
+	m_ChunkMeshes[position]->GetVertexArray() = nullptr;
 }
 
 ChunkMesher::ChunkMesher(Chunk* chunk, World* world): m_Chunk(chunk), m_World(world), m_VertexOffset(0) {}
@@ -1044,6 +1020,8 @@ void ChunkMesher::MeshFace(const glm::vec3& position, const glm::vec3& face_dir,
 	glm::vec3 adj_face_dir = Block::OrientVector(face_dir, axis_count, orientation);
 	glm::vec3 other_pos = position + adj_face_dir;
 
+	uint8_t light_level = 16;
+
 	// Check if adjacent block is in the curent chunk
 	if (!m_Chunk->IsValid(other_pos) && other_pos.y >= 0 && other_pos.y < Chunk::ChunkHeight) {
 		
@@ -1065,6 +1043,8 @@ void ChunkMesher::MeshFace(const glm::vec3& position, const glm::vec3& face_dir,
 		else if (adj_face_dir.z > 0) other_pos.z = 0;
 		else if (adj_face_dir.z < 0) other_pos.z = Chunk::ChunkLength - 1;
 		
+		light_level = other_chunk->GetLightLevel(other_pos);
+
 		// Don't mesh face if both blocks are glass
 		if (block_id == BlockID_Glass && Block::HasProperty(block_id, BlockProperty_Transparent) && !other_chunk->IsVoid(other_pos)) return;
 		// Mesh face if adjacent block is not transparent
@@ -1074,6 +1054,8 @@ void ChunkMesher::MeshFace(const glm::vec3& position, const glm::vec3& face_dir,
 	else if (block_id == BlockID_Glass && Block::HasProperty(block_id, BlockProperty_Transparent) && !m_Chunk->IsVoid(other_pos)) return;
 	// Mesh face if adjacent block is not void
 	else if (!m_Chunk->IsTransparent(other_pos)) return;
+
+	if (light_level == 16) light_level = m_Chunk->GetLightLevel(other_pos);
 
 	// Add face data to mesh
 	for (int i = 0; i < Block::FaceVertexCount; i++) {
@@ -1114,6 +1096,7 @@ void ChunkMesher::MeshFace(const glm::vec3& position, const glm::vec3& face_dir,
 		vertex_position += position;
 		vertex.position = BlockVertex::PackPosition(vertex_position);
 
+		data |= light_level << 20; // set light level
 		vertex.data = data | id;
 		m_Vertices.push_back(vertex);
 	}
@@ -1132,6 +1115,7 @@ void ChunkMesher::MeshCrossMesh(const glm::vec3& position, uint8_t block_id) {
 		vertex.position = BlockVertex::PackPosition(vertex_position);
 
 		vertex.data |= texture_ids.front; // set id
+		vertex.data |= m_Chunk->GetLightLevel(position) << 20; // set light level
 		vertex.data |= 2 << 29; // ambient occlusion
 		m_Vertices.push_back(vertex);
 	}
@@ -1189,7 +1173,8 @@ void WorldGenerator::GenerateColumn(const glm::vec2& position, int& column_heigh
 		else if (y == column_height)              block_id = BlockID_Grass;
 		else                                      block_id = BlockID_Stone;
 
-		chunk->At({ position.x,y, position.y }).id = block_id;
+		Block& block = chunk->At({ position.x,y, position.y });
+		block.id = block_id;
 	}
 }
 void WorldGenerator::GenerateOreVains(Chunk* chunk, const std::vector<int>& height_map, int min, int max, int count, uint8_t ore_block_id, uint32_t seed) {
@@ -1327,6 +1312,10 @@ Structure WorldGenerator::CreateTree(Chunk* chunk, const glm::vec3& base_positio
 	// Calculate tree trunk height
 	state = NoiseGenerator::PCGHash(state);
 	int tree_height = 4 + (state % 3);
+
+	// Place dirt
+	tree.positions.push_back(base_position - glm::vec3(0.0f, 1.0f, 0.0f));
+	tree.ids.push_back(BlockID_Dirt);
 
 	// Create tree trunk
 	for (int i = 0; i < tree_height + 1; i++) {

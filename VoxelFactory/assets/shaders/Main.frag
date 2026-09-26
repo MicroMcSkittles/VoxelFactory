@@ -12,13 +12,14 @@ flat in uint TextureID;
 in float AmbientOcclusion;
 in vec3 Normal;
 in vec3 WorldPos;
+in float LightLevel;
 
 const int c_AtlasSize = 16;
 const vec3 c_LightDirection = -vec3(-0.6, -0.8, -0.55);
 
-const float c_RenderDistance = 14.0;
-const float c_FogMin = c_RenderDistance * 16.0 - 66.0;
-const float c_FogMax = c_RenderDistance * 16.0 - 4.0;
+uniform float u_FogDistance;
+const float c_FogMin = u_FogDistance * 16.0 - 66.0;
+const float c_FogMax = u_FogDistance * 16.0 - 4.0;
 
 void main() {
     // Find texture in the atlas
@@ -31,8 +32,7 @@ void main() {
     // Apply basic lighting
     vec3 diffuse = vec3(max(dot(Normal, normalize(c_LightDirection)), 0.0));
     vec3 ambient = vec3(0.4);
-    float brightness = 1.0;
-    vec4 lighting = vec4(((ambient + diffuse * 0.4) * AmbientOcclusion + 0.2) * u_Brightness, 1.0);
+    vec4 lighting = vec4(((ambient + diffuse * 0.4) * AmbientOcclusion + 0.2) * u_Brightness * LightLevel, 1.0);
 
     // Calculate fog
     float depth = length(WorldPos - u_CameraPos);
@@ -41,5 +41,4 @@ void main() {
     else if (depth > c_FogMax) fog = 1.0;
 
     o_FragColor = mix(lighting * texture_color, vec4(u_SkyHorizonColor,1.0), fog);
-    //o_FragColor = vec4(vec3(AmbientOcclusion), 1.0);
 } 

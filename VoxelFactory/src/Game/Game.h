@@ -56,6 +56,8 @@ enum class MeshType {
 	Block,
 	Quad,
 	CrossMesh,
+	SkyBox,
+	WireSelector,
 	Count
 };
 enum class MenuType {

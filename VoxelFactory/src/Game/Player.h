@@ -7,6 +7,7 @@
 #include "Renderer/Buffers.h"
 #include "Renderer/Shader.h"
 
+//TODO: rewrite the animation system to allow for more than 1 frame
 struct Hand {
 	const glm::vec3 default_offset   = glm::vec3(-0.2f, -0.2f, 0.3f);
 	const glm::vec3 default_size     = glm::vec3(0.18f);
@@ -16,9 +17,13 @@ struct Hand {
 	glm::vec3 rotation  = glm::vec3(0.0f);
 	glm::vec3 direction = glm::vec3(0.0f);
 
-	Ref<VertexArray> empty_hand_mesh;
+	bool breaking = false;
+	float break_timer = 0.0f;
+	glm::vec3 break_position = glm::vec3(0.0f);
+	int break_frame = 0;
 
-	void InitMesh();
+	float partical_timer = 0.0f;
+	float partical_rate = 0.25f;
 
 	// Animations
 	void Swing();
@@ -70,10 +75,11 @@ private:
 
 	// Update velocity based on input
 	void Input(float delta_time);
+	void HandInput(float delta_time);
 	// Update camera rotation based on mouse movement
 	void CameraInput(glm::vec2& last_mouse_pos);
 
-	void InitSelector();
+	void RenderBlockOverlay();
 	void RenderSelector();
 
 	void UpdateHand(float delta_time);
@@ -104,13 +110,13 @@ private:
 	float m_GroundCheckDist;
 	bool m_OnGround;
 
-	// *Move to Game class
+	// *Move to Game/World class
 	float m_GravitationalConstant;
 	float m_Drag;
 
-	// Selector * Make seporate struct
-	Ref<VertexArray> m_SelectorMesh;
+	// Selector
 	glm::vec3 m_SelectorPosition;
+	glm::vec3 m_SelectorNormal;
 	bool m_ShowSelector;
 
 	// Controls
@@ -118,6 +124,7 @@ private:
 	bool m_NoClip;
 	bool m_OpenInventory;
 	bool m_EnableCollision;
+	bool m_InstantBlockBreaking;
 	float m_MouseSensitivity;
 	float m_WalkSpeed;
 	float m_SprintMultiplier;
@@ -126,24 +133,4 @@ private:
 	float m_Reach;
 	float m_MovementTime;
 	float m_ItemDropForce;
-
-private:
-	const inline static float c_SelectorVertices[] = {
-		-0.52f, -0.52f, -0.52f, 0.0f, 0.0f, 0.0f,
-		-0.52f,  0.52f, -0.52f, 0.0f, 0.0f, 0.0f,
-
-		 0.52f, -0.52f, -0.52f, 0.0f, 0.0f, 0.0f,
-		 0.52f,  0.52f, -0.52f, 0.0f, 0.0f, 0.0f,
-
-		-0.52f, -0.52f,  0.52f, 0.0f, 0.0f, 0.0f,
-		-0.52f,  0.52f,  0.52f, 0.0f, 0.0f, 0.0f,
-
-		 0.52f, -0.52f,  0.52f, 0.0f, 0.0f, 0.0f,
-		 0.52f,  0.52f,  0.52f, 0.0f, 0.0f, 0.0f
-	};
-	const inline static uint32_t c_SelectorIndices[] = {
-		0, 1, 1, 3, 3, 2, 2, 0,
-		0, 4, 1, 5, 2, 6, 3, 7,
-		4, 5, 5, 7, 7, 6, 6, 4
-	};
 };

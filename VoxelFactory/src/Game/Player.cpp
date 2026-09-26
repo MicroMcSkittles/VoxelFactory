@@ -26,81 +26,81 @@ Item& Hotbar::Get(int index) {
 	return inventory->GetItem({ index, 0 });
 }
 
-void Hand::InitMesh() {
-	const float c_Vertices[] = {
-		// Front
-		-0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 1.0f, 0.0f,
-	     0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 0.0f, 0.0f,
-	     0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 0.0f, 1.0f,
-	     0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 0.0f, 1.0f,
-	    -0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 1.0f, 1.0f,
-	    -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 1.0f, 0.0f,
-	    							 
-	    // Back						 
-	     0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 1.0f, 1.0f,
-	     0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 1.0f, 0.0f,
-	    -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 0.0f, 0.0f,
-	    -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 0.0f, 0.0f,
-	    -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 0.0f, 1.0f,
-	     0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 1.0f, 1.0f,
-	    							 
-	    // Left						 
-	     0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f, 0.0f, 0.0f,
-	     0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f, 0.0f, 1.0f,
-	     0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f, 1.0f, 1.0f,
-	     0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f, 1.0f, 1.0f,
-	     0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f, 1.0f, 0.0f,
-	     0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f, 0.0f, 0.0f,
-	    							 
-	    // Right					 
-	    -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f, 0.0f, 1.0f,
-	    -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f, 1.0f, 1.0f,
-	    -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f, 1.0f, 0.0f,
-	    -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f, 1.0f, 0.0f,
-	    -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f, 0.0f, 0.0f,
-	    -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f, 0.0f, 1.0f,
-	    
-	    // Top
-	     0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f, 0.0f, 0.0f,
-	     0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f, 0.0f, 1.0f,
-	    -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f, 1.0f, 1.0f,
-	    -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f, 1.0f, 1.0f,
-	    -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f, 1.0f, 0.0f,
-	     0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f, 0.0f, 0.0f,
-	    
-	    // Bottom
-	    -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f, 1.0f, 1.0f,
-	     0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f, 0.0f, 1.0f,
-	     0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f, 0.0f, 0.0f,
-	     0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f, 0.0f, 0.0f,
-	    -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f, 1.0f, 0.0f,
-	    -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f, 1.0f, 1.0f
-	};
-	const uint32_t c_Indices[] = {
-		0,  1,  2,  3,  4,  5,  // Front
-		6,  7,  8,  9,  10, 11, // Back
-		12, 13, 14, 15, 16, 17, // Left
-		18, 19, 20, 21, 22, 23, // Right
-		24, 25, 26, 27, 28, 29, // Top
-		30, 31, 32, 33, 34, 35  // Bottom
-	};
-	const VertexLayout c_Layout = { {
-		{ GL_FLOAT, 3 }, // a_Position
-		{ GL_FLOAT, 3 }, // a_Normal
-		{ GL_FLOAT, 2 }, // a_TexCoord
-	} };
-
-	empty_hand_mesh = CreateRef<VertexArray>();
-	empty_hand_mesh->Bind();
-
-	Ref<VertexBuffer> vertex_buffer = CreateRef<VertexBuffer>(c_Vertices, sizeof(c_Vertices), c_Layout);
-	empty_hand_mesh->GetVertexBuffer() = vertex_buffer;
-
-	Ref<IndexBuffer> index_buffer = CreateRef<IndexBuffer>(c_Indices, sizeof(c_Indices));
-	empty_hand_mesh->GetIndexBuffer() = index_buffer;
-
-	empty_hand_mesh->Unbind();
-}
+//void Hand::InitMesh() {
+//	const float c_Vertices[] = {
+//		// Front
+//		-0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 1.0f, 0.0f,
+//	     0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 0.0f, 0.0f,
+//	     0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 0.0f, 1.0f,
+//	     0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 0.0f, 1.0f,
+//	    -0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 1.0f, 1.0f,
+//	    -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 1.0f, 0.0f,
+//	    							 
+//	    // Back						 
+//	     0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 1.0f, 1.0f,
+//	     0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 1.0f, 0.0f,
+//	    -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 0.0f, 0.0f,
+//	    -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 0.0f, 0.0f,
+//	    -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 0.0f, 1.0f,
+//	     0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 1.0f, 1.0f,
+//	    							 
+//	    // Left						 
+//	     0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f, 0.0f, 0.0f,
+//	     0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f, 0.0f, 1.0f,
+//	     0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f, 1.0f, 1.0f,
+//	     0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f, 1.0f, 1.0f,
+//	     0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f, 1.0f, 0.0f,
+//	     0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f, 0.0f, 0.0f,
+//	    							 
+//	    // Right					 
+//	    -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f, 0.0f, 1.0f,
+//	    -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f, 1.0f, 1.0f,
+//	    -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f, 1.0f, 0.0f,
+//	    -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f, 1.0f, 0.0f,
+//	    -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f, 0.0f, 0.0f,
+//	    -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f, 0.0f, 1.0f,
+//	    
+//	    // Top
+//	     0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f, 0.0f, 0.0f,
+//	     0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f, 0.0f, 1.0f,
+//	    -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f, 1.0f, 1.0f,
+//	    -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f, 1.0f, 1.0f,
+//	    -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f, 1.0f, 0.0f,
+//	     0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f, 0.0f, 0.0f,
+//	    
+//	    // Bottom
+//	    -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f, 1.0f, 1.0f,
+//	     0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f, 0.0f, 1.0f,
+//	     0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f, 0.0f, 0.0f,
+//	     0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f, 0.0f, 0.0f,
+//	    -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f, 1.0f, 0.0f,
+//	    -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f, 1.0f, 1.0f
+//	};
+//	const uint32_t c_Indices[] = {
+//		0,  1,  2,  3,  4,  5,  // Front
+//		6,  7,  8,  9,  10, 11, // Back
+//		12, 13, 14, 15, 16, 17, // Left
+//		18, 19, 20, 21, 22, 23, // Right
+//		24, 25, 26, 27, 28, 29, // Top
+//		30, 31, 32, 33, 34, 35  // Bottom
+//	};
+//	const VertexLayout c_Layout = { {
+//		{ GL_FLOAT, 3 }, // a_Position
+//		{ GL_FLOAT, 3 }, // a_Normal
+//		{ GL_FLOAT, 2 }, // a_TexCoord
+//	} };
+//
+//	empty_hand_mesh = CreateRef<VertexArray>();
+//	empty_hand_mesh->Bind();
+//
+//	Ref<VertexBuffer> vertex_buffer = CreateRef<VertexBuffer>(c_Vertices, sizeof(c_Vertices), c_Layout);
+//	empty_hand_mesh->GetVertexBuffer() = vertex_buffer;
+//
+//	Ref<IndexBuffer> index_buffer = CreateRef<IndexBuffer>(c_Indices, sizeof(c_Indices));
+//	empty_hand_mesh->GetIndexBuffer() = index_buffer;
+//
+//	empty_hand_mesh->Unbind();
+//}
 
 Player::Player(const glm::vec3& position, const Ref<Camera>& camera, const Ref<World>& world)
 	: m_Position(position), m_Camera(camera), m_World(world) {
@@ -117,7 +117,6 @@ Player::Player(const glm::vec3& position, const Ref<Camera>& camera, const Ref<W
 	m_Hand.direction = m_Camera->direction;
 	m_Hand.offset = m_Hand.default_offset;
 	m_Hand.rotation = m_Hand.default_rotation;
-	m_Hand.InitMesh();
 
 	m_CameraOffset = glm::vec3(0.0f, 1.7f, 0.0f);
 	m_Camera->position = m_Position + m_CameraOffset;
@@ -134,12 +133,14 @@ Player::Player(const glm::vec3& position, const Ref<Camera>& camera, const Ref<W
 	m_OnGround = false;
 
 	m_SelectorPosition = glm::vec3(0.0f);
+	m_SelectorNormal = glm::vec3(0.0f);
 	m_ShowSelector = false;
 
 	m_Flight = false;
 	m_NoClip = false;
 	m_OpenInventory = false;
 	m_EnableCollision = true;
+	m_InstantBlockBreaking = false;
 	m_MouseSensitivity = 0.1f;
 	m_WalkSpeed = 5.612f;
 	m_Speed = m_WalkSpeed;
@@ -148,8 +149,6 @@ Player::Player(const glm::vec3& position, const Ref<Camera>& camera, const Ref<W
 	m_Reach = 7.0f;
 	m_MovementTime = 0.0f;
 	m_ItemDropForce = 0.125f;
-
-	InitSelector();
 }
 
 void Player::ShowImGui() {
@@ -194,7 +193,8 @@ void Player::ShowImGui() {
 	// Input
 	ImGui::SeparatorText("Input");
 	ImGui::Checkbox("Flight", &m_Flight);
-	ImGui::Checkbox("Enable Collision", &m_EnableCollision);
+	ImGui::Checkbox("Enable Collision", &m_EnableCollision); 
+	ImGui::Checkbox("Instant Block Breaking", &m_InstantBlockBreaking);
 	ImGui::DragFloat("Walk Speed", &m_WalkSpeed, 0.1f);
 	ImGui::DragFloat("Sprint Multiplier", &m_SprintMultiplier, 0.1f);
 	ImGui::Text("Speed: %f", m_Speed);
@@ -235,9 +235,11 @@ void Player::Update(float delta_time, glm::vec2& last_mouse_pos) {
 	CollisionResultData ray_result = m_World->CastRay({ m_Camera->position, m_Camera->direction });
 	m_ShowSelector = (ray_result.hit && ray_result.dist <= m_Reach);
 	m_SelectorPosition = ray_result.voxel_position;
+	m_SelectorNormal = ray_result.normal;
 }
 void Player::PhysicsUpdate(float delta_time) {
 	Input(delta_time);
+	HandInput(delta_time);
 
 	// Check for/resolve collisions
 	if (m_EnableCollision) {
@@ -264,6 +266,7 @@ void Player::PhysicsUpdate(float delta_time) {
 }
 void Player::Render() {
 	RenderHand();
+	RenderBlockOverlay();
 	RenderSelector();
 }
 
@@ -305,9 +308,12 @@ void Player::OnLeftClick() {
 		m_Hand.Swing();
 		return;
 	}
-
-	// Delete voxel
-	m_World->BreakVoxel(m_SelectorPosition);
+	
+	if (m_InstantBlockBreaking) m_World->BreakVoxel(m_SelectorPosition);
+	else {
+		m_Hand.breaking = true;
+		m_Hand.break_position = m_SelectorPosition;
+	}
 	m_Hand.Hit();
 }
 void Player::OnRightClick() {
@@ -432,6 +438,49 @@ void Player::Input(float delta_time) {
 		m_Velocity.y = m_JumpForce;
 	}
 }
+void Player::HandInput(float delta_time) {
+	if (!m_Hand.breaking) return;
+
+	GLFWwindow* window_handle = (GLFWwindow*)Game::GetWindow()->GetHandle();
+
+	bool left_mouse = (glfwGetMouseButton(window_handle, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS);
+	if (left_mouse && m_Hand.break_position == m_SelectorPosition) {
+		m_Hand.break_timer += delta_time;
+		m_Hand.partical_timer -= delta_time;
+	}
+	else if (left_mouse && m_Hand.break_position != m_SelectorPosition) {
+		m_Hand.break_timer = 0.0f;
+		m_Hand.partical_timer = 0.0f;
+		m_Hand.break_position = m_SelectorPosition;
+		m_Hand.break_frame = 0;
+	}
+	else {
+		m_Hand.breaking = false;
+		m_Hand.break_timer = 0.0f;
+		m_Hand.partical_timer = 0.0f;
+		m_Hand.break_frame = 0;
+		return;
+	}
+
+	if (m_Hand.partical_timer <= 0.0f) {
+		m_Hand.partical_timer = m_Hand.partical_rate;
+		m_World->SpawnSurfaceParticals(m_Hand.break_position, m_SelectorNormal, 6, *(uint32_t*)&m_Hand.break_timer);
+	}
+
+	uint8_t block_id = m_World->GetVoxel(m_Hand.break_position).id;
+	if (Block::HasProperty(block_id, BlockProperty_Unbreakable)) return;
+
+	float block_break_time = Block::GetData(block_id).break_time;
+	m_Hand.break_frame = std::min((int)(10.0f * (m_Hand.break_timer / block_break_time)), 9);
+
+	if (m_Hand.break_timer >= block_break_time) {
+		m_Hand.break_timer = 0.0f;
+		m_Hand.break_frame = 0;
+		m_Hand.partical_timer = 0.0f;
+
+		m_World->BreakVoxel(m_SelectorPosition);
+	}
+}
 void Player::CameraInput(glm::vec2& last_mouse_pos) {
 	if (m_OpenInventory || !Game::IsMouseCaptured()) {
 		m_Camera->position = m_Position + m_CameraOffset;
@@ -533,7 +582,7 @@ void Player::RenderInventoryUI() {
 std::string Player::StatsText() {
 
 	std::stringstream ss;
-	
+
 	glm::vec3 local_position = Chunk::GetBlockLocalPosition(m_Position);
 	glm::vec3 chunk_position = Chunk::GetBlockChunkPosition(m_Position);
 	ss << "Pos " << VEC3_STR(m_Position) << "\n";
@@ -543,6 +592,8 @@ std::string Player::StatsText() {
 	ss << "Velocity " << VEC3_STR(m_Velocity) << "\n";
 	ss << "Hand Direction " << VEC3_STR(m_Hand.direction) << "\n";
 	ss << "Camera Direction " << VEC3_STR(m_Camera->direction) << "\n";
+	ss << "Break Timer " << std::format("{:.2f}", m_Hand.break_timer) << "\n";
+	//ss << "Light Level " << (int)m_World->GetChunk(chunk_position)->GetLightLevel(Chunk::GetBlockPosition(local_position)) << "\n";
 
 	if (m_ShowSelector) {
 		ss << "Looking at " << VEC3_STR(m_SelectorPosition) << "\n";
@@ -551,21 +602,37 @@ std::string Player::StatsText() {
 	return ss.str();
 }
 
-void Player::InitSelector() {
-	m_SelectorMesh = CreateRef<VertexArray>();
-	m_SelectorMesh->Bind();
+void Player::RenderBlockOverlay() {
+	if (!m_Hand.breaking) return;
 
-	VertexLayout vertex_layout = { {
-		{ GL_FLOAT, 3 },
-		{ GL_FLOAT, 3 }
-	} };
-	Ref<VertexBuffer> vertex_buffer = CreateRef<VertexBuffer>(c_SelectorVertices, 48 * sizeof(float), vertex_layout);
-	m_SelectorMesh->GetVertexBuffer() = vertex_buffer;
+	Ref<Shader>& overlay_shader = Game::GetShader(ShaderType::BlockPreview);
+	overlay_shader->Bind();
 
-	Ref<IndexBuffer> index_buffer = CreateRef<IndexBuffer>(c_SelectorIndices, 24 * sizeof(uint32_t));
-	m_SelectorMesh->GetIndexBuffer() = index_buffer;
+	Ref<Texture>& atlas = Game::GetTexture(TextureType::BlockAtlas);
+	atlas->Bind();
 
-	m_SelectorMesh->Unbind();
+	// Set uniforms
+	overlay_shader->SetUniform("u_ViewProjection", m_Camera->view_projection);
+	overlay_shader->SetUniform("u_Brightness", m_World->GetBrightness());
+	overlay_shader->SetUniform("u_Atlas", atlas);
+
+	const TextureIDs& texture_ids = Block::GetBreakTextureIDs(m_Hand.break_frame);
+	overlay_shader->SetUniform("u_TextureIDs", texture_ids.List());
+
+	// Calculate model
+	glm::mat4 model = glm::mat4(1.0f);
+	model = glm::translate(model, m_SelectorPosition + glm::vec3(0.5f));
+	model = glm::scale(model, glm::vec3(1.01f));
+	overlay_shader->SetUniform("u_Model", model);
+
+	MeshType type = Block::HasProperty(m_World->GetVoxel(m_Hand.break_position).id, BlockProperty_CrossMesh) ? MeshType::CrossMesh : MeshType::Block;
+	Ref<VertexArray>& block_mesh = Game::GetMesh(type);
+	block_mesh->Bind();
+	glDrawElements(GL_TRIANGLES, block_mesh->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
+	block_mesh->Unbind();
+
+	atlas->Unbind();
+	overlay_shader->Unbind();
 }
 void Player::RenderSelector() {
 	if (!m_ShowSelector) return;
@@ -576,9 +643,10 @@ void Player::RenderSelector() {
 	glm::mat4 model = glm::translate(glm::mat4(1.0f), m_SelectorPosition + glm::vec3(0.5f));
 	selector_shader->SetUniform("u_Model", model);
 
-	m_SelectorMesh->Bind();
+	Ref<VertexArray>& wire_selector_mesh = Game::GetMesh(MeshType::WireSelector);
+	wire_selector_mesh->Bind();
 	glDrawElements(GL_LINES, 24, GL_UNSIGNED_INT, nullptr);
-	m_SelectorMesh->Unbind();
+	wire_selector_mesh->Unbind();
 
 	selector_shader->Unbind();
 }
