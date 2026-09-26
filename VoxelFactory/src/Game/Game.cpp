@@ -280,15 +280,6 @@ void Game::ShowImGui() {
 	if (ImGui::CollapsingHeader("World")) {
 		m_World->ShowImGui();
 	}
-	if (ImGui::CollapsingHeader("Noise")) {
-		static Ref<Texture> noise = nullptr;
-		static uint32_t seed = 123467420;
-		if (ImGui::Button("Generate")) noise = NoiseGenerator::GeneratePerlinNoise(50,50,2,{0,0}, seed);
-
-		if (noise != nullptr) {
-			ImGuiImage("Noise", noise);
-		}
-	}
 
 	ImVec2 window_size = ImGui::GetWindowSize();
 	window_size.x += window_pos.x;

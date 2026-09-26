@@ -7,6 +7,7 @@
 #include "Renderer/Mesh.h"
 #include "Game/Voxel.h"
 #include "Game/Inventory.h"
+#include "Game/Noise.h"
 #include <vector>
 #include <unordered_map>
 #include <glm/gtx/hash.hpp>
@@ -143,7 +144,12 @@ public:
 	static void SetWorld(World* world) { s_World = world; }
 
 	static void GenerateChunk(Chunk* chunk, uint32_t seed);
-	static void GenerateColumn(const glm::vec2& position, int& column_height, Chunk* chunk, uint32_t seed);
+	
+	static void GenerateSurfaceNoise(Chunk* chunk, Noise2D& noise, float resolution, uint32_t seed);
+	static void GenerateHeightMap(std::vector<int>& height_map, Noise2D& surface_noise);
+	static void GenerateCaveNoise(Chunk* chunk, Noise3D& noise, const std::vector<int>& height_map, float resolution, uint32_t seed);
+	
+	static void GenerateColumn(Chunk* chunk, const glm::vec2& position, Noise3D& cave_noise, int column_height, uint32_t seed);
 	static void GenerateOreVains(Chunk* chunk, const std::vector<int>& height_map, int min, int max, int count, uint8_t ore_block_id, uint32_t seed);
 	static void GenerateTrees(Chunk* chunk, const std::vector<int>& height_map, uint32_t seed);
 	static void GenerateGrass(Chunk* chunk, const std::vector<int>& height_map, uint32_t seed);

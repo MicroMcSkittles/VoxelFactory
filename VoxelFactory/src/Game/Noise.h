@@ -4,12 +4,52 @@
 
 #include <glm/glm.hpp>
 
+class Noise2D {
+public:
+	Noise2D() : m_SampleCount(0.0f), m_Size(0.0f) {}
+	Noise2D(const glm::vec2& size, float resolution);
+	Noise2D(const std::vector<float>& samples, const glm::vec2& size, float resolution);
+	~Noise2D() {}
+
+	std::vector<float>& GetSamples() { return m_Samples; }
+	const glm::vec2& GetSampleCount() const { return m_SampleCount; }
+	const glm::vec2& GetSize()        const { return m_Size; }
+
+	float Sample(const glm::vec2& position) const;
+
+private:
+	float GetSample(const glm::vec2& position) const;
+
+private:
+	std::vector<float> m_Samples;
+	glm::vec2 m_SampleCount;
+	glm::vec2 m_Size;
+};
+class Noise3D {
+public:
+	Noise3D(): m_SampleCount(0.0f), m_Size(0.0f) { }
+	Noise3D(const glm::vec3& size, float resolution);
+	Noise3D(const std::vector<float>& samples, const glm::vec3& size, float resolution);
+	~Noise3D() { }
+
+	std::vector<float>& GetSamples()        { return m_Samples; }
+	const glm::vec3& GetSampleCount() const { return m_SampleCount; }
+	const glm::vec3& GetSize()        const { return m_Size; }
+
+	float Sample(const glm::vec3& position) const;
+
+private:
+	float GetSample(const glm::vec3& position) const;
+
+private:
+	std::vector<float> m_Samples;
+	glm::vec3 m_SampleCount;
+	glm::vec3 m_Size;
+};
+
 class NoiseGenerator {
 public:
-	static Ref<Texture> GenerateWhiteNoise(int width, int height, uint32_t seed = 0);
-	static Ref<Texture> GeneratePerlinNoise(int width, int height, int frequency, const glm::vec2& offset, uint32_t seed);
 
-	static float SampleWhiteNoise(const glm::vec2& position, uint32_t seed);
 	static float SamplePerlinNoise2D(const glm::vec2& position, uint32_t seed);
 	static float SampleFractalPerlinNoise2D(const glm::vec2& position, int octave_count, uint32_t seed);
 	
@@ -29,8 +69,9 @@ public:
 	static glm::vec2 RandomFloat2Range(uint32_t& state, float min, float max);
 	static glm::vec3 RandomFloat3Range(uint32_t& state, float min, float max);
 
-private:
 	static float CubicInterp(float v1, float v2, float weight);
+
+private:
 	static float DotGridGradient2D(const glm::ivec2& gradient_position, const glm::vec2& position, uint32_t seed);
 	static glm::vec2 RandomGradient2D(const glm::ivec2& position, uint32_t seed);
 

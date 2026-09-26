@@ -2,46 +2,6 @@
 #include <vector>
 #include <glad/glad.h>
 
-Ref<Texture> NoiseGenerator::GenerateWhiteNoise(int width, int height, uint32_t seed) {
-	std::vector<uint8_t> data;
-	data.reserve(width * height);
-
-	for (int y = 0; y < height; y++) {
-		for (int x = 0; x < width; x++) {
-			//uint32_t state = x + width * y;
-			//uint32_t hash = PCGHash(state, seed);
-			//float color = (float)hash / (float)std::numeric_limits<uint32_t>::max();
-			//data.push_back((uint8_t)(color * 255));
-		}
-	}
-
-	return CreateRef<Texture>(data.data(), width, height, GL_R8, GL_RED);
-}
-Ref<Texture> NoiseGenerator::GeneratePerlinNoise(int width, int height, int frequency, const glm::vec2& offset, uint32_t seed)
-{
-	std::vector<uint8_t> data;
-	data.reserve(width * height);
-
-	for (int y = 0; y < height; y++) {
-		for (int x = 0; x < width; x++) {
-			float value = SampleFractalPerlinNoise2D({ (float)x / (float)width,(float)y / (float)height }, 12, seed);
-			uint8_t color = (uint8_t)(((value + 1.0f) * 0.5f) * 255);
-			data.push_back(color);
-		}
-	}
-
-	return CreateRef<Texture>(data.data(), width, height, GL_R8, GL_RED);
-}
-
-float NoiseGenerator::SampleWhiteNoise(const glm::vec2& position, uint32_t seed) {
-
-	int n = position.x * 3 + position.y * 113;
-
-	n = (n << 13) ^ n;
-	n = n * (n * n * 15731 + 789221) + 1376312589;
-	return -1.0 + 2.0 * float(n & 0x0fffffff) / float(0x0fffffff);
-}
-
 float NoiseGenerator::SamplePerlinNoise2D(const glm::vec2& position, uint32_t seed) {
 	glm::ivec2 grid_min = { floor(position.x), floor(position.y) };
 	glm::ivec2 grid_max = grid_min + 1;
@@ -63,7 +23,6 @@ float NoiseGenerator::SamplePerlinNoise2D(const glm::vec2& position, uint32_t se
 
 	return CubicInterp(top, bottom, weights.y);
 }
-
 float NoiseGenerator::SampleFractalPerlinNoise2D(const glm::vec2& position, int octave_count, uint32_t seed) {
 	float value = 0.0f;
 
@@ -156,7 +115,6 @@ float NoiseGenerator::DotGridGradient3D(const glm::ivec3& gradient_position, con
 	glm::vec3 distance = position - glm::vec3((float)gradient_position.x, (float)gradient_position.y, (float)gradient_position.z);
 	return glm::dot(distance, gradient);
 }
-
 glm::vec3 NoiseGenerator::RandomGradient3D(const glm::ivec3& position, uint32_t seed) {
 	uint32_t state = (seed << PCGHash(position.y)) ^ (seed >> PCGHash(position.x)) ^ (seed << PCGHash(position.z));
 	float theta = RandomFloatRange(state, 0.0f, PI2);
@@ -172,7 +130,6 @@ glm::vec3 NoiseGenerator::RandomGradient3D(const glm::ivec3& position, uint32_t 
 uint32_t NoiseGenerator::State(const glm::vec3& input, uint32_t seed) {
 	return (seed << (int)input.x) ^ (seed >> (int)input.y) ^ (seed << (int)input.z);
 }
-
 uint32_t NoiseGenerator::PCGHash(uint32_t input) {
 	uint32_t state = input * 747796405u + 2891336453u;
 	uint32_t word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
@@ -206,4 +163,88 @@ glm::vec3 NoiseGenerator::RandomFloat3Range(uint32_t& state, float min, float ma
 		RandomFloatRange(state, min, max),
 		RandomFloatRange(state, min, max)
 	};
+}
+
+Noise3D::Noise3D(const glm::vec3& size, float resolution) : m_Size(size) {
+	m_SampleCount = glm::ceil(m_Size * resolution);
+	m_Samples.resize((m_SampleCount.x + 1) * (m_SampleCount.y + 1) * (m_SampleCount.z + 1), 0.0f);
+}
+Noise3D::Noise3D(const std::vector<float>& samples, const glm::vec3& size, float resolution)
+	: m_Size(size), m_Samples(samples)
+{
+	m_SampleCount = glm::ceil(m_Size * resolution);
+}
+float Noise3D::GetSample(const glm::vec3& position) const {
+	if (position.x < 0.0f || position.y < 0.0f || position.z < 0.0f) return 0.0f;
+	if (position.x > m_SampleCount.x || position.y > m_SampleCount.y || position.z > m_SampleCount.z) return 0.0f;
+
+	int index = position.y * ((m_SampleCount.z + 1) * (m_SampleCount.x + 1)) + position.z * (m_SampleCount.x + 1) + position.x;
+	return m_Samples[index];
+}
+float Noise3D::Sample(const glm::vec3& position) const {
+	glm::vec3 point = (position * m_SampleCount) / m_Size;
+	glm::ivec3 grid_min = { floor(point.x), floor(point.y), floor(point.z) };
+	glm::ivec3 grid_max = grid_min + 1;
+	glm::vec3 weights = point - glm::vec3(grid_min.x, grid_min.y, grid_min.z);
+
+	// Interpolate top top 2 corners
+	float sample_0 = GetSample({ grid_min.x, grid_max.y, grid_min.z });
+	float sample_1 = GetSample({ grid_max.x, grid_max.y, grid_min.z });
+	float top_0 = NoiseGenerator::CubicInterp(sample_0, sample_1, weights.x);
+
+	// Interpolate top bottom 2 corners
+	sample_0 = GetSample({ grid_min.x, grid_max.y, grid_max.z });
+	sample_1 = GetSample({ grid_max.x, grid_max.y, grid_max.z });
+	float bottom_0 = NoiseGenerator::CubicInterp(sample_0, sample_1, weights.x);
+
+	float top = NoiseGenerator::CubicInterp(top_0, bottom_0, weights.z);
+
+	// Interpolate bottom top 2 corners
+	sample_0 = GetSample({ grid_min.x, grid_min.y, grid_min.z });
+	sample_1 = GetSample({ grid_max.x, grid_min.y, grid_min.z });
+	top_0 = NoiseGenerator::CubicInterp(sample_0, sample_1, weights.x);
+
+	// Interpolate bottom bottom 2 corners
+	sample_0 = GetSample({ grid_min.x, grid_min.y, grid_max.z });
+	sample_1 = GetSample({ grid_max.x, grid_min.y, grid_max.z });
+	bottom_0 = NoiseGenerator::CubicInterp(sample_0, sample_1, weights.x);
+
+	float bottom = NoiseGenerator::CubicInterp(top_0, bottom_0, weights.z);
+
+	return NoiseGenerator::CubicInterp(bottom, top, weights.y);
+}
+
+Noise2D::Noise2D(const glm::vec2& size, float resolution) : m_Size(size) {
+	m_SampleCount = glm::ceil(m_Size * resolution);
+	m_Samples.resize((m_SampleCount.x + 1) * (m_SampleCount.y + 1), 0.0f);
+}
+Noise2D::Noise2D(const std::vector<float>& samples, const glm::vec2& size, float resolution)
+	: m_Size(size), m_Samples(samples)
+{
+	m_SampleCount = glm::ceil(m_Size * resolution);
+}
+float Noise2D::GetSample(const glm::vec2& position) const {
+	if (position.x < 0.0f || position.y < 0.0f) return 0.0f;
+	if (position.x > m_SampleCount.x || position.y > m_SampleCount.y) return 0.0f;
+
+	int index = position.y * (m_SampleCount.x + 1) + position.x;
+	return m_Samples[index];
+}
+float Noise2D::Sample(const glm::vec2& position) const {
+	glm::vec2 point = (position * m_SampleCount) / m_Size;
+	glm::ivec2 grid_min = { floor(point.x), floor(point.y) };
+	glm::ivec2 grid_max = grid_min + 1;
+	glm::vec2 weights = point - glm::vec2(grid_min.x, grid_min.y);
+
+	// Interpolate top top 2 corners
+	float sample_0 = GetSample({ grid_min.x, grid_min.y });
+	float sample_1 = GetSample({ grid_max.x, grid_min.y });
+	float top = NoiseGenerator::CubicInterp(sample_0, sample_1, weights.x);
+
+	// Interpolate top bottom 2 corners
+	sample_0 = GetSample({ grid_min.x, grid_max.y });
+	sample_1 = GetSample({ grid_max.x, grid_max.y });
+	float bottom = NoiseGenerator::CubicInterp(sample_0, sample_1, weights.x);
+
+	return NoiseGenerator::CubicInterp(top, bottom, weights.y);
 }

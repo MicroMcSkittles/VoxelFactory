@@ -1,7 +1,6 @@
 #include "Game/World.h"
 #include "Core/Utils.h"
 #include "Core/ImGuiUtils.h"
-#include "Game/Noise.h"
 #include "Game/Game.h"
 
 #include <algorithm>
@@ -1128,11 +1127,16 @@ void ChunkMesher::MeshCrossMesh(const glm::vec3& position, uint8_t block_id) {
 void WorldGenerator::GenerateChunk(Chunk* chunk, uint32_t seed) {
 
 	std::vector<int> height_map;
-	height_map.resize(Chunk::ChunkArea);
+	Noise2D surface_noise;
+	Noise3D cave_noise;
+
+	GenerateSurfaceNoise(chunk, surface_noise, 0.25f, seed);
+	GenerateHeightMap(height_map, surface_noise);
+	GenerateCaveNoise(chunk, cave_noise, height_map, 0.5f, seed);
 
 	for (int z = 0; z < Chunk::ChunkLength; z++) {
 		for (int x = 0; x < Chunk::ChunkLength; x++) {
-			GenerateColumn({ x,z }, height_map[x + z * Chunk::ChunkLength], chunk, seed);
+			GenerateColumn(chunk, { x,z }, cave_noise, height_map[x + z * (Chunk::ChunkLength + 1)], seed);
 		}
 	}
 
@@ -1146,32 +1150,71 @@ void WorldGenerator::GenerateChunk(Chunk* chunk, uint32_t seed) {
 	GenerateGrass(chunk, height_map, seed);
 	GenerateTrees(chunk, height_map, seed);
 }
-void WorldGenerator::GenerateColumn(const glm::vec2& position, int& column_height, Chunk* chunk, uint32_t seed) {
-	glm::vec3 voxel_position = {
-		chunk->m_Position.x + ((float)position.x / (float)Chunk::ChunkLength),
-		0.0f,
-		chunk->m_Position.z + ((float)position.y / (float)Chunk::ChunkLength)
-	};
+void WorldGenerator::GenerateSurfaceNoise(Chunk* chunk, Noise2D& noise, float resolution, uint32_t seed) {
+	noise = Noise2D(glm::vec2(Chunk::ChunkLength), resolution);
 
-	float surface_noise = NoiseGenerator::SampleFractalPerlinNoise2D(glm::vec2(voxel_position.x, voxel_position.z) * 0.0625f, 4, seed);
-	surface_noise = (surface_noise + 1.0f) / 2.0f;
-	column_height = std::max(std::min(surface_noise * (Chunk::ChunkHeight / 2.0f), (float)Chunk::ChunkHeight - 1), 0.0f) + 20;
+	glm::vec2 sample_count = noise.GetSampleCount() + 1.0f;
+	float sample_size = 1.0f / resolution;
+
+	glm::vec2 chunk_position = glm::vec2(chunk->m_Position.x, chunk->m_Position.z);
+
+	for (int y = 0; y < sample_count.y; y++) {
+		for (int x = 0; x < sample_count.x; x++) {
+			glm::vec2 position = chunk_position + (glm::vec2(x, y) * sample_size) / (float)Chunk::ChunkLength;
+			int index = y * sample_count.x + x;
+			noise.GetSamples()[index] = NoiseGenerator::SampleFractalPerlinNoise2D(position * 0.0625f, 4, seed);
+		}
+	}
+}
+void WorldGenerator::GenerateHeightMap(std::vector<int>& height_map, Noise2D& surface_noise) {
+	height_map.reserve((Chunk::ChunkLength + 1) * (Chunk::ChunkLength + 1));
+	for (int y = 0; y <= Chunk::ChunkLength; y++) {
+		for (int x = 0; x <= Chunk::ChunkLength; x++) {
+			float surface_sample = surface_noise.Sample({x,y});
+			surface_sample = (surface_sample + 1.0f) / 2.0f;
+			int height = std::max(std::min(surface_sample * (Chunk::ChunkHeight / 2.0f), (float)Chunk::ChunkHeight - 1), 0.0f) + 20;
+			height_map.push_back(height);
+		}
+	}
+}
+void WorldGenerator::GenerateCaveNoise(Chunk* chunk, Noise3D& noise, const std::vector<int>& height_map, float resolution, uint32_t seed) {
+	glm::vec3 chunk_size = glm::vec3(Chunk::ChunkLength, Chunk::ChunkHeight, Chunk::ChunkLength);
+	noise = Noise3D(chunk_size, resolution);
+	glm::vec3 sample_count = noise.GetSampleCount() + 1.0f;
+
+	glm::vec3 sample_size = glm::vec3(1.0f / resolution);
+
+	for (int z = 0; z < sample_count.z; z++) {
+		for (int x = 0; x < sample_count.x; x++) {
+			for (int y = 0; y < sample_count.y; y++) {
+				glm::vec3 position = glm::vec3(x, y, z) * sample_size;
+				
+				int height = height_map[position.x + position.z * Chunk::ChunkLength];
+				if (position.y > height) break;
+
+				position = chunk->m_Position + (position / (float)Chunk::ChunkLength);
+				int index = y * (sample_count.x * sample_count.z) + z * sample_count.x + x;
+				noise.GetSamples()[index] = NoiseGenerator::SampleFractalPerlinNoise3D(position, 2, seed);
+			}
+		}
+	}
+}
+void WorldGenerator::GenerateColumn(Chunk* chunk, const glm::vec2& position, Noise3D& cave_noise, int column_height, uint32_t seed) {
 
 	for (int y = 0; y <= column_height; y++) {
-		voxel_position.y = ((float)y / (float)Chunk::ChunkLength);
 
-		float cave_noise = NoiseGenerator::SampleFractalPerlinNoise3D(voxel_position, 2, seed);
-		cave_noise = (cave_noise + 1.0f) / 2.0f;
+		float cave_noise_sample = cave_noise.Sample({ position.x, y, position.y });
+		cave_noise_sample = (cave_noise_sample + 1.0f) / 2.0f;
 
 		uint8_t block_id = 0;
 		//bool is_border = (position.x == 0 || position.y == 0 || position.x == Chunk::ChunkLength - 1 || position.y == Chunk::ChunkLength - 1);
 
-		if (y == 0)                          block_id = BlockID_Bedrock;
-		else if (cave_noise > 0.70f)              block_id = BlockID_Air;
-		else if (y == column_height - 1)          block_id = BlockID_Dirt;
+		if (y == 0)                         block_id = BlockID_Bedrock;
+		else if (cave_noise_sample > 0.70f) block_id = BlockID_Air;
+		else if (y == column_height - 1)    block_id = BlockID_Dirt;
 		//else if (y == column_height && is_border) block_id = BlockID_Dirt; // Border Dirt
-		else if (y == column_height)              block_id = BlockID_Grass;
-		else                                      block_id = BlockID_Stone;
+		else if (y == column_height)        block_id = BlockID_Grass;
+		else                                block_id = BlockID_Stone;
 
 		Block& block = chunk->At({ position.x,y, position.y });
 		block.id = block_id;
@@ -1213,7 +1256,7 @@ void WorldGenerator::GenerateOreVains(Chunk* chunk, const std::vector<int>& heig
 }
 void WorldGenerator::GenerateTrees(Chunk* chunk, const std::vector<int>& height_map, uint32_t seed) {
 
-	float tree_density = 0.5f;
+	float tree_density = 0.65f;
 	float noise_scale = 4.0f;
 	float tree_padding = 2.0f;
 
