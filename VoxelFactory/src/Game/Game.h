@@ -37,6 +37,7 @@ enum class ShaderType {
 	Partical,
 	Selector,
 	SkyBox,
+	Hand,
 	UIColored,
 	UITextured,
 	UIAtlas,
@@ -50,6 +51,7 @@ enum class TextureType {
 	Hotbar,
 	HotbarSelector,
 	Inventory,
+	Skin,
 	Count
 };
 enum class MeshType {
@@ -58,6 +60,7 @@ enum class MeshType {
 	CrossMesh,
 	SkyBox,
 	WireSelector,
+	Hand,
 	Count
 };
 enum class MenuType {

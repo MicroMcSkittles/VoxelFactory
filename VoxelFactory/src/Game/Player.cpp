@@ -132,8 +132,6 @@ void Player::ShowImGui() {
 
 	// Hand
 	ImGui::SeparatorText("Hand");
-	//ImGui::DragFloat3("Hand Offset", &m_Hand.offset.x, 0.01f);
-	//ImGui::DragFloat3("Hand Rotation", &m_Hand.rotation.x, 0.1f);
 	ImGui::Text("Current Animation: %s", m_Hand.animator.GetCurrentAnimationName().c_str());
 	ImGui::Text("Current Animation Frame: %d", m_Hand.animator.GetCurrentFrameIndex());
 	ImGui::Text("Current Animation Frame Time: %.2f", m_Hand.animator.GetCurrentFrameTime());
@@ -588,16 +586,18 @@ void Player::RenderSelector() {
 }
 
 void Player::UpdateHand(float delta_time) {
-	if (m_Hotbar.GetSelected().id == 0 || m_Hotbar.GetSelected().id == Item::InvalidID) return;
+	//if (m_Hotbar.GetSelected().id == 0 || m_Hotbar.GetSelected().id == Item::InvalidID) return;
 	// Follow camera
 	m_Hand.direction += (m_Camera->direction - m_Hand.direction) * 24.0f * delta_time;
 
 	m_Hand.animator.Update(delta_time);
 }
 void Player::RenderHand() {
-	if (m_Hotbar.GetSelected().id == 0 || m_Hotbar.GetSelected().id == Item::InvalidID) return;
+	if (m_Hotbar.GetSelected().id == 0 || m_Hotbar.GetSelected().id == Item::InvalidID) {
+		RenderEmptyHand();
+		return;
+	}
 
-	//Ref<Shader>& block_preview_shader = Game::GetShader(ShaderType::Hand);
 	Ref<Shader>& block_preview_shader = Game::GetShader(ShaderType::BlockPreview);
 	block_preview_shader->Bind();
 
@@ -616,11 +616,6 @@ void Player::RenderHand() {
 	glm::mat4 hand_model = glm::mat4(1.0f);
 	hand_model = glm::translate(hand_model, m_Camera->position);
 	hand_model *= glm::inverse(glm::lookAt(glm::vec3(0.0f), -m_Hand.direction, glm::vec3(0, 1, 0)));
-	//hand_model = glm::translate(hand_model, m_Hand.offset);
-	//hand_model = glm::rotate(hand_model, m_Hand.rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
-	//hand_model = glm::rotate(hand_model, m_Hand.rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
-	//hand_model = glm::rotate(hand_model, m_Hand.rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
-	//hand_model = glm::scale(hand_model, m_Hand.default_size);
 	hand_model = m_Hand.transform.GetMatrix(hand_model);
 	block_preview_shader->SetUniform("u_Model", hand_model);
 
@@ -629,16 +624,48 @@ void Player::RenderHand() {
 	if (Block::HasProperty(m_Hotbar.GetSelected().id, BlockProperty_CrossMesh)) type = MeshType::CrossMesh;
 	Ref<VertexArray>& block_mesh = Game::GetMesh(type);
 	block_mesh->Bind();
-	//m_Hand.empty_hand_mesh->Bind();
 	glDisable(GL_CULL_FACE);
-	//glDrawElements(GL_TRIANGLES, m_Hand.empty_hand_mesh->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
 	glDrawElements(GL_TRIANGLES, block_mesh->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
 	glEnable(GL_CULL_FACE);
-	//m_Hand.empty_hand_mesh->Unbind();
 	block_mesh->Unbind();
 
 	atlas->Unbind();
 	block_preview_shader->Unbind();
+}
+void Player::RenderEmptyHand() {
+	Ref<Shader>& hand_shader = Game::GetShader(ShaderType::Hand);
+	hand_shader->Bind();
+
+	Ref<Texture>& skin = Game::GetTexture(TextureType::Skin);
+	skin->Bind();
+
+	// Set uniforms
+	hand_shader->SetUniform("u_ViewProjection", m_Camera->view_projection);
+	hand_shader->SetUniform("u_Brightness", m_World->GetBrightness());
+	hand_shader->SetUniform("u_Texture", skin);
+
+	Transform hand_offset;
+	hand_offset.position = glm::vec3(0.0f, 0.0f, -0.4f);
+	hand_offset.rotation = glm::vec3(-1.7f, 0.1f, -0.75f);
+
+	// Calculate model
+	glm::mat4 hand_model = glm::mat4(1.0f);
+	hand_model = glm::translate(hand_model, m_Camera->position);
+	hand_model *= glm::inverse(glm::lookAt(glm::vec3(0.0f), -m_Hand.direction, glm::vec3(0, 1, 0)));
+	hand_model = m_Hand.transform.GetMatrix(hand_model);
+	hand_model = hand_offset.GetMatrix(hand_model);
+	hand_shader->SetUniform("u_Model", hand_model);
+
+	// Draw
+	Ref<VertexArray>& hand_mesh = Game::GetMesh(MeshType::Hand);
+	hand_mesh->Bind();
+	glDisable(GL_CULL_FACE);
+	glDrawElements(GL_TRIANGLES, hand_mesh->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
+	glEnable(GL_CULL_FACE);
+	hand_mesh->Unbind();
+
+	skin->Unbind();
+	hand_shader->Unbind();
 }
 
 void Player::DropItem() {

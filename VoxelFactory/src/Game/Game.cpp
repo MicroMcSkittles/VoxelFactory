@@ -328,6 +328,7 @@ void Game::LoadShaders() {
 	m_Shaders[(size_t)ShaderType::Partical] = CreateRef<Shader>("assets/shaders/Partical.vert", "assets/shaders/Partical.frag");
 	m_Shaders[(size_t)ShaderType::Selector] = CreateRef<Shader>("assets/shaders/Selector.vert", "assets/shaders/Selector.frag");
 	m_Shaders[(size_t)ShaderType::SkyBox] = CreateRef<Shader>("assets/shaders/SkyBox.vert", "assets/shaders/SkyBox.frag");
+	m_Shaders[(size_t)ShaderType::Hand] = CreateRef<Shader>("assets/shaders/Hand.vert", "assets/shaders/Hand.frag");
 	m_Shaders[(size_t)ShaderType::UIColored] = CreateRef<Shader>("assets/shaders/UI.vert", "assets/shaders/UIColored.frag");
 	m_Shaders[(size_t)ShaderType::UITextured] = CreateRef<Shader>("assets/shaders/UI.vert", "assets/shaders/UITextured.frag");
 	m_Shaders[(size_t)ShaderType::UIAtlas] = CreateRef<Shader>("assets/shaders/UI.vert", "assets/shaders/UIAtlas.frag");
@@ -342,6 +343,7 @@ void Game::LoadTextures() {
 	m_Textures[(size_t)TextureType::Hotbar] = CreateRef<Texture>("assets/textures/hotbar.png");
 	m_Textures[(size_t)TextureType::HotbarSelector] = CreateRef<Texture>("assets/textures/hotbar_selector.png");
 	m_Textures[(size_t)TextureType::Inventory] = CreateRef<Texture>("assets/textures/inventory.png");
+	m_Textures[(size_t)TextureType::Skin] = CreateRef<Texture>("assets/textures/skin.png");
 }
 void Game::LoadMeshes() {
 
@@ -484,6 +486,77 @@ void Game::LoadMeshes() {
 	wire_selector_mesh->GetIndexBuffer() = wire_selector_index_buffer;
 
 	wire_selector_mesh->Unbind();
+
+	// Hand mesh
+	const float c_HandVertices[] = {
+		0.333333f, 1.0f, -0.333333f, 0.0f, 1.0f, 0.0f, 0.625f, 0.1875f,
+		-0.333333f, 1.0f, 0.333333f, 0.0f, 1.0f, 0.0f, 0.5625f, 0.25f,
+		0.333333f, 1.0f, 0.333333f, 0.0f, 1.0f, 0.0f, 0.5625f, 0.1875f,
+		-0.333333f, 1.0f, 0.333333f, -1.0f, 0.0f, 0.0f, 0.6875f, 0.1875f,
+		-0.333333f, -1.0f, -0.333333f, -1.0f, 0.0f, 0.0f, 0.625f, 0.0f,
+		-0.333333f, -1.0f, 0.333333f, -1.0f, 0.0f, 0.0f, 0.6875f, 0.0f,
+		-0.333333f, 1.0f, -0.333333f, 0.0f, 0.0f, -1.0f, 0.75f, 0.1875f,
+		0.333333f, -1.0f, -0.333333f, 0.0f, 0.0f, -1.0f, 0.6875f, 0.0f,
+		-0.333333f, -1.0f, -0.333333f, 0.0f, 0.0f, -1.0f, 0.75f, 0.0f,
+		0.333333f, -1.0f, 0.333333f, 0.0f, -1.0f, 0.0f, 0.6875f, 0.1875f,
+		-0.333333f, -1.0f, -0.333333f, 0.0f, -1.0f, 0.0f, 0.625f, 0.25f,
+		0.333333f, -1.0f, -0.333333f, 0.0f, -1.0f, 0.0f, 0.625f, 0.1875f,
+		0.333333f, 1.0f, 0.333333f, 0.0f, 0.0f, 1.0f, 0.625f, 0.1875f,
+		-0.333333f, -1.0f, 0.333333f, 0.0f, 0.0f, 1.0f, 0.5625f, 0.0f,
+		0.333333f, -1.0f, 0.333333f, 0.0f, 0.0f, 1.0f, 0.625f, 0.0f,
+		0.333333f, 1.0f, -0.333333f, 1.0f, 0.0f, 0.0f, 0.5625f, 0.1875f,
+		0.333333f, -1.0f, 0.333333f, 1.0f, 0.0f, 0.0f, 0.5f, 0.0f,
+		0.333333f, -1.0f, -0.333333f, 1.0f, 0.0f, 0.0f, 0.5625f, 0.0f,
+		0.333333f, 1.0f, -0.333333f, 0.0f, 1.0f, 0.0f, 0.625f, 0.1875f,
+		-0.333333f, 1.0f, -0.333333f, 0.0f, 1.0f, 0.0f, 0.625f, 0.25f,
+		-0.333333f, 1.0f, 0.333333f, 0.0f, 1.0f, 0.0f, 0.5625f, 0.25f,
+		-0.333333f, 1.0f, 0.333333f, -1.0f, 0.0f, 0.0f, 0.6875f, 0.1875f,
+		-0.333333f, 1.0f, -0.333333f, -1.0f, 0.0f, 0.0f, 0.625f, 0.1875f,
+		-0.333333f, -1.0f, -0.333333f, -1.0f, 0.0f, 0.0f, 0.625f, 0.0f,
+		-0.333333f, 1.0f, -0.333333f, 0.0f, 0.0f, -1.0f, 0.75f, 0.1875f,
+		0.333333f, 1.0f, -0.333333f, 0.0f, 0.0f, -1.0f, 0.6875f, 0.1875f,
+		0.333333f, -1.0f, -0.333333f, 0.0f, 0.0f, -1.0f, 0.6875f, 0.0f,
+		0.333333f, -1.0f, 0.333333f, 0.0f, -1.0f, 0.0f, 0.6875f, 0.1875f,
+		-0.333333f, -1.0f, 0.333333f, 0.0f, -1.0f, 0.0f, 0.6875f, 0.25f,
+		-0.333333f, -1.0f, -0.333333f, 0.0f, -1.0f, 0.0f, 0.625f, 0.25f,
+		0.333333f, 1.0f, 0.333333f, 0.0f, 0.0f, 1.0f, 0.625f, 0.1875f,
+		-0.333333f, 1.0f, 0.333333f, 0.0f, 0.0f, 1.0f, 0.5625f, 0.1875f,
+		-0.333333f, -1.0f, 0.333333f, 0.0f, 0.0f, 1.0f, 0.5625f, 0.0f,
+		0.333333f, 1.0f, -0.333333f, 1.0f, 0.0f, 0.0f, 0.5625f, 0.1875f,
+		0.333333f, 1.0f, 0.333333f, 1.0f, 0.0f, 0.0f, 0.5f, 0.1875f,
+		0.333333f, -1.0f, 0.333333f, 1.0f, 0.0f, 0.0f, 0.5f, 0.0f,
+	};
+	const uint32_t c_HandIndices[] = {
+		0, 1, 2,
+		3, 4, 5,
+		6, 7, 8,
+		9, 10, 11,
+		12, 13, 14,
+		15, 16, 17,
+		18, 19, 20,
+		21, 22, 23,
+		24, 25, 26,
+		27, 28, 29,
+		30, 31, 32,
+		33, 34, 35,
+	};
+
+	Ref<VertexArray>& hand_mesh = m_Meshes[(size_t)MeshType::Hand];
+	hand_mesh = CreateRef<VertexArray>();
+	hand_mesh->Bind();
+
+	VertexLayout hand_layout = { {
+		{ GL_FLOAT, 3 },
+		{ GL_FLOAT, 3 },
+		{ GL_FLOAT, 2 }
+	} };
+	Ref<VertexBuffer> hand_vertex_buffer = CreateRef<VertexBuffer>(c_HandVertices, 288 * sizeof(float), hand_layout);
+	hand_mesh->GetVertexBuffer() = hand_vertex_buffer;
+
+	Ref<IndexBuffer> hand_index_buffer = CreateRef<IndexBuffer>(c_HandIndices, 36 * sizeof(uint32_t));
+	hand_mesh->GetIndexBuffer() = hand_index_buffer;
+
+	hand_mesh->Unbind();
 }
 void Game::InitMenus() {
 	// Pause menu

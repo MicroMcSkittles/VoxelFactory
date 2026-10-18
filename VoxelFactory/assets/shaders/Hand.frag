@@ -19,6 +19,6 @@ void main() {
     float brightness = 1.0;
     vec4 lighting = vec4((ambient + diffuse * 0.4 + 0.2) * u_Brightness, 1.0);
 
-    //o_FragColor = lighting * texture_color;
-    o_FragColor = vec4(TexCoord, 1.0, 1.0);
+    o_FragColor = lighting * texture_color;
+    //o_FragColor = vec4(TexCoord, 1.0, 1.0);
 } 

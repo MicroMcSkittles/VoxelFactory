@@ -9,12 +9,7 @@
 #include "Renderer/Buffers.h"
 #include "Renderer/Shader.h"
 
-//TODO: rewrite the animation system to allow for more than 1 frame
 struct Hand {
-	//const glm::vec3 default_offset   = glm::vec3(-0.2f, -0.2f, 0.3f);
-	//const glm::vec3 default_size     = glm::vec3(0.18f);
-	//const glm::vec3 default_rotation = glm::vec3(-0.1f, 0.7f, 0.0f);
-
 	glm::vec3 direction = glm::vec3(0.0f);
 
 	Transform transform;
@@ -92,6 +87,7 @@ private:
 
 	void UpdateHand(float delta_time);
 	void RenderHand();
+	void RenderEmptyHand();
 
 	void RenderInventoryUI();
 	void DropItem();
