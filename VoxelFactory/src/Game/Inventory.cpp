@@ -1,7 +1,7 @@
 #include "Game/Inventory.h"
 #include "Game/Game.h"
-#include "Game/Voxel.h"
-#include "Game/UI.h"
+#include "Game/World/Voxel.h"
+#include "Game/UI/UI.h"
 
 #include <GLFW/glfw3.h>
 

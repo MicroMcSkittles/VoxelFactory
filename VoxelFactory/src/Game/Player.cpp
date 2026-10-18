@@ -1,6 +1,6 @@
 #include "Game/Player.h"
 #include "Game/Game.h"
-#include "Game/UI.h"
+#include "Game/UI/UI.h"
 #include "Core/Utils.h"
 
 #include <GLFW/glfw3.h>
@@ -26,85 +26,10 @@ Item& Hotbar::Get(int index) {
 	return inventory->GetItem({ index, 0 });
 }
 
-//void Hand::InitMesh() {
-//	const float c_Vertices[] = {
-//		// Front
-//		-0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 1.0f, 0.0f,
-//	     0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 0.0f, 0.0f,
-//	     0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 0.0f, 1.0f,
-//	     0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 0.0f, 1.0f,
-//	    -0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 1.0f, 1.0f,
-//	    -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 1.0f, 0.0f,
-//	    							 
-//	    // Back						 
-//	     0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 1.0f, 1.0f,
-//	     0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 1.0f, 0.0f,
-//	    -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 0.0f, 0.0f,
-//	    -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 0.0f, 0.0f,
-//	    -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 0.0f, 1.0f,
-//	     0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 1.0f, 1.0f,
-//	    							 
-//	    // Left						 
-//	     0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f, 0.0f, 0.0f,
-//	     0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f, 0.0f, 1.0f,
-//	     0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f, 1.0f, 1.0f,
-//	     0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f, 1.0f, 1.0f,
-//	     0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f, 1.0f, 0.0f,
-//	     0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f, 0.0f, 0.0f,
-//	    							 
-//	    // Right					 
-//	    -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f, 0.0f, 1.0f,
-//	    -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f, 1.0f, 1.0f,
-//	    -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f, 1.0f, 0.0f,
-//	    -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f, 1.0f, 0.0f,
-//	    -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f, 0.0f, 0.0f,
-//	    -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f, 0.0f, 1.0f,
-//	    
-//	    // Top
-//	     0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f, 0.0f, 0.0f,
-//	     0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f, 0.0f, 1.0f,
-//	    -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f, 1.0f, 1.0f,
-//	    -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f, 1.0f, 1.0f,
-//	    -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f, 1.0f, 0.0f,
-//	     0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f, 0.0f, 0.0f,
-//	    
-//	    // Bottom
-//	    -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f, 1.0f, 1.0f,
-//	     0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f, 0.0f, 1.0f,
-//	     0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f, 0.0f, 0.0f,
-//	     0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f, 0.0f, 0.0f,
-//	    -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f, 1.0f, 0.0f,
-//	    -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f, 1.0f, 1.0f
-//	};
-//	const uint32_t c_Indices[] = {
-//		0,  1,  2,  3,  4,  5,  // Front
-//		6,  7,  8,  9,  10, 11, // Back
-//		12, 13, 14, 15, 16, 17, // Left
-//		18, 19, 20, 21, 22, 23, // Right
-//		24, 25, 26, 27, 28, 29, // Top
-//		30, 31, 32, 33, 34, 35  // Bottom
-//	};
-//	const VertexLayout c_Layout = { {
-//		{ GL_FLOAT, 3 }, // a_Position
-//		{ GL_FLOAT, 3 }, // a_Normal
-//		{ GL_FLOAT, 2 }, // a_TexCoord
-//	} };
-//
-//	empty_hand_mesh = CreateRef<VertexArray>();
-//	empty_hand_mesh->Bind();
-//
-//	Ref<VertexBuffer> vertex_buffer = CreateRef<VertexBuffer>(c_Vertices, sizeof(c_Vertices), c_Layout);
-//	empty_hand_mesh->GetVertexBuffer() = vertex_buffer;
-//
-//	Ref<IndexBuffer> index_buffer = CreateRef<IndexBuffer>(c_Indices, sizeof(c_Indices));
-//	empty_hand_mesh->GetIndexBuffer() = index_buffer;
-//
-//	empty_hand_mesh->Unbind();
-//}
-
 Player::Player(const glm::vec3& position, const Ref<Camera>& camera, const Ref<World>& world)
 	: m_Position(position), m_Camera(camera), m_World(world) {
 
+	// Fill inventory
 	m_Inventory = CreateRef<Inventory>(9, 3, 6.0f, 16.0f, 2.0f, glm::vec2(8, 30), Game::GetTexture(TextureType::Inventory));
 	for (int i = 1; i < std::min((int)BlockID_Count, 9 * 3); i++) {
 		int x = (i - 1) % 9;
@@ -114,14 +39,13 @@ Player::Player(const glm::vec3& position, const Ref<Camera>& camera, const Ref<W
 	}
 	m_InventoryHandler = nullptr;
 
-	m_Hand.direction = m_Camera->direction;
-	m_Hand.offset = m_Hand.default_offset;
-	m_Hand.rotation = m_Hand.default_rotation;
-
+	// Camera
 	m_CameraOffset = glm::vec3(0.0f, 1.7f, 0.0f);
 	m_Camera->position = m_Position + m_CameraOffset;
 	m_Camera->UpdateView();
+	m_Hand.direction = m_Camera->direction;
 
+	// Physics
 	glm::vec3 collider_size = glm::vec3(0.8f, 1.8f, 0.8f);
 	m_ColliderOffset = glm::vec3(0.0f, collider_size.y * 0.5f, 0.0f);
 	m_Collider = AABB{ m_Position + m_ColliderOffset, collider_size };
@@ -132,10 +56,12 @@ Player::Player(const glm::vec3& position, const Ref<Camera>& camera, const Ref<W
 	m_GroundCheckDist = 0.05f;
 	m_OnGround = false;
 
+	// Selector
 	m_SelectorPosition = glm::vec3(0.0f);
 	m_SelectorNormal = glm::vec3(0.0f);
 	m_ShowSelector = false;
 
+	// Controls
 	m_Flight = false;
 	m_NoClip = false;
 	m_OpenInventory = false;
@@ -206,8 +132,15 @@ void Player::ShowImGui() {
 
 	// Hand
 	ImGui::SeparatorText("Hand");
-	ImGui::DragFloat3("Hand Offset", &m_Hand.offset.x, 0.01f);
-	ImGui::DragFloat3("Hand Rotation", &m_Hand.rotation.x, 0.1f);
+	//ImGui::DragFloat3("Hand Offset", &m_Hand.offset.x, 0.01f);
+	//ImGui::DragFloat3("Hand Rotation", &m_Hand.rotation.x, 0.1f);
+	ImGui::Text("Current Animation: %s", m_Hand.animator.GetCurrentAnimationName().c_str());
+	ImGui::Text("Current Animation Frame: %d", m_Hand.animator.GetCurrentFrameIndex());
+	ImGui::Text("Current Animation Frame Time: %.2f", m_Hand.animator.GetCurrentFrameTime());
+	ImGui::Text("Hand Position: %s", VEC3_STR(m_Hand.transform.position).c_str());
+	ImGui::DragFloat3("Hand Position", &m_Hand.transform.position.x, 0.005f);
+	ImGui::DragFloat3("Hand Rotation", &m_Hand.transform.rotation.x, 0.005f);
+	ImGui::DragFloat3("Hand Scale", &m_Hand.transform.scale.x, 0.005f);
 	ImGui::Text("Hand Item ID: %u", m_Hotbar.GetSelected().id);
 
 	// Hotbar
@@ -325,10 +258,12 @@ void Player::OnRightClick() {
 	CollisionResultData ray_data = m_World->CastRay({ m_Camera->position, m_Camera->direction });
 
 	// Find block oriantation
-	glm::vec3 direction = -(m_Camera->direction * ray_data.dist);
 	uint8_t block_id = (uint8_t)m_Hotbar.GetSelected().id;
-	if (Block::HasProperty(block_id, BlockProperty_HasOrientation)) 
+	if (Block::HasProperty(block_id, BlockProperty_HasOrientation)) {
+		glm::vec3 direction = ray_data.normal;
+		if (Block::GetAxisCount(block_id) == 4) direction = -(m_Camera->direction * ray_data.dist);
 		block_id |= Block::CalculateOrientation(direction, block_id);
+	}
 
 	// Place block from players hand
 	glm::vec3 voxel = ray_data.voxel_position + ray_data.normal;
@@ -339,7 +274,7 @@ void Player::OnRightClick() {
 	selected.count -= 1;
 	if (selected.count == 0) selected = Item::Invalid;
 
-	m_Hand.Hit();
+	m_Hand.Place();
 }
 void Player::OnScroll(float delta) {
 	Item last_item = m_Hotbar.GetSelected();
@@ -410,10 +345,11 @@ void Player::Input(float delta_time) {
 	if (glfwGetKey(window_handle, GLFW_KEY_D)) m_Velocity += right_dir * m_Speed * delta_time;
 
 	if ((m_Velocity.x != 0.0f || m_Velocity.z != 0.0f) && m_OnGround) {
-		m_MovementTime += delta_time;
+		if (!m_Hand.animator.Playing()) m_Hand.animator.Play("Sway", m_Speed);
+		else if (m_Hand.animator.IsPlaying("Sway")) m_Hand.animator.SetSpeed(m_Speed);
 	}
 	else {
-		m_MovementTime = 0.0f;
+		if (m_Hand.animator.IsPlaying("Sway")) m_Hand.animator.Stop();
 	}
 
 	if (glfwGetKey(window_handle, GLFW_KEY_SPACE) && m_Flight) m_Velocity += up_dir * m_Speed * delta_time;
@@ -444,11 +380,11 @@ void Player::HandInput(float delta_time) {
 	GLFWwindow* window_handle = (GLFWwindow*)Game::GetWindow()->GetHandle();
 
 	bool left_mouse = (glfwGetMouseButton(window_handle, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS);
-	if (left_mouse && m_Hand.break_position == m_SelectorPosition) {
+	if (left_mouse && m_Hand.break_position == m_SelectorPosition && m_ShowSelector) {
 		m_Hand.break_timer += delta_time;
 		m_Hand.partical_timer -= delta_time;
 	}
-	else if (left_mouse && m_Hand.break_position != m_SelectorPosition) {
+	else if (left_mouse && m_Hand.break_position != m_SelectorPosition && m_ShowSelector) {
 		m_Hand.break_timer = 0.0f;
 		m_Hand.partical_timer = 0.0f;
 		m_Hand.break_position = m_SelectorPosition;
@@ -459,6 +395,7 @@ void Player::HandInput(float delta_time) {
 		m_Hand.break_timer = 0.0f;
 		m_Hand.partical_timer = 0.0f;
 		m_Hand.break_frame = 0;
+		m_Hand.animator.Stop();
 		return;
 	}
 
@@ -593,7 +530,6 @@ std::string Player::StatsText() {
 	ss << "Hand Direction " << VEC3_STR(m_Hand.direction) << "\n";
 	ss << "Camera Direction " << VEC3_STR(m_Camera->direction) << "\n";
 	ss << "Break Timer " << std::format("{:.2f}", m_Hand.break_timer) << "\n";
-	//ss << "Light Level " << (int)m_World->GetChunk(chunk_position)->GetLightLevel(Chunk::GetBlockPosition(local_position)) << "\n";
 
 	if (m_ShowSelector) {
 		ss << "Looking at " << VEC3_STR(m_SelectorPosition) << "\n";
@@ -656,15 +592,7 @@ void Player::UpdateHand(float delta_time) {
 	// Follow camera
 	m_Hand.direction += (m_Camera->direction - m_Hand.direction) * 24.0f * delta_time;
 
-	glm::vec3 target_offset = m_Hand.default_offset;
-
-	if (m_MovementTime != 0.0f) {
-		target_offset.x = m_Hand.default_offset.x + cos(m_MovementTime * m_Speed) * 0.025f;
-		target_offset.y = m_Hand.default_offset.y - abs(sin(m_MovementTime * m_Speed) * 0.025f);
-	}
-
-	m_Hand.offset += (target_offset - m_Hand.offset) * 10.0f * delta_time;
-	m_Hand.rotation += (m_Hand.default_rotation - m_Hand.rotation) * 10.0f * delta_time;
+	m_Hand.animator.Update(delta_time);
 }
 void Player::RenderHand() {
 	if (m_Hotbar.GetSelected().id == 0 || m_Hotbar.GetSelected().id == Item::InvalidID) return;
@@ -688,11 +616,12 @@ void Player::RenderHand() {
 	glm::mat4 hand_model = glm::mat4(1.0f);
 	hand_model = glm::translate(hand_model, m_Camera->position);
 	hand_model *= glm::inverse(glm::lookAt(glm::vec3(0.0f), -m_Hand.direction, glm::vec3(0, 1, 0)));
-	hand_model = glm::translate(hand_model, m_Hand.offset);
-	hand_model = glm::rotate(hand_model, m_Hand.rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
-	hand_model = glm::rotate(hand_model, m_Hand.rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
-	hand_model = glm::rotate(hand_model, m_Hand.rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
-	hand_model = glm::scale(hand_model, m_Hand.default_size);
+	//hand_model = glm::translate(hand_model, m_Hand.offset);
+	//hand_model = glm::rotate(hand_model, m_Hand.rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
+	//hand_model = glm::rotate(hand_model, m_Hand.rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
+	//hand_model = glm::rotate(hand_model, m_Hand.rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
+	//hand_model = glm::scale(hand_model, m_Hand.default_size);
+	hand_model = m_Hand.transform.GetMatrix(hand_model);
 	block_preview_shader->SetUniform("u_Model", hand_model);
 
 	// Draw
@@ -724,10 +653,102 @@ void Player::DropItem() {
 
 // Animations
 void Hand::Swing() {
-	offset = glm::vec3(0.0f, -0.4f, 0.49f);
-	rotation = glm::vec3(1.0f, 0.2f, 0.0f);
+	animator.Play("Swing");
 }
 void Hand::Hit() {
-	offset = glm::vec3(-0.2f, -0.5f, 0.49f);
-	rotation = glm::vec3(1.0f, 0.2f, 0.0f);
+	animator.Play("Hit", 0.59f, true);
 }
+void Hand::Place() {
+	animator.Play("Hit", 0.59f);
+}
+
+Hand::Hand() : animator(transform) {
+	transform.position = glm::vec3(-0.2f, -0.2f, 0.3f);
+	transform.rotation = glm::vec3(-0.1f, 0.7f, 0.0f);
+	transform.scale    = glm::vec3(0.18f);
+
+	auto cubic_ease_out = [](const Transform& t1, const Transform& t2, float time) {
+		Transform result;
+		float t = time * (3.0f - time * time) * 0.5f;
+		result.position = (t2.position - t1.position) * t + t1.position;
+		result.rotation = (t2.rotation - t1.rotation) * t + t1.rotation;
+		result.scale = (t2.scale - t1.scale) * t + t1.scale;
+		return result;
+	};
+
+	Animation sway_animation;
+	sway_animation.function = Hand::SwayAnimationFunc;
+	sway_animation.end_frame = { transform, 1.0f, cubic_ease_out };
+	animator.AddAnimation("Sway", sway_animation);
+
+	Animation swing_animation;
+	swing_animation.key_frames = {
+		{ // Frame #1	
+			{
+				glm::vec3(-0.3f, -0.185f, 0.3f),
+				glm::vec3(-0.255f, 0.7f, 0.0f),
+				transform.scale
+			}, 0.04f
+		},
+		{ // Frame #2	
+			{
+				glm::vec3(-0.175f, -0.275f, 0.465f),
+				glm::vec3(0.21f, 0.7f, -0.21f),
+				transform.scale
+			}, 0.03f
+		},
+		{ // Frame #3	
+			{
+				glm::vec3(-0.11f, -0.355f, 0.41f),
+				glm::vec3(0.93f, 0.57f, -0.14f),
+				transform.scale
+			}, 0.02f
+		},
+		{ // Frame #3
+			transform,
+			0.05f
+		}
+	};
+	swing_animation.end_frame = { transform, 0.1f, cubic_ease_out };
+	animator.AddAnimation("Swing", swing_animation);
+	
+	Animation hit_animation;
+	hit_animation.key_frames = {
+		{ // Frame #1	
+			{
+				glm::vec3(-0.21f, -0.18f, 0.3f),
+				glm::vec3(-0.255f, 0.7f, 0.0f),
+				transform.scale
+			}, 0.04f
+		},
+		{ // Frame #2	
+			{
+				glm::vec3(-0.175f, -0.265f, 0.465f),
+				glm::vec3(0.21f, 0.7f, -0.21f),
+				transform.scale
+			}, 0.03f
+		},
+		{ // Frame #3	
+			{
+				glm::vec3(-0.11f, -0.315f, 0.41f),
+				glm::vec3(0.93f, 0.57f, -0.14f),
+				transform.scale
+			}, 0.02f
+		},
+		{ // Frame #4
+			transform,
+			0.05f
+		}
+	};
+	hit_animation.end_frame = { transform, 0.05f, cubic_ease_out };
+	animator.AddAnimation("Hit", swing_animation);
+	
+}
+Transform Hand::SwayAnimationFunc(float speed, float time) {
+	Transform result;
+	result.scale = glm::vec3(0.0f);
+	result.position.x = cos(time * speed) * 0.025f;
+	result.position.y = -abs(sin(time * speed) * 0.025f);
+	return result;
+}
+

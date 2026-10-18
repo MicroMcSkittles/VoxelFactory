@@ -5,7 +5,7 @@
 #include "Renderer/Texture.h"
 #include "Renderer/Camera.h"
 #include "Renderer/Mesh.h"
-#include "Game/Voxel.h"
+#include "Game/World/Voxel.h"
 #include "Game/Inventory.h"
 #include "Game/Noise.h"
 #include <vector>

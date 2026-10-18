@@ -1,4 +1,4 @@
-#include "Game/Menu.h"
+#include "Game/UI/Menu.h"
 
 Menu::Menu(const std::string& title): m_Title(title) {
 	m_ButtonCursor = glm::vec2(0.0f, 0.0f);

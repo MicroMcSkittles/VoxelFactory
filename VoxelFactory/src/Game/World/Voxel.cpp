@@ -1,4 +1,4 @@
-#include "Game/Voxel.h"
+#include "Game/World/Voxel.h"
 #include "Core/JSON.h"
 
 #include <glad/glad.h>

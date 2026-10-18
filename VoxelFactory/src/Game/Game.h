@@ -5,10 +5,10 @@
 #include "Renderer/Shader.h"
 #include "Renderer/Camera.h"
 #include "Renderer/Texture.h"
-#include "Game/World.h"
+#include "Game/World/World.h"
 #include "Game/Player.h"
-#include "Game/UI.h"
-#include "Game/Menu.h"
+#include "Game/UI/UI.h"
+#include "Game/UI/Menu.h"
 
 #include <array>
 

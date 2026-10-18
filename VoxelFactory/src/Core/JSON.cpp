@@ -52,6 +52,15 @@ namespace JSON {
 		value.y = children_array[1];
 		return value;
 	}
+	Node::operator glm::vec3() const {
+		ASSERT(type == NodeType::Array);
+		ASSERT(children_array.size() == 3);
+		glm::vec3 value;
+		value.x = children_array[0];
+		value.y = children_array[1];
+		value.z = children_array[2];
+		return value;
+	}
 
 	Node& Node::operator [](int index) {
 		ASSERT(type == NodeType::Array);

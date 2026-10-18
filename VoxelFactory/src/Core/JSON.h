@@ -43,6 +43,7 @@ namespace JSON {
 		operator bool() const;
 		operator std::string() const;
 		operator glm::vec2() const;
+		operator glm::vec3() const;
 
 		Node& operator [](int index);
 		Node& operator [](const std::string& key);
