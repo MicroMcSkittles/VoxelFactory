@@ -3,6 +3,18 @@
 #include "Core/Core.h"
 #include "Renderer/Texture.h"
 
+enum ItemID {
+	ItemID_Axe = 256,
+	ItemID_Pickaxe,
+	ItemID_Shovel,
+
+	ItemID_IronIngot,
+};
+
+struct ItemData {
+	uint32_t texture_id;
+	uint8_t stack_size;
+};
 struct Item {
 	uint16_t id;
 	uint8_t count;
@@ -11,9 +23,15 @@ struct Item {
 	bool IsBlock();
 	void ShowPreview(const glm::vec3& position, float scale);
 
+	static uint8_t GetStackSize(uint16_t id);
+	static uint32_t GetTextureID(uint16_t id);
+
 	inline static constexpr uint16_t InvalidID = std::numeric_limits<uint16_t>::max();
 	static Item Invalid;
 	const inline static uint8_t StackSize = 64;
+
+private:
+	const static std::vector<ItemData> s_Data;
 };
 
 class Inventory {

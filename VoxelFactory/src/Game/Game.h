@@ -38,6 +38,7 @@ enum class ShaderType {
 	Selector,
 	SkyBox,
 	Hand,
+	HeldItem,
 	UIColored,
 	UITextured,
 	UIAtlas,
@@ -46,6 +47,7 @@ enum class ShaderType {
 };
 enum class TextureType {
 	BlockAtlas,
+	ItemAtlas,
 	FontAtlas,
 	CrossHair,
 	Hotbar,

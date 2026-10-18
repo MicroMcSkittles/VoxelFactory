@@ -87,6 +87,8 @@ private:
 
 	void UpdateHand(float delta_time);
 	void RenderHand();
+	void RenderBlockHand();
+	void RenderItemHand();
 	void RenderEmptyHand();
 
 	void RenderInventoryUI();

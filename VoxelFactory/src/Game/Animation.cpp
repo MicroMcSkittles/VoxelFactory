@@ -6,6 +6,7 @@ Animator::Animator(Transform& transform) : m_Transform(transform), m_LastTransfo
 	m_FrameTime = 0.0f;
 	m_Speed = 1.0f;
 	m_Playing = false;
+	m_IsLooped = false;
 }
 
 void Animator::AddAnimation(const std::string& name, const Animation& animation) {

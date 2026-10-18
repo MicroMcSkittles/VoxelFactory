@@ -39,6 +39,62 @@ void AABB::CalculateMinMax() {
 }
 
 void ItemEntity::Render(const Ref<Camera>& camera, float brightness) {
+	if (item.IsBlock()) RenderBlock(camera, brightness);
+	else RenderItem(camera, brightness);
+}
+void ItemEntity::RenderItem(const Ref<Camera>& camera, float brightness) {
+	Ref<Shader> shader = Game::GetShader(ShaderType::HeldItem);
+	Ref<Texture> item_atlas = Game::GetTexture(TextureType::ItemAtlas);
+	
+	shader->Bind();
+	item_atlas->Bind();
+
+	// Calculate model matrix
+	glm::mat4 model = glm::mat4(1.0f);
+	model = glm::translate(model, position + offset);
+	model = glm::rotate(model, rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
+	model = glm::rotate(model, rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
+	model = glm::rotate(model, rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
+	model = glm::translate(model, glm::vec3(0.0f,0.0f,0.25f));
+	model = glm::scale(model, size);
+
+	// Set uniforms
+	shader->SetUniform("u_Model", model);
+	shader->SetUniform("u_ViewProjection", camera->view_projection);
+	shader->SetUniform("u_Brightness", brightness);
+	shader->SetUniform("u_ItemAtlas", item_atlas);
+	shader->SetUniform("u_TextureID", Item::GetTextureID(item.id));
+
+	// Figure out how many items to layer
+	float count = (float)item.count / (float)Item::StackSize;
+	if (item.count > 1 && count < 0.33f) count = 2;
+	else if (count >= 0.33f) count = 3;
+
+	Ref<VertexArray>& item_mesh = Game::GetMesh(MeshType::Quad);
+
+	item_mesh->Bind();
+	glDisable(GL_CULL_FACE);
+
+	glDrawElements(GL_TRIANGLES, item_mesh->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
+
+	if (count > 1) {
+		model = glm::translate(model, glm::vec3(0.15f));
+		shader->SetUniform("u_Model", model);
+		glDrawElements(GL_TRIANGLES, item_mesh->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
+	}
+	if (count > 2) {
+		model = glm::translate(model, glm::vec3(-0.2f, 0.2f, -0.275f));
+		shader->SetUniform("u_Model", model);
+		glDrawElements(GL_TRIANGLES, item_mesh->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
+	}
+
+	glEnable(GL_CULL_FACE);
+	item_mesh->Unbind();
+
+	item_atlas->Unbind();
+	shader->Unbind();
+}
+void ItemEntity::RenderBlock(const Ref<Camera>& camera, float brightness) {
 	Ref<Shader> shader = Game::GetShader(ShaderType::BlockPreview);
 	Ref<Texture> atlas = Game::GetTexture(TextureType::BlockAtlas);
 	shader->Bind();
@@ -72,9 +128,9 @@ void ItemEntity::Render(const Ref<Camera>& camera, float brightness) {
 
 	block_mesh->Bind();
 	glDisable(GL_CULL_FACE);
-	
+
 	glDrawElements(GL_TRIANGLES, block_mesh->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
-	
+
 	if (count > 1) {
 		model = glm::translate(model, glm::vec3(0.15f));
 		shader->SetUniform("u_Model", model);
@@ -121,6 +177,7 @@ bool ItemEntity::Update(float delta_time, const Ref<Player>& player) {
 	timer += delta_time;
 	return false;
 }
+
 
 void Partical::Render(const Ref<Camera>& camera, float brightness) {
 	Ref<Shader> shader = Game::GetShader(ShaderType::Partical);
@@ -253,7 +310,7 @@ glm::vec3 Chunk::GetBlockPosition(const glm::vec3& position) {
 
 World::World(uint32_t seed) : m_Seed(seed), m_LoadedCenter({ 0,0,0 }), m_EntityRenderDist(3) {
 #ifdef DEBUG
-	m_LoadedRadius = 5;
+	m_LoadedRadius = 2;
 #else
 	m_LoadedRadius = 15;
 #endif

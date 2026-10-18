@@ -124,14 +124,39 @@ bool Item::IsBlock() {
 }
 
 void Item::ShowPreview(const glm::vec3& position, float scale) {
+	if (!IsValid()) return;
+
 	if (IsBlock()) {
 		uint32_t texture_id = Block::GetTextureIDs(id).front;
 		UI::AtlasQuad(position, glm::vec2(scale), Game::GetTexture(TextureType::BlockAtlas), glm::vec2(16.0f), texture_id);
+	}
+	else {
+		uint32_t texture_id = Item::GetTextureID(id);
+		UI::AtlasQuad(position, glm::vec2(scale * 1.5f), Game::GetTexture(TextureType::ItemAtlas), glm::vec2(16.0f), texture_id);
 	}
 
 	if (count > 1) {
 		UI::Text(std::to_string(count), position + glm::vec3(scale * 1.79f, scale * 0.2f, 0.4f), glm::vec2(scale * 1.4f), TextAlignment_Right, glm::vec3(1.0f), glm::vec4(0.0f));
 	}
+}
+
+#define TEX_COORD(x,y) (y * 16 + x)
+const std::vector<ItemData> Item::s_Data = {
+	{ TEX_COORD(14,3), 1 },
+	{ TEX_COORD(15,3), 1 },
+	{ TEX_COORD(15,4), 1 },
+	{ TEX_COORD(15,1), 64 },
+};
+uint8_t Item::GetStackSize(uint16_t id) {
+	if (!(id & 0xFF00) && id != 0) return Item::StackSize;
+	uint16_t index = id - 256;
+	if (index >= s_Data.size()) return 0;
+	return s_Data[index].stack_size;
+}
+uint32_t Item::GetTextureID(uint16_t id) {
+	uint16_t index = id - 256;
+	if (index >= s_Data.size()) return TEX_COORD(4,9); // Missing texture
+	return s_Data[index].texture_id;
 }
 
 InventoryHandler::InventoryHandler(const std::vector<Ref<Inventory>>& inventories)

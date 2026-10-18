@@ -38,6 +38,14 @@ Player::Player(const glm::vec3& position, const Ref<Camera>& camera, const Ref<W
 		m_Inventory->GetItem({ x, y }).count = Item::StackSize;
 	}
 	m_InventoryHandler = nullptr;
+	m_Hotbar.inventory->GetItem({ 0,0 }).id = ItemID_Axe;
+	m_Hotbar.inventory->GetItem({ 0,0 }).count = 1;
+	m_Hotbar.inventory->GetItem({ 1,0 }).id = ItemID_Pickaxe;
+	m_Hotbar.inventory->GetItem({ 1,0 }).count = 1;
+	m_Hotbar.inventory->GetItem({ 2,0 }).id = ItemID_Shovel;
+	m_Hotbar.inventory->GetItem({ 2,0 }).count = 1;
+	m_Hotbar.inventory->GetItem({ 3,0 }).id = ItemID_IronIngot;
+	m_Hotbar.inventory->GetItem({ 3,0 }).count = 64;
 
 	// Camera
 	m_CameraOffset = glm::vec3(0.0f, 1.7f, 0.0f);
@@ -282,6 +290,11 @@ void Player::OnScroll(float delta) {
 
 	if (m_Hotbar.selected < 0) m_Hotbar.selected = Hotbar::Width - 1;
 	else if (m_Hotbar.selected >= Hotbar::Width) m_Hotbar.selected = 0;
+	
+	Item current_item = m_Hotbar.GetSelected();
+	if (last_item.id != current_item.id) {
+		m_Hand.animator.Play("SwapItems");
+	}
 }
 
 void Player::OpenInventory(const Ref<Inventory>& other) {
@@ -593,11 +606,11 @@ void Player::UpdateHand(float delta_time) {
 	m_Hand.animator.Update(delta_time);
 }
 void Player::RenderHand() {
-	if (m_Hotbar.GetSelected().id == 0 || m_Hotbar.GetSelected().id == Item::InvalidID) {
-		RenderEmptyHand();
-		return;
-	}
-
+	if (m_Hotbar.GetSelected().id == 0 || m_Hotbar.GetSelected().id == Item::InvalidID) RenderEmptyHand();
+	else if (m_Hotbar.GetSelected().IsBlock()) RenderBlockHand();
+	else RenderItemHand();
+}
+void Player::RenderBlockHand() {
 	Ref<Shader>& block_preview_shader = Game::GetShader(ShaderType::BlockPreview);
 	block_preview_shader->Bind();
 
@@ -631,6 +644,49 @@ void Player::RenderHand() {
 
 	atlas->Unbind();
 	block_preview_shader->Unbind();
+}
+void Player::RenderItemHand() {
+	RenderEmptyHand();
+
+	Ref<Shader>& held_item_shader = Game::GetShader(ShaderType::HeldItem);
+	held_item_shader->Bind();
+
+	Ref<Texture>& item_atlas = Game::GetTexture(TextureType::ItemAtlas);
+	item_atlas->Bind();
+
+	// Set uniforms
+	held_item_shader->SetUniform("u_ViewProjection", m_Camera->view_projection);
+	held_item_shader->SetUniform("u_Brightness", m_World->GetBrightness());
+	held_item_shader->SetUniform("u_ItemAtlas", item_atlas);
+	held_item_shader->SetUniform("u_TextureID", Item::GetTextureID(m_Hotbar.GetSelected().id));
+
+	Transform hand_offset;
+	hand_offset.position = glm::vec3(0.0f, 0.0f, -0.4f);
+	hand_offset.rotation = glm::vec3(-1.7f, 0.1f, -0.75f);
+	Transform item_offset;
+	item_offset.position = glm::vec3(0.8f, -0.8f, 0.8f);
+	item_offset.rotation = glm::vec3(glm::radians(-45.f), glm::radians(90.f), glm::radians(180.f));
+	item_offset.scale    = glm::vec3(0.75f);
+
+	// Calculate model
+	glm::mat4 item_model = glm::mat4(1.0f);
+	item_model = glm::translate(item_model, m_Camera->position);
+	item_model *= glm::inverse(glm::lookAt(glm::vec3(0.0f), -m_Hand.direction, glm::vec3(0, 1, 0)));
+	item_model = m_Hand.transform.GetMatrix(item_model);
+	item_model = hand_offset.GetMatrix(item_model);
+	item_model = item_offset.GetMatrix(item_model);
+	held_item_shader->SetUniform("u_Model", item_model);
+
+	// Draw
+	Ref<VertexArray>& item_mesh = Game::GetMesh(MeshType::Quad);
+	item_mesh->Bind();
+	glDisable(GL_CULL_FACE);
+	glDrawElements(GL_TRIANGLES, item_mesh->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
+	glEnable(GL_CULL_FACE);
+	item_mesh->Unbind();
+
+	item_atlas->Unbind();
+	held_item_shader->Unbind();
 }
 void Player::RenderEmptyHand() {
 	Ref<Shader>& hand_shader = Game::GetShader(ShaderType::Hand);
@@ -673,7 +729,8 @@ void Player::DropItem() {
 	if (selected.count == 0) return;
 
 	m_World->CreateItem({ selected.id, 1 }, m_Position + m_CameraOffset, m_Camera->direction * m_ItemDropForce, true);
-	
+	m_Hand.animator.Play("Swing");
+
 	selected.count -= 1;
 	if (selected.count == 0) selected = Item::Invalid;
 }
@@ -768,8 +825,24 @@ Hand::Hand() : animator(transform) {
 		}
 	};
 	hit_animation.end_frame = { transform, 0.05f, cubic_ease_out };
-	animator.AddAnimation("Hit", swing_animation);
+	animator.AddAnimation("Hit", hit_animation);
 	
+	Animation swap_items_animation;
+	swap_items_animation.key_frames = {
+		{ // Frame #1	
+			{
+				glm::vec3(-0.2f, -0.3f, 0.3f),
+				transform.rotation,
+				transform.scale
+			}, 0.04f, Transform::CubicInterp
+		},
+		{ // Frame #4
+			transform,
+			0.05f
+		}
+	};
+	swap_items_animation.end_frame = { transform, 0.05f, cubic_ease_out };
+	animator.AddAnimation("SwapItems", swap_items_animation);
 }
 Transform Hand::SwayAnimationFunc(float speed, float time) {
 	Transform result;

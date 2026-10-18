@@ -29,6 +29,10 @@ struct ItemEntity {
 
 	void Render(const Ref<Camera>& camera, float brightness);
 	bool Update(float delta_time, const Ref<Player>& player);
+	
+private:
+	void RenderItem(const Ref<Camera>& camera, float brightness);
+	void RenderBlock(const Ref<Camera>& camera, float brightness);
 };
 
 struct Partical {

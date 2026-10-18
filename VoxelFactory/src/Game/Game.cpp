@@ -329,6 +329,7 @@ void Game::LoadShaders() {
 	m_Shaders[(size_t)ShaderType::Selector] = CreateRef<Shader>("assets/shaders/Selector.vert", "assets/shaders/Selector.frag");
 	m_Shaders[(size_t)ShaderType::SkyBox] = CreateRef<Shader>("assets/shaders/SkyBox.vert", "assets/shaders/SkyBox.frag");
 	m_Shaders[(size_t)ShaderType::Hand] = CreateRef<Shader>("assets/shaders/Hand.vert", "assets/shaders/Hand.frag");
+	m_Shaders[(size_t)ShaderType::HeldItem] = CreateRef<Shader>("assets/shaders/HeldItem.vert", "assets/shaders/HeldItem.frag");
 	m_Shaders[(size_t)ShaderType::UIColored] = CreateRef<Shader>("assets/shaders/UI.vert", "assets/shaders/UIColored.frag");
 	m_Shaders[(size_t)ShaderType::UITextured] = CreateRef<Shader>("assets/shaders/UI.vert", "assets/shaders/UITextured.frag");
 	m_Shaders[(size_t)ShaderType::UIAtlas] = CreateRef<Shader>("assets/shaders/UI.vert", "assets/shaders/UIAtlas.frag");
@@ -338,6 +339,7 @@ void Game::LoadShaders() {
 }
 void Game::LoadTextures() {
 	m_Textures[(size_t)TextureType::BlockAtlas] = CreateRef<Texture>("assets/textures/atlas.png");
+	m_Textures[(size_t)TextureType::ItemAtlas] = CreateRef<Texture>("assets/textures/item_atlas.png");
 	m_Textures[(size_t)TextureType::FontAtlas] = CreateRef<Texture>("assets/font/Font.png");
 	m_Textures[(size_t)TextureType::CrossHair] = CreateRef<Texture>("assets/textures/cross_hair.png");
 	m_Textures[(size_t)TextureType::Hotbar] = CreateRef<Texture>("assets/textures/hotbar.png");
